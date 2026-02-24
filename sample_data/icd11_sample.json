@@ -1,0 +1,67 @@
+[
+  {
+    "code": "JA00",
+    "title": "Type 2 diabetes mellitus",
+    "stem_id": "1780132783",
+    "chapter": "05",
+    "chapter_title": "Endocrine, nutritional or metabolic diseases",
+    "parent_code": "5A10-5A14.Z",
+    "linearization_uri": "http://id.who.int/icd/entity/1780132783",
+    "definition": "A metabolic disorder characterized by high blood sugar, insulin resistance, and relative lack of insulin.",
+    "synonyms": ["Adult-onset diabetes", "Non-insulin-dependent diabetes mellitus", "NIDDM"],
+    "inclusions": ["Diabetes mellitus due to insulin secretory defect"],
+    "exclusions": ["Type 1 diabetes mellitus (5A10)"]
+  },
+  {
+    "code": "BA00",
+    "title": "Hypertensive diseases",
+    "stem_id": "1388325637",
+    "chapter": "11",
+    "chapter_title": "Diseases of the circulatory system",
+    "parent_code": "BA00-BA0Z",
+    "linearization_uri": "http://id.who.int/icd/entity/1388325637",
+    "definition": "Conditions characterized by persistently elevated blood pressure in the arteries.",
+    "synonyms": ["High blood pressure", "HTN"],
+    "inclusions": ["Essential hypertension", "Secondary hypertension"],
+    "exclusions": ["Hypertension complicating pregnancy (JA24)"]
+  },
+  {
+    "code": "CA01",
+    "title": "Atrial fibrillation",
+    "stem_id": "230690328",
+    "chapter": "11",
+    "chapter_title": "Diseases of the circulatory system",
+    "parent_code": "CA01",
+    "linearization_uri": "http://id.who.int/icd/entity/230690328",
+    "definition": "Supraventricular arrhythmia characterized by uncoordinated atrial activation with consequent deterioration of atrial mechanical function.",
+    "synonyms": ["AF", "A-fib"],
+    "inclusions": ["Paroxysmal atrial fibrillation", "Persistent atrial fibrillation"],
+    "exclusions": []
+  },
+  {
+    "code": "FA24",
+    "title": "Rheumatoid arthritis",
+    "stem_id": "1068173526",
+    "chapter": "16",
+    "chapter_title": "Diseases of the musculoskeletal system or connective tissue",
+    "parent_code": "FA20-FA2Z",
+    "linearization_uri": "http://id.who.int/icd/entity/1068173526",
+    "definition": "Chronic inflammatory disorder affecting many joints, including those in the hands and feet.",
+    "synonyms": ["RA", "Rheumatoid disease"],
+    "inclusions": ["Seronegative rheumatoid arthritis", "Seropositive rheumatoid arthritis"],
+    "exclusions": ["Juvenile idiopathic arthritis (KA80)"]
+  },
+  {
+    "code": "2C91.Z",
+    "title": "Malignant neoplasm of breast, unspecified",
+    "stem_id": "1162746685",
+    "chapter": "02",
+    "chapter_title": "Neoplasms",
+    "parent_code": "2C91",
+    "linearization_uri": "http://id.who.int/icd/entity/1162746685",
+    "definition": "Malignant tumour arising from epithelial cells of the breast.",
+    "synonyms": ["Breast cancer", "Carcinoma of breast"],
+    "inclusions": ["Ductal carcinoma in situ (DCIS)", "Lobular carcinoma"],
+    "exclusions": ["Benign neoplasm of breast (GA12)"]
+  }
+]

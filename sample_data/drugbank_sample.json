@@ -1,0 +1,104 @@
+[
+  {
+    "drugbank_id": "DB00316",
+    "name": "Acetaminophen",
+    "type": "small molecule",
+    "groups": ["approved"],
+    "description": "Analgesic and antipyretic drug used to treat mild to moderate pain and fever.",
+    "cas_number": "103-90-2",
+    "inchikey": "RZVAJINKPMORJF-UHFFFAOYSA-N",
+    "brands": [
+      { "name": "Tylenol", "country": "US" },
+      { "name": "Panadol", "country": "GB" },
+      { "name": "Dolo", "country": "IN" },
+      { "name": "Dafalgan", "country": "FR" },
+      { "name": "Ben-u-ron", "country": "DE" }
+    ],
+    "indication": "For the treatment of mild to moderate pain and fever.",
+    "mechanism_of_action": "Inhibits prostaglandin synthesis in the CNS.",
+    "affected_organisms": ["Humans"],
+    "interactions": [
+      { "drugbank_id": "DB00682", "description": "Warfarin anticoagulant effect increased", "severity": "moderate" }
+    ]
+  },
+  {
+    "drugbank_id": "DB00945",
+    "name": "Aspirin",
+    "type": "small molecule",
+    "groups": ["approved"],
+    "description": "Salicylate anti-inflammatory and analgesic drug.",
+    "cas_number": "50-78-2",
+    "inchikey": "BSYNRYMUTXBXSQ-UHFFFAOYSA-N",
+    "brands": [
+      { "name": "Aspirin", "country": "US" },
+      { "name": "Ecotrin", "country": "US" },
+      { "name": "Disprin", "country": "IN" },
+      { "name": "Aspro", "country": "AU" },
+      { "name": "ASS", "country": "DE" }
+    ],
+    "indication": "For mild to moderate pain, fever, and as antiplatelet therapy.",
+    "mechanism_of_action": "Irreversibly inhibits COX-1 and COX-2 enzymes.",
+    "affected_organisms": ["Humans"],
+    "interactions": [
+      { "drugbank_id": "DB00682", "description": "Increased bleeding risk with warfarin", "severity": "major" }
+    ]
+  },
+  {
+    "drugbank_id": "DB00331",
+    "name": "Metformin",
+    "type": "small molecule",
+    "groups": ["approved"],
+    "description": "Biguanide antidiabetic drug used to control blood glucose in type 2 diabetes.",
+    "cas_number": "657-24-9",
+    "inchikey": "XZWYZXLIPXDOLR-UHFFFAOYSA-N",
+    "brands": [
+      { "name": "Glucophage", "country": "US" },
+      { "name": "Glycomet", "country": "IN" },
+      { "name": "Metforal", "country": "IT" },
+      { "name": "Siofor", "country": "DE" },
+      { "name": "Diabex", "country": "AU" }
+    ],
+    "indication": "First-line treatment for type 2 diabetes mellitus.",
+    "mechanism_of_action": "Activates AMP-activated protein kinase (AMPK), reducing hepatic gluconeogenesis.",
+    "affected_organisms": ["Humans"],
+    "interactions": []
+  },
+  {
+    "drugbank_id": "DB00682",
+    "name": "Warfarin",
+    "type": "small molecule",
+    "groups": ["approved"],
+    "description": "Anticoagulant used to prevent blood clot formation.",
+    "cas_number": "81-81-2",
+    "inchikey": "PJVWKTKQMONHTI-UHFFFAOYSA-N",
+    "brands": [
+      { "name": "Coumadin", "country": "US" },
+      { "name": "Warf", "country": "IN" },
+      { "name": "Marevan", "country": "GB" },
+      { "name": "Warfin", "country": "AU" }
+    ],
+    "indication": "Prevention and treatment of thromboembolic events.",
+    "mechanism_of_action": "Vitamin K antagonist; inhibits VKORC1.",
+    "affected_organisms": ["Humans"],
+    "interactions": []
+  },
+  {
+    "drugbank_id": "DB00563",
+    "name": "Methotrexate",
+    "type": "small molecule",
+    "groups": ["approved"],
+    "description": "Antimetabolite used in cancer and autoimmune disease treatment.",
+    "cas_number": "59-05-2",
+    "inchikey": "FBOZXECLQNJBKD-ZDUSSCGKSA-N",
+    "brands": [
+      { "name": "Trexall", "country": "US" },
+      { "name": "Folitrax", "country": "IN" },
+      { "name": "Methofar", "country": "FR" },
+      { "name": "Lantarel", "country": "DE" }
+    ],
+    "indication": "Treatment of certain cancers and autoimmune conditions including rheumatoid arthritis.",
+    "mechanism_of_action": "Inhibits dihydrofolate reductase (DHFR), blocking nucleotide synthesis.",
+    "affected_organisms": ["Humans"],
+    "interactions": []
+  }
+]

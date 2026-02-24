@@ -1,0 +1,104 @@
+[
+  {
+    "concept_id": "372687004",
+    "fsn": "Amoxicillin (substance)",
+    "preferred_term": "Amoxicillin",
+    "semantic_tag": "substance",
+    "active": true,
+    "module": "900000000000207008",
+    "descriptions": [
+      { "type": "FSN", "term": "Amoxicillin (substance)", "language": "en" },
+      { "type": "Synonym", "term": "Amoxil", "language": "en" },
+      { "type": "Synonym", "term": "p-Hydroxyampicillin", "language": "en" }
+    ],
+    "relationships": [
+      { "type": "Is a", "destination_id": "372687004", "destination_term": "Penicillin" },
+      { "type": "Has dose form", "destination_id": "421026006", "destination_term": "Oral tablet" }
+    ]
+  },
+  {
+    "concept_id": "387517004",
+    "fsn": "Paracetamol (substance)",
+    "preferred_term": "Paracetamol",
+    "semantic_tag": "substance",
+    "active": true,
+    "module": "900000000000207008",
+    "descriptions": [
+      { "type": "FSN", "term": "Paracetamol (substance)", "language": "en" },
+      { "type": "Synonym", "term": "Acetaminophen", "language": "en" },
+      { "type": "Synonym", "term": "4'-hydroxyacetanilide", "language": "en" }
+    ],
+    "relationships": [
+      { "type": "Is a", "destination_id": "372665008", "destination_term": "Analgesic" },
+      { "type": "Is a", "destination_id": "372741007", "destination_term": "Antipyretic" }
+    ]
+  },
+  {
+    "concept_id": "387467008",
+    "fsn": "Metformin (substance)",
+    "preferred_term": "Metformin",
+    "semantic_tag": "substance",
+    "active": true,
+    "module": "900000000000207008",
+    "descriptions": [
+      { "type": "FSN", "term": "Metformin (substance)", "language": "en" },
+      { "type": "Synonym", "term": "Dimethylbiguanide", "language": "en" }
+    ],
+    "relationships": [
+      { "type": "Is a", "destination_id": "84524008", "destination_term": "Biguanide" },
+      { "type": "Has therapeutic role", "destination_id": "67901000", "destination_term": "Antidiabetic" }
+    ]
+  },
+  {
+    "concept_id": "44508008",
+    "fsn": "Type 2 diabetes mellitus (disorder)",
+    "preferred_term": "Type 2 diabetes mellitus",
+    "semantic_tag": "disorder",
+    "active": true,
+    "module": "900000000000207008",
+    "descriptions": [
+      { "type": "FSN", "term": "Type 2 diabetes mellitus (disorder)", "language": "en" },
+      { "type": "Synonym", "term": "NIDDM", "language": "en" },
+      { "type": "Synonym", "term": "Non-insulin-dependent diabetes mellitus", "language": "en" },
+      { "type": "Synonym", "term": "T2DM", "language": "en" }
+    ],
+    "relationships": [
+      { "type": "Is a", "destination_id": "73211009", "destination_term": "Diabetes mellitus" },
+      { "type": "Finding site", "destination_id": "113331007", "destination_term": "Endocrine system" }
+    ]
+  },
+  {
+    "concept_id": "69896004",
+    "fsn": "Rheumatoid arthritis (disorder)",
+    "preferred_term": "Rheumatoid arthritis",
+    "semantic_tag": "disorder",
+    "active": true,
+    "module": "900000000000207008",
+    "descriptions": [
+      { "type": "FSN", "term": "Rheumatoid arthritis (disorder)", "language": "en" },
+      { "type": "Synonym", "term": "RA", "language": "en" },
+      { "type": "Synonym", "term": "Atrophic arthritis", "language": "en" }
+    ],
+    "relationships": [
+      { "type": "Is a", "destination_id": "3723001", "destination_term": "Arthritis" },
+      { "type": "Associated morphology", "destination_id": "23583003", "destination_term": "Inflammation" }
+    ]
+  },
+  {
+    "concept_id": "387458008",
+    "fsn": "Aspirin (substance)",
+    "preferred_term": "Aspirin",
+    "semantic_tag": "substance",
+    "active": true,
+    "module": "900000000000207008",
+    "descriptions": [
+      { "type": "FSN", "term": "Aspirin (substance)", "language": "en" },
+      { "type": "Synonym", "term": "Acetylsalicylic acid", "language": "en" },
+      { "type": "Synonym", "term": "ASA", "language": "en" }
+    ],
+    "relationships": [
+      { "type": "Is a", "destination_id": "372665008", "destination_term": "Analgesic" },
+      { "type": "Is a", "destination_id": "372578009", "destination_term": "Antiplatelet drug" }
+    ]
+  }
+]
