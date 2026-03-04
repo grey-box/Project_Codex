@@ -170,6 +170,21 @@ def translate_term(body: TranslateRequest):
     - Falls back through configured language chains if no direct match.
     - Falls back to English as the last resort.
     - Returns `missing_language_pack: true` if the language has no data loaded.
+
+    JSON SETUP
+      incoming
+      { "term": "ibuprofen", "lang": "es", "country": "MX" }
+      
+      outgoing
+      {
+      "canonical": "ibuprofen",
+      "requested_language": "es",
+      "used_language": "es",
+      "fallback_used": false,
+      "results": [
+        { "translation": "ibuprofeno", "language": "Spanish", "brand": "Advil", "country": "MX" }
+      ]
+      }
     """
     log.info("Translate  term=%r  lang=%s  country=%s", body.term, body.lang, body.country)
 
