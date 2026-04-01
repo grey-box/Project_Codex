@@ -155,6 +155,14 @@ Returns a list of all language codes currently stored in the system.
 * **Method:** GET
 
 * **Path:**/languages
+Returns all language codes currently stored in Neo4j.
+
+Response Example:
+```json
+{
+  "languages": ["en", "es", "fr", "pt"]
+}
+```
 
 #### Error Handling
 The API uses standard HTTP status codes.
