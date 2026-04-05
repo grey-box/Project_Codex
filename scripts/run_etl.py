@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from db import CodexDB
 from config import SAMPLE_DATA_DIR, CYPHER_DIR
 from loaders.drugbank_loader  import load_drugbank
-from loaders.rxnorm_loader    import load_rxnorm
+from loaders.rxnorm_loader    import load_rxnorm, ensure_rxnorm_drug
 from loaders.icd11_loader     import load_icd11
 from loaders.snomedct_loader  import load_snomedct
 
@@ -50,8 +50,10 @@ def run():
 
         # Step 2: RxNorm
         print("[Step 2] Loading RxNorm...")
-        load_rxnorm(db, os.path.join(SAMPLE_DATA_DIR, "rxnorm_sample.json"))
-
+        load_rxnorm(db)
+        print("[Step 2.5] Testing on-demand RxNorm fetch...")
+        ensure_rxnorm_drug(db, "Simvastatin")
+        ensure_rxnorm_drug(db, "Atorvastatin")
         # Step 3: ICD-11
         print("[Step 3] Loading ICD-11...")
         load_icd11(db, os.path.join(SAMPLE_DATA_DIR, "icd11_sample.json"))
@@ -84,6 +86,8 @@ def run():
 
         print("\n  Run cypher/05_demo_queries.cypher in Neo4j Browser to explore!")
         print("=" * 60)
+
+        db.run_file("cypher/05_demo_queries.cypher")
 
 
 if __name__ == "__main__":
