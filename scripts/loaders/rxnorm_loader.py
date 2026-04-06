@@ -17,6 +17,39 @@ RXCUI_TO_DRUGBANK = {
     "7052":  "DB00563",   # Methotrexate
 }
 
+UMLS_API_KEY = "c20fefaf-0aa5-445c-8890-9a82dfe4228b"
+UMLS_BASE = "https://uts-ws.nlm.nih.gov/rest"
+
+def umls_get_cui_from_rxcui(rxcui: str):
+    url = f"{UMLS_BASE}/search/current"
+    params = {
+        "string": rxcui,
+        "searchType": "exact",
+        "apiKey": UMLS_API_KEY
+    }
+    r = requests.get(url, params=params)
+    data = r.json()
+
+    for result in data.get("result", {}).get("results", []):
+        if result.get("ui", "").startswith("C"):
+            return result["ui"]
+    return None
+
+
+def umls_get_terms(cui: str):
+    url = f"{UMLS_BASE}/content/current/CUI/{cui}/atoms"
+    r = requests.get(url, params={"apiKey": UMLS_API_KEY})
+    data = r.json()
+
+    terms = []
+    for atom in data.get("result", []):
+        terms.append({
+            "name": atom["name"],
+            "lang": atom["language"],
+            "source": atom["rootSource"]
+        })
+    return terms
+
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
@@ -165,6 +198,50 @@ def load_rxnorm(db, poc_ids: set = None):
             ON MATCH SET
                 d.updated_at           = datetime($ts)
         """, {"rxcui": rxcui, "name": concept["name"], "ts": ts, "is_poc": is_poc})
+
+        cui = umls_get_cui_from_rxcui(rxcui)
+        if cui:
+            terms = umls_get_terms(cui)
+
+            for t in terms:
+                # Skip English if you already have it
+                if t["lang"] == "ENG":
+                    continue
+
+                # Map language codes to ISO (optional)
+                lang_map = {"ENG": "en", "FRE": "fr", "SPA": "es", "CZE": "cs"}
+                lang = lang_map.get(t["lang"], t["lang"].lower())
+
+                country_map = {"en": "US", "fr": "FR", "es": "ES", "cs": "CZ"}
+                country = country_map.get(lang, "XX")
+
+                db.run("""
+                    MERGE (dn:DrugName {name: $name, language: $lang, country: $country})
+                    ON CREATE SET
+                        dn.source = 'rxnorm',
+                        dn.source_attribute_name = 'atom',
+                        dn.created_at = datetime($ts),
+                        dn.updated_at = datetime($ts),
+                        dn.is_poc = false
+                    ON MATCH SET dn.updated_at = datetime($ts)
+                """, {
+                    "name": t["name"],
+                    "lang": lang,
+                    "country": country,
+                    "ts": ts
+                })
+
+                db.run("""
+                    MATCH (d:Drug {source: 'rxnorm', source_id: $rxcui})
+                    MATCH (dn:DrugName {name: $name, language: $lang, country: $country})
+                    MERGE (d)-[:HAS_NAME {source: 'rxnorm', created_at: datetime($ts)}]->(dn)
+                """, {
+                    "rxcui": rxcui,
+                    "name": t["name"],
+                    "lang": lang,
+                    "country": country,
+                    "ts": ts
+                })
 
         # ---- SOURCED_FROM ----
         db.run("""
