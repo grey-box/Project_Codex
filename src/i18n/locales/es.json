@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "about": "Acerca de"
+  },
+  "common": {
+    "help": "Ayuda",
+    "search": "Buscar",
+    "translate": "Traducir"
+  },
+  "home": {
+    "pageTitle": "Proyecto Códice Médico",
+    "pageDescription": "Una herramienta desarrollada para ayudar a coordinar equipos médicos entre países.",
+    "searchTitle": "Buscar nombre de medicamento...",
+    "sourceLanguage": "Idioma de origen",
+    "sourcePlaceholder": "Palabra a buscar",
+    "resultsTitle": "Resultados",
+    "sampleMedicine": "Medicina 1",
+    "localizeTitle": "Traducir/Localizar nombre de medicamento...",
+    "targetLanguage": "Idioma de destino",
+    "targetPlaceholder": "Idioma de destino",
+    "translationPlaceholder": "La traducción aparecerá aquí"
+  }
+}

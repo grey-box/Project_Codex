@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About"
+  },
+  "common": {
+    "help": "Help",
+    "search": "Search",
+    "translate": "Translate"
+  },
+  "home": {
+    "pageTitle": "Project Medical Codex",
+    "pageDescription": "A tool developed to help coordinate medical equipment between countries.",
+    "searchTitle": "Search for drug name...",
+    "sourceLanguage": "Source Language",
+    "sourcePlaceholder": "Word to search",
+    "resultsTitle": "Results",
+    "sampleMedicine": "Medicine 1",
+    "localizeTitle": "Translate/Localize drug name...",
+    "targetLanguage": "Target Language",
+    "targetPlaceholder": "Target Language",
+    "translationPlaceholder": "Translation will appear here"
+  }
+}
