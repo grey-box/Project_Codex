@@ -1,0 +1,11 @@
+DrugBank ID,Generic Name,Brand Name,Country,Source Language,Language Code
+DB00001,Ibuprofeno,Advil,MX,Spanish,es
+DB00001,Ibuprofeno,Anadvil,MX,Spanish,es
+DB00002,Paracetamol,Tempra,MX,Spanish,es
+DB00002,Paracetamol,Mejoral,MX,Spanish,es
+DB00003,Amoxicilina,Amoxil,MX,Spanish,es
+DB00003,Amoxicilina,Trimox,MX,Spanish,es
+DB00004,Cetirizina,Zyrtec,MX,Spanish,es
+DB00004,Cetirizina,Alercet,MX,Spanish,es
+DB00005,Omeprazol,Prilosec,MX,Spanish,es
+DB00005,Omeprazol,Omeprazol Rimsa,MX,Spanish,es
