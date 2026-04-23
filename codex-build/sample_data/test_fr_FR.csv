@@ -1,0 +1,38 @@
+Concept ID,Source ID,Source Name,Name,Type,Country,Language
+CODEX-00001,5640,RxNorm,Ibuprofène,Generic/Active Ingredient,FR,French
+CODEX-00001,WHO-IBU,WHO,Ibuprofène,Generic/Active Ingredient,FR,French
+CODEX-00001,EMA-IB001,EMA,Ibuprofène,Generic/Active Ingredient,FR,French
+CODEX-00001,FR-68462,ANSM,Advil,Brand,FR,French
+CODEX-00001,FR-68501,ANSM,Nurofen,Brand,FR,French
+CODEX-00002,WHO-PAR,WHO,Paracétamol,Generic/Active Ingredient,FR,French
+CODEX-00002,EMA-PA002,EMA,Paracétamol,Generic/Active Ingredient,FR,French
+CODEX-00002,FR-55210,ANSM,Doliprane,Brand,FR,French
+CODEX-00002,FR-55330,ANSM,Dafalgan,Brand,FR,French
+CODEX-00003,WHO-AMO,WHO,Amoxicilline,Generic/Active Ingredient,FR,French
+CODEX-00003,EMA-AM003,EMA,Amoxicilline,Generic/Active Ingredient,FR,French
+CODEX-00003,FR-30100,ANSM,Clamoxyl,Brand,FR,French
+CODEX-00003,FR-30205,ANSM,Flemoxin,Brand,FR,French
+CODEX-00004,WHO-MET,WHO,Metformine,Generic/Active Ingredient,FR,French
+CODEX-00004,EMA-ME004,EMA,Metformine,Generic/Active Ingredient,FR,French
+CODEX-00004,FR-66001,ANSM,Glucophage,Brand,FR,French
+CODEX-00004,FR-66120,ANSM,Stagid,Brand,FR,French
+CODEX-00005,EMA-AT005,EMA,Atorvastatine,Generic/Active Ingredient,FR,French
+CODEX-00005,FR-71001,ANSM,Tahor,Brand,FR,French
+CODEX-00005,FR-71002,ANSM,Lipitor,Brand,FR,French
+CODEX-00006,WHO-BCG,WHO,Vaccin BCG,Generic/Active Ingredient,FR,French
+CODEX-00006,EMA-BC006,EMA,Vaccin BCG,Generic/Active Ingredient,FR,French
+CODEX-00006,FR-88010,ANSM,BCG Médac,Brand,FR,French
+CODEX-00007,WHO-FLU,WHO,Vaccin Grippe,Generic/Active Ingredient,FR,French
+CODEX-00007,EMA-FL007,EMA,Vaccin Grippe,Generic/Active Ingredient,FR,French
+CODEX-00007,FR-88200,ANSM,Vaxigrip,Brand,FR,French
+CODEX-00007,FR-88310,ANSM,Influvac,Brand,FR,French
+CODEX-00008,WHO-OME,WHO,Oméprazole,Generic/Active Ingredient,FR,French
+CODEX-00008,EMA-OM008,EMA,Oméprazole,Generic/Active Ingredient,FR,French
+CODEX-00008,FR-50001,ANSM,Mopral,Brand,FR,French
+CODEX-00008,FR-50110,ANSM,Losec,Brand,FR,French
+CODEX-00009,WHO-CIP,WHO,Ciprofloxacine,Generic/Active Ingredient,FR,French
+CODEX-00009,EMA-CI009,EMA,Ciprofloxacine,Generic/Active Ingredient,FR,French
+CODEX-00009,FR-39001,ANSM,Ciflox,Brand,FR,French
+CODEX-00010,WHO-SAL,WHO,Salbutamol,Generic/Active Ingredient,FR,French
+CODEX-00010,EMA-SA010,EMA,Salbutamol,Generic/Active Ingredient,FR,French
+CODEX-00010,FR-22001,ANSM,Ventoline,Brand,FR,French

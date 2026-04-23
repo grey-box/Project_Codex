@@ -1,0 +1,42 @@
+Concept ID,Source ID,Source Name,Name,Type,Country,Language
+CODEX-00001,5640,RxNorm,Ibuprofen,Generic/Active Ingredient,US,English
+CODEX-00001,WHO-IBU,WHO,Ibuprofen,Generic/Active Ingredient,US,English
+CODEX-00001,DB01050,DrugBank,Ibuprofen,Generic/Active Ingredient,US,English
+CODEX-00001,310965,RxNorm,Advil,Brand,US,English
+CODEX-00001,311036,RxNorm,Motrin,Brand,US,English
+CODEX-00001,41493-0390,FDA-NDC,Nurofen,Brand,US,English
+CODEX-00002,161,RxNorm,Acetaminophen,Generic/Active Ingredient,US,English
+CODEX-00002,WHO-PAR,WHO,Acetaminophen,Generic/Active Ingredient,US,English
+CODEX-00002,DB00316,DrugBank,Acetaminophen,Generic/Active Ingredient,US,English
+CODEX-00002,198440,RxNorm,Tylenol,Brand,US,English
+CODEX-00002,50580-0488,FDA-NDC,Panadol,Brand,US,English
+CODEX-00003,723,RxNorm,Amoxicillin,Generic/Active Ingredient,US,English
+CODEX-00003,WHO-AMO,WHO,Amoxicillin,Generic/Active Ingredient,US,English
+CODEX-00003,308460,RxNorm,Amoxil,Brand,US,English
+CODEX-00003,0093-4155,FDA-NDC,Trimox,Brand,US,English
+CODEX-00004,6809,RxNorm,Metformin,Generic/Active Ingredient,US,English
+CODEX-00004,WHO-MET,WHO,Metformin,Generic/Active Ingredient,US,English
+CODEX-00004,DB00331,DrugBank,Metformin,Generic/Active Ingredient,US,English
+CODEX-00004,861007,RxNorm,Glucophage,Brand,US,English
+CODEX-00004,0087-6060,FDA-NDC,Glumetza,Brand,US,English
+CODEX-00005,83367,RxNorm,Atorvastatin,Generic/Active Ingredient,US,English
+CODEX-00005,DB01076,DrugBank,Atorvastatin,Generic/Active Ingredient,US,English
+CODEX-00005,617310,RxNorm,Lipitor,Brand,US,English
+CODEX-00006,WHO-BCG,WHO,BCG Vaccine,Generic/Active Ingredient,US,English
+CODEX-00006,2468207,RxNorm,BCG Vaccine,Generic/Active Ingredient,US,English
+CODEX-00006,49281-0225,FDA-NDC,Tice BCG,Brand,US,English
+CODEX-00007,WHO-FLU,WHO,Influenza Vaccine,Generic/Active Ingredient,US,English
+CODEX-00007,2458649,RxNorm,Influenza Vaccine,Generic/Active Ingredient,US,English
+CODEX-00007,58160-0880,FDA-NDC,Fluzone,Brand,US,English
+CODEX-00007,33332-0118,FDA-NDC,Flucelvax,Brand,US,English
+CODEX-00008,7646,RxNorm,Omeprazole,Generic/Active Ingredient,US,English
+CODEX-00008,WHO-OME,WHO,Omeprazole,Generic/Active Ingredient,US,English
+CODEX-00008,541249,RxNorm,Prilosec,Brand,US,English
+CODEX-00008,0186-0606,FDA-NDC,Zegerid,Brand,US,English
+CODEX-00009,2551,RxNorm,Ciprofloxacin,Generic/Active Ingredient,US,English
+CODEX-00009,WHO-CIP,WHO,Ciprofloxacin,Generic/Active Ingredient,US,English
+CODEX-00009,309309,RxNorm,Cipro,Brand,US,English
+CODEX-00010,9083,RxNorm,Salbutamol,Generic/Active Ingredient,US,English
+CODEX-00010,WHO-SAL,WHO,Salbutamol,Generic/Active Ingredient,US,English
+CODEX-00010,745797,RxNorm,Ventolin,Brand,US,English
+CODEX-00010,0085-0112,FDA-NDC,ProAir,Brand,US,English

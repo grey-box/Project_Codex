@@ -1,0 +1,36 @@
+Concept ID,Source ID,Source Name,Name,Type,Country,Language
+CODEX-00001,5640,RxNorm,Ibuprofeno,Generic/Active Ingredient,MX,Spanish
+CODEX-00001,WHO-IBU,WHO,Ibuprofeno,Generic/Active Ingredient,MX,Spanish
+CODEX-00001,COFEPRIS-I001,COFEPRIS,Ibuprofeno,Generic/Active Ingredient,MX,Spanish
+CODEX-00001,MX-55443,COFEPRIS,Advil,Brand,MX,Spanish
+CODEX-00001,MX-55901,COFEPRIS,Dorival,Brand,MX,Spanish
+CODEX-00002,WHO-PAR,WHO,Paracetamol,Generic/Active Ingredient,MX,Spanish
+CODEX-00002,COFEPRIS-P002,COFEPRIS,Paracetamol,Generic/Active Ingredient,MX,Spanish
+CODEX-00002,MX-44100,COFEPRIS,Tempra,Brand,MX,Spanish
+CODEX-00002,MX-44210,COFEPRIS,Panadol,Brand,MX,Spanish
+CODEX-00003,WHO-AMO,WHO,Amoxicilina,Generic/Active Ingredient,MX,Spanish
+CODEX-00003,COFEPRIS-A003,COFEPRIS,Amoxicilina,Generic/Active Ingredient,MX,Spanish
+CODEX-00003,MX-30881,COFEPRIS,Amoxil,Brand,MX,Spanish
+CODEX-00004,WHO-MET,WHO,Metformina,Generic/Active Ingredient,MX,Spanish
+CODEX-00004,COFEPRIS-M004,COFEPRIS,Metformina,Generic/Active Ingredient,MX,Spanish
+CODEX-00004,MX-66001,COFEPRIS,Glucophage,Brand,MX,Spanish
+CODEX-00004,MX-66120,COFEPRIS,Diaformin,Brand,MX,Spanish
+CODEX-00005,COFEPRIS-A005,COFEPRIS,Atorvastatina,Generic/Active Ingredient,MX,Spanish
+CODEX-00005,MX-71100,COFEPRIS,Lipitor,Brand,MX,Spanish
+CODEX-00005,MX-71210,COFEPRIS,Atoris,Brand,MX,Spanish
+CODEX-00006,WHO-BCG,WHO,Vacuna BCG,Generic/Active Ingredient,MX,Spanish
+CODEX-00006,COFEPRIS-V006,COFEPRIS,Vacuna BCG,Generic/Active Ingredient,MX,Spanish
+CODEX-00007,WHO-FLU,WHO,Vacuna Influenza,Generic/Active Ingredient,MX,Spanish
+CODEX-00007,COFEPRIS-V007,COFEPRIS,Vacuna Influenza,Generic/Active Ingredient,MX,Spanish
+CODEX-00007,MX-88001,COFEPRIS,Fluzone,Brand,MX,Spanish
+CODEX-00008,WHO-OME,WHO,Omeprazol,Generic/Active Ingredient,MX,Spanish
+CODEX-00008,COFEPRIS-O008,COFEPRIS,Omeprazol,Generic/Active Ingredient,MX,Spanish
+CODEX-00008,MX-50441,COFEPRIS,Losec,Brand,MX,Spanish
+CODEX-00008,MX-50502,COFEPRIS,Omepral,Brand,MX,Spanish
+CODEX-00009,WHO-CIP,WHO,Ciprofloxacino,Generic/Active Ingredient,MX,Spanish
+CODEX-00009,COFEPRIS-C009,COFEPRIS,Ciprofloxacino,Generic/Active Ingredient,MX,Spanish
+CODEX-00009,MX-39001,COFEPRIS,Cipro,Brand,MX,Spanish
+CODEX-00009,MX-39115,COFEPRIS,Ciproxina,Brand,MX,Spanish
+CODEX-00010,WHO-SAL,WHO,Salbutamol,Generic/Active Ingredient,MX,Spanish
+CODEX-00010,COFEPRIS-S010,COFEPRIS,Salbutamol,Generic/Active Ingredient,MX,Spanish
+CODEX-00010,MX-22001,COFEPRIS,Ventolin,Brand,MX,Spanish
