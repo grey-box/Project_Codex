@@ -10,6 +10,7 @@ Endpoints
   GET  /csv/concept/{id}       All terms for a Concept ID
   GET  /csv/country/{country}  All terms for a country
   GET  /csv/language/{lang}    All terms for a language
+  POST /search                 Search for a specific term
   GET  /sources                List all sources
   GET  /sources/{name}         All terms from a specific source
   GET  /countries              All countries and their languages
@@ -17,6 +18,7 @@ Endpoints
   POST /csv/upload             Upload a Codex CSV
   POST /reset                  Wipe all data
   POST /shutdown               Graceful shutdown
+
 """
 
 from __future__ import annotations
@@ -53,6 +55,7 @@ try:
         get_countries,
         get_languages,
         reset_database,
+        search_terms
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -92,6 +95,14 @@ class TranslateRequest(BaseModel):
         "target_country": "MX", "source_name": None,
     }}}
 
+class SearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 25
+
+    model_config = {"json_schema_extra": {"example": {
+        "query": "aspirin",
+        "limit": 10
+    }}}
 
 class TranslateResponse(BaseModel):
     term:           str
@@ -102,6 +113,10 @@ class TranslateResponse(BaseModel):
     found:          bool
     results:        list[TermRow]
 
+class SearchResponse(BaseModel):
+    query: str
+    count: int
+    results: list[TermRow]
 
 class TermsResponse(BaseModel):
     generated_at: str
@@ -212,6 +227,27 @@ def translate_drug(body: TranslateRequest):
         results=[TermRow(**r) for r in raw["results"]],
     )
 
+@app.post("/search", response_model=SearchResponse, tags=["data"])
+def search_terms_endpoint(body: SearchRequest):
+    """
+    Search for terms by name (case-insensitive, partial match).
+
+    Returns all matching terms across sources, languages, and countries.
+    """
+    log.info("Search query=%r limit=%s", body.query, body.limit)
+
+    try:
+        with driver.session() as session:
+            rows = search_terms(session, body.query, body.limit or 25)
+    except Exception as exc:
+        log.exception("search_terms failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return SearchResponse(
+        query=body.query,
+        count=len(rows),
+        results=[TermRow(**r) for r in rows],
+    )
 
 @app.get("/csv", response_model=TermsResponse, tags=["data"])
 def list_all_terms():

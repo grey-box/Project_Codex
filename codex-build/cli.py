@@ -47,7 +47,6 @@ def _request(method: str, path: str, **kwargs):
             except Exception: detail = resp.text
             print(red(f"  ✗  {detail}"))
             return None
-
         return resp.json()
 
     except httpx.ConnectError:
@@ -123,6 +122,7 @@ def _print_help():
     print(f"""
   {bold('Commands')}
     {cyan('translate')}                 Translate a drug name between languages
+    {cyan ('search')}                   Search for a specific term in the database
     {cyan('csv list')}                  Show all terms in the database
     {cyan('csv concept <id>')}          Show all terms for a Concept ID
     {cyan('csv country <code>')}        Show all terms for a country (e.g. US)
@@ -136,6 +136,7 @@ def _print_help():
     {cyan('health')}                    Check API + Neo4j connection
     {cyan('help')}                      Show this message
     {cyan('quit')}                      Exit
+    
 
   {bold('CSV format')}
     Concept ID, Source ID, Source Name, Name, Type, Country, Language
@@ -198,6 +199,23 @@ def cmd_csv_list():
     print(dim(f"  {data.get('row_count', len(rows))} terms  |  {data.get('generated_at', '')}"))
     _print_terms_table(rows)
 
+def cmd_search():
+    query = _prompt("Search term")
+
+    if not query:
+        print(red("  ✗  Search term is required"))
+        return
+
+    data = _request("post", "/search", json={
+    "query": query,
+    "limit": 25
+    })
+    if not data:
+        return
+
+    rows = data.get("results", [])
+    print(dim(f"  '{query}'  ({len(rows)} result{'s' if len(rows) != 1 else ''})"))
+    _print_terms_table(rows)
 
 def cmd_csv_concept(concept_id: str):
     if not concept_id:
@@ -398,6 +416,8 @@ def main():
             cmd_countries()
         elif lower == "languages":
             cmd_languages()
+        elif lower == "search":
+            cmd_search()
         elif lower == "reset":
             cmd_reset()
         elif lower.startswith("csv"):
