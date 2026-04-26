@@ -106,7 +106,8 @@ def import_csv_drugs(session, rows: list, uploaded_at: str = None) -> int:
 
 def translate_term(session, term: str, source_lang: str,
                    target_lang: str, target_country: str = None,
-                   source_name: str = None) -> list:
+                   source_name: str = None, min_similarity: float = 0.85,
+                   limit: int = 10) -> list:
     """
     Find all target-language terms sharing the same Concept as the input term.
 
@@ -117,34 +118,80 @@ def translate_term(session, term: str, source_lang: str,
     src_language = resolve_language(source_lang)
     tgt_language = resolve_language(target_lang)
     country_upper = target_country.strip().upper() if target_country else None
+    
 
-    results = session.run(
-        """
-        MATCH (src:Term)-[:REFERS_TO]->(c:Concept)
-        WHERE toLower(src.name)     = toLower($name)
-          AND toLower(src.language) = toLower($src_language)
-        MATCH (tgt:Term)-[:REFERS_TO]->(c)
-        WHERE toLower(tgt.language) = toLower($tgt_language)
-          AND ($country     IS NULL OR tgt.country     = $country)
-          AND ($source_name IS NULL OR toLower(tgt.source_name) = toLower($source_name))
-        RETURN DISTINCT
-            tgt.concept_id  AS concept_id,
-            tgt.source_id   AS source_id,
-            tgt.source_name AS source_name,
-            tgt.name        AS name,
-            tgt.type        AS type,
-            tgt.country     AS country,
-            tgt.language    AS language
-        ORDER BY toLower(tgt.name) ASC
-        """,
-        name=term,
-        src_language=src_language,
-        tgt_language=tgt_language,
-        country=country_upper,
-        source_name=source_name,
+    results = session.run( 
+        """ 
+        MATCH (src:Term)-[:REFERS_TO]->(c:Concept) 
+        WHERE toLower(src.name) = toLower($name) AND toLower(src.language) = toLower($src_language) 
+        MATCH (tgt:Term)-[:REFERS_TO]->(c) WHERE toLower(tgt.language) = toLower($tgt_language) 
+        AND ($country IS NULL OR tgt.country = $country) 
+        AND ($source_name IS NULL OR toLower(tgt.source_name) = toLower($source_name)) 
+        RETURN DISTINCT 
+        tgt.concept_id AS concept_id, 
+        tgt.source_id AS source_id, 
+        tgt.source_name AS source_name, 
+        tgt.name AS name, 
+        tgt.type AS type, 
+        tgt.country AS country, 
+        tgt.language AS language 
+        ORDER BY toLower(tgt.name) ASC 
+        """, 
+        name=term, 
+        src_language=src_language, 
+        tgt_language=tgt_language, 
+        country=country_upper, 
+        source_name=source_name, 
     )
+    records = [dict(r) for r in results]
+    if not records: 
+        results = session.run(
+            """
+            // Step 1: find candidate source terms with similarity score
+            MATCH (src:Term)-[:REFERS_TO]->(c:Concept)
+            WHERE toLower(src.language) = toLower($src_language)
+            AND (
+                toLower(src.name) CONTAINS toLower($name)
+                OR toLower($name) CONTAINS toLower(src.name)
+                OR substring(toLower(src.name), 0, 3) = substring(toLower($name), 0, 3)
+            )
+            WITH src, c,
+                apoc.text.levenshteinSimilarity(
+                    toLower(src.name),
+                    toLower($name)
+                ) AS sim
 
-    return [dict(r) for r in results]
+            WHERE sim >= $min_similarity
+
+            // Step 2: expand to target terms
+            MATCH (tgt:Term)-[:REFERS_TO]->(c)
+            WHERE toLower(tgt.language) = toLower($tgt_language)
+            AND ($country     IS NULL OR tgt.country = $country)
+            AND ($source_name IS NULL OR toLower(tgt.source_name) = toLower($source_name))
+
+            RETURN DISTINCT
+                tgt.concept_id  AS concept_id,
+                tgt.source_id   AS source_id,
+                tgt.source_name AS source_name,
+                tgt.name        AS name,
+                tgt.type        AS type,
+                tgt.country     AS country,
+                tgt.language    AS language,
+                sim             AS similarity
+
+            ORDER BY sim DESC, toLower(tgt.name) ASC
+            LIMIT $limit
+            """,
+            name=term,
+            src_language=src_language,
+            tgt_language=tgt_language,
+            country=country_upper,
+            source_name=source_name,
+            min_similarity=min_similarity,
+            limit=limit,
+        )
+        records = [dict(r) for r in results]
+    return records
 
 
 def get_all_terms(session) -> list:

@@ -6,6 +6,7 @@ Every command makes one HTTP request. Start the API first via launcher.py.
 
 import sys
 import os
+import argparse
 
 try:
     import httpx
@@ -74,11 +75,12 @@ def _print_terms_table(rows: list):
     ct  = _col_width(rows, "type",        "Type",        26)
     cco = _col_width(rows, "country",     "Country",      9)
     cl  = _col_width(rows, "language",    "Language",    14)
+    csim = _col_width(rows, "similarity", "Score", 8)
 
     print()
     print(bold(
         f"  {'Source ID':<{csi}}{'Source':<{csn}}"
-        f"{'Name':<{cn}}{'Type':<{ct}}{'Country':<{cco}}{'Language':<{cl}}"
+        f"{'Name':<{cn}}{'Type':<{ct}}{'Country':<{cco}}{'Language':<{cl}}{'Score':<{csim}}"
     ))
     print(dim("  " + "─" * (csi + csn + cn + ct + cco + cl)))
 
@@ -90,6 +92,7 @@ def _print_terms_table(rows: list):
             f"{str(r.get('type')         or ''):<{ct}}"
             f"{str(r.get('country')      or dim('—')):<{cco}}"
             f"{str(r.get('language')     or dim('—')):<{cl}}"
+            f"{str(round(r.get('similarity', 1.0), 3) if r.get('similarity') else ''):<{csim}}"
         )
     print()
 
@@ -328,6 +331,36 @@ def cmd_reset():
         print(green(f"  ✓  {data['message']}"))
     print()
 
+def upload_sample_data(folder: str = "sample_data"):
+    if not os.path.isdir(folder):
+        print(red(f"  ✗  Sample data folder not found: {folder}"))
+        return
+
+    files = [f for f in os.listdir(folder) if f.lower().endswith(".csv")]
+
+    if not files:
+        print(yellow(f"  No CSV files found in {folder}"))
+        return
+
+    print(bold(f"\nUploading sample data from '{folder}'...\n"))
+
+    for fname in files:
+        path = os.path.join(folder, fname)
+        print(f"  Uploading {fname}...")
+
+        with open(path, "rb") as f:
+            data = _request(
+                "post",
+                "/csv/upload",
+                files={"file": (fname, f, "text/csv")}
+            )
+
+        if data:
+            print(green(f"    ✓ {data['message']}"))
+        else:
+            print(red(f"    ✗ Failed to upload {fname}"))
+
+    print(green("\n  ✓ Sample data upload complete\n"))
 
 def main():
     print(bold("\nCodex Medical Translation — CLI"))
@@ -388,4 +421,11 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sample-data", nargs="?", const="sample_data",
+                        help="Upload all CSVs from a folder")
+    args = parser.parse_args()
+    if args.sample_data:
+        upload_sample_data(args.sample_data)
+
     main()
