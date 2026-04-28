@@ -213,6 +213,32 @@ def get_all_terms(session) -> list:
     )
     return [dict(r) for r in results]
 
+def search_terms(session, query: str, limit: int = 25) -> list:
+    """
+    Search for terms by name (case-insensitive, partial match).
+    Returns a list of matching Term nodes.
+    """
+    results = session.run(
+        
+        """
+        MATCH (t:Term)
+        WHERE toLower(t.name) CONTAINS toLower($search_query)
+        RETURN
+            t.concept_id  AS concept_id,
+            t.source_id   AS source_id,
+            t.source_name AS source_name,
+            t.name        AS name,
+            t.type        AS type,
+            t.country     AS country,
+            t.language    AS language,
+            t.uploaded_at AS uploaded_at
+        ORDER BY toLower(t.name) ASC
+        LIMIT $limit
+        """,
+        search_query=query,
+        limit=limit,
+    )
+    return [dict(r) for r in results]
 
 def get_terms_by_concept(session, concept_id: str) -> list:
     """Return all Terms linked to a given Concept ID."""
