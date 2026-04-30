@@ -1,168 +1,367 @@
 # Codex Medical Translation API
 
-The **Codex Medical Translation API** is a FastAPI service designed to translate drug names across different languages and countries using a Neo4j-backed graph database. 
+The **Codex Medical Translation API v3.0** is a FastAPI service designed to translate drug and medical terms across languages and countries using a Neo4j-backed graph database.
 
-It serves as a thin HTTP layer over a core translation engine, managing request validation, routing, and standardized response formatting.
+It acts as a thin HTTP layer over the Codex core services, handling request validation, routing, and standardized responses.
 
 ---
 
 ## Base URL
 `http://localhost:8000`
 
+---
+
 ## Overview
-This API provides a robust framework for:
-* **Translation** of medical terms across specific languages and regions.
-* **Resolution** of brand names to their canonical drug counterparts.
-* **Fallback handling** logic for missing translations.
-* **Auditing** coverage of translations and brand names globally.
-* **Data Management** via structured language pack uploads to Neo4j.
+
+This API provides:
+
+- **Drug Translation** between source and target languages
+- **Search** across all stored terms (case-insensitive, partial match)
+- **Full Data Access** via CSV-style endpoints
+- **Source Tracking** for imported datasets
+- **Country/Language Metadata**
+- **Bulk Data Upload** via CSV ingestion
+- **Database Management** (reset, shutdown)
+
+---
 
 ## Data Model Summary
-The API utilizes a graph-based structure consisting of:
-* **Canonical Terms:** The base scientific name (e.g., *ibuprofen*).
-* **Translations:** Language and country-specific nodes.
-* **Brand Names:** Commercial names linked to regional equivalents.
-* **Language Nodes:** Representing available datasets.
+
+Each term is represented as a row with:
+
+| Field         | Description |
+|--------------|------------|
+| source_id     | Identifier from original dataset |
+| source_name   | Dataset/source name |
+| name          | Drug/term name |
+| type          | Term type (e.g., canonical, brand) |
+| country       | ISO country code |
+| language      | Language code or name |
+| uploaded_at   | Timestamp of ingestion |
 
 ---
 
 ## Endpoints
 
+---
+
 ### 1. Health Check
-Checks the API status and connectivity to the Neo4j database.
 
-* **Method:** `GET`
-* **Path:** `/health`
+Checks API status and Neo4j connectivity.
 
-### Response
+- **Method:** `GET`
+- **Path:** `/health`
+
+#### Response
 ```json
 {
   "status": "ok",
   "neo4j": true,
-  "api_version": "1.0.0"
+  "api_version": "3.0.0"
 }
 ```
+
+---
 
 ### 2. Translate a Term
-Translates a medical term into a target language and optionally filters by country.
 
-* **Method:** 'POST'
+Translate a drug name from one language to another.
 
-* **Path:** '/translate'
+- **Method:** `POST`
+- **Path:** `/translate`
 
-### Request Body
-```JSON
+#### Request Body
+```json
 {
-  "term": "ibuprofen",
-  "lang": "es",
-  "country": "MX"
+  "term": "Ibuprofen",
+  "source_lang": "en",
+  "target_lang": "es",
+  "target_country": "MX",
+  "source_name": null
 }
 ```
 
-| Parameter | Type   | Required | Description                                    |
-| --------- | ------ | -------- | ---------------------------------------------- |
-| term      | string | Yes      | Input term (canonical, brand, or fuzzy match). |
-| lang      | string | No       | Target ISO language code (e.g., "es").         |
-| country   | string | No       | Target ISO country code (e.g., "MX").          |
+| Parameter       | Type   | Required | Description |
+|----------------|--------|----------|-------------|
+| term            | string | Yes      | Input drug name |
+| source_lang     | string | Yes      | Source language |
+| target_lang     | string | Yes      | Target language |
+| target_country  | string | No       | Filter by country |
+| source_name     | string | No       | Filter by dataset/source |
 
-
-### Response
-```JSON
+#### Response
+```json
 {
-  "canonical": "ibuprofen",
-  "requested_language": "es",
-  "used_language": "es",
-  "fallback_used": false,
-  "fallback_type": null,
-  "fallback_chain": null,
-  "missing_language_pack": false,
+  "term": "Ibuprofen",
+  "source_lang": "en",
+  "target_lang": "es",
+  "target_country": "MX",
+  "source_name": null,
+  "found": true,
   "results": [
     {
-      "translation": "ibuprofeno",
-      "language": "Spanish",
-      "brand": "Advil",
-      "country": "MX"
+      "source_id": "123",
+      "source_name": "FDA",
+      "name": "ibuprofeno",
+      "type": "generic",
+      "country": "MX",
+      "language": "es",
+      "uploaded_at": "2026-04-30T12:00:00Z"
     }
   ]
 }
 ```
 
-### 3. Audit a Term
-Provides a coverage analysis for a specific term to identify missing data points.
+---
 
-* **Method:** GET
+### 3. Search Terms
 
-* **Path:**/audit/{term}
+Search for terms using partial, case-insensitive matching.
 
-Example
-GET /audit/ibuprofen
+- **Method:** `POST`
+- **Path:** `/search`
 
-### Response
-```JSON
+#### Request Body
+```json
 {
-  "term": "ibuprofen",
-  "canonical": "ibuprofen",
-  "missing_translations": [
-    { "country": "NG", "country_name": "Nigeria" }
-  ],
-  "missing_brands": [
-    { "country": "FR", "country_name": "France" }
-  ],
-  "equivalent_brands": [
-    { "brand": "Advil", "country": "US", "country_name": "United States" }
-  ]
+  "query": "aspirin",
+  "limit": 10
 }
 ```
 
-### 4. Load Demo Data
-Loads a predefined dataset (Ibuprofen, Paracetamol, Amoxicillin) into Neo4j for testing.
-
-* **Method:** POST
-
-* **Path:**/demo/load
-
-### 5. Upload Language Pack
-Uploads and processes a JSON language pack into the database.
-
-* **Method:** POST
-
-* **Path:**/packs/load
-
-Content-Type: multipart/form-data
-
-Expected JSON File Format
-```JSON
+#### Response
+```json
 {
-  "language": { "code": "pt", "name": "Portuguese" },
-  "terms": [
+  "query": "aspirin",
+  "count": 2,
+  "results": [
     {
-      "canonical": "Ibuprofen",
-      "entries": [
-        {
-          "translation": "ibuprofeno",
-          "country": "BR",
-          "brand": "Advil"
-        }
-      ]
+      "source_id": "1",
+      "source_name": "WHO",
+      "name": "aspirin",
+      "type": "canonical",
+      "country": "US",
+      "language": "en",
+      "uploaded_at": "2026-04-30T12:00:00Z"
     }
   ]
 }
 ```
 
-### 6. List Available Languages
-Returns a list of all language codes currently stored in the system.
+---
 
-* **Method:** GET
+## Data Retrieval (CSV-style Endpoints)
 
-* **Path:**/languages
+---
 
-#### Error Handling
-The API uses standard HTTP status codes.
+### 4. Get All Terms
 
-| Code    | Meaning                          |
-| ------- | -------------------------------- |
-| 200/201 | Success / Resource Created       |
-| 400     | Bad Request (Invalid input/file) |
-| 404     | Not Found                        |
-| 500     | Internal Server Error            |
+- **Method:** `GET`
+- **Path:** `/csv`
 
+Returns all terms in the database.
+
+---
+
+### 5. Get Terms by Concept ID
+
+- **Method:** `GET`
+- **Path:** `/csv/concept/{concept_id}`
+
+Returns all terms linked to a concept.
+
+---
+
+### 6. Get Terms by Country
+
+- **Method:** `GET`
+- **Path:** `/csv/country/{country}`
+
+Returns all terms for a specific country.
+
+---
+
+### 7. Get Terms by Language
+
+- **Method:** `GET`
+- **Path:** `/csv/language/{language}`
+
+Returns all terms for a given language.
+
+---
+
+### Generic Response Format
+```json
+{
+  "generated_at": "2026-04-30T12:00:00Z",
+  "row_count": 100,
+  "rows": [
+    {
+      "source_id": "123",
+      "source_name": "FDA",
+      "name": "Ibuprofen",
+      "type": "generic",
+      "country": "US",
+      "language": "en",
+      "uploaded_at": "2026-04-30T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## Sources
+
+---
+
+### 8. List Sources
+
+- **Method:** `GET`
+- **Path:** `/sources`
+
+#### Response
+```json
+{
+  "sources": [
+    {
+      "source_name": "FDA",
+      "term_count": 1200,
+      "last_uploaded": "2026-04-30T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 9. Get Terms by Source
+
+- **Method:** `GET`
+- **Path:** `/sources/{source_name}`
+
+Returns all terms from a specific dataset.
+
+---
+
+## Metadata
+
+---
+
+### 10. List Countries
+
+- **Method:** `GET`
+- **Path:** `/countries`
+
+#### Response
+```json
+{
+  "countries": [
+    {
+      "country": "US",
+      "languages": ["en"]
+    }
+  ]
+}
+```
+
+---
+
+### 11. List Languages
+
+- **Method:** `GET`
+- **Path:** `/languages`
+
+#### Response
+```json
+{
+  "languages": ["en", "es", "fr"]
+}
+```
+
+---
+
+## Data Management
+
+---
+
+### 12. Upload CSV
+
+Upload a dataset into the system.
+
+- **Method:** `POST`
+- **Path:** `/csv/upload`
+- **Content-Type:** `multipart/form-data`
+
+#### Expected CSV Columns
+```
+Concept ID, Source ID, Source Name, Name, Type, Country, Language
+```
+
+- `Concept ID` is optional (auto-generated if missing)
+
+#### Response
+```json
+{
+  "generated_at": "2026-04-30T12:00:00Z",
+  "row_count": 500,
+  "filename": "drugs.csv",
+  "message": "Imported 500 entries from drugs.csv"
+}
+```
+
+---
+
+### 13. Reset Database
+
+Deletes all data.
+
+- **Method:** `POST`
+- **Path:** `/reset`
+
+#### Response
+```json
+{
+  "status": "ok",
+  "message": "Database wiped successfully"
+}
+```
+
+---
+
+### 14. Shutdown API
+
+Gracefully shuts down the server.
+
+- **Method:** `POST`
+- **Path:** `/shutdown`
+
+#### Response
+```json
+{
+  "status": "shutting_down"
+}
+```
+
+---
+
+## Error Handling
+
+| Code | Meaning |
+|------|--------|
+| 200  | Success |
+| 201  | Resource Created |
+| 400  | Bad Request |
+| 404  | Not Found |
+| 500  | Internal Server Error |
+
+---
+
+## Notes
+
+- All timestamps are in **UTC ISO 8601 format**
+- Searches are **case-insensitive and partial-match**
+- CSV ingestion is the **primary method of loading data**
+- Translation operates via **shared Concept IDs in Neo4j**
+
+---
