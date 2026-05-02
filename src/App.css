@@ -144,6 +144,13 @@
   font-weight: 700;
 }
 
+.search-surface {
+  border: 1px solid #d7dbe0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
 .field-stack label {
   display: block;
   margin-bottom: 7px;
@@ -196,11 +203,78 @@
   margin-top: 18px;
 }
 
+.message {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.message--error {
+  color: #9c2c2c;
+  background: #fdecec;
+  border: 1px solid #f6c8c8;
+}
+
+.message--info {
+  color: #2f4d69;
+  background: #eaf2fb;
+  border: 1px solid #cfe1f4;
+}
+
+.message--muted {
+  color: #667085;
+}
+
 .results-block h3 {
   margin: 0 0 10px;
   text-align: center;
   color: #111827;
   font-size: clamp(1.45rem, 1.8vw, 2rem);
+}
+
+.results-table-wrap {
+  width: 100%;
+  border: 1px solid #dce2e8;
+  border-radius: 10px;
+  background: #fff;
+  overflow-x: auto;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+}
+
+.results-table th,
+.results-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e7ecf1;
+  vertical-align: top;
+}
+
+.results-table th {
+  background: #eff4f8;
+  color: #223246;
+  font-size: 0.95rem;
+}
+
+.results-table td {
+  color: #2e435a;
+}
+
+.results-table tbody tr:nth-child(even) {
+  background: #fbfcfe;
+}
+
+.results-table tbody tr.row-selected {
+  background: #e5f1ef;
+}
+
+.results-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .results-select {

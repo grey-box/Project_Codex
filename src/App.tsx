@@ -1,68 +1,172 @@
 import './App.css'
 import { useTranslation } from 'react-i18next'
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 
-interface Drug {
-  canonical_name: string
-  source: string
-  source_id: string
-  is_poc: boolean
+interface LanguagesResponse {
+  languages: string[]
 }
 
-interface DrugName {
+interface SearchResultRow {
+  source_id: string | null
+  source_name: string | null
   name: string
-  country: string
+  type: string
+  country: string | null
   language: string
-  name_type: string
-  is_primary: boolean
+  uploaded_at: string | null
+}
+
+interface SearchResponse {
+  query: string
+  count: number
+  results: SearchResultRow[]
+}
+
+interface TranslateResultRow {
+  source_id: string | null
+  source_name: string | null
+  name: string
+  type: string
+  country: string | null
+  language: string
+  uploaded_at: string | null
+}
+
+interface TranslateResponse {
+  found: boolean
+  results: TranslateResultRow[]
 }
 
 const API_BASE_URL = 'http://localhost:8000'
+const FALLBACK_LANGUAGES = ['en', 'es', 'fr', 'de']
 
 function App() {
   const { t, i18n } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Drug[]>([])
-  const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null)
-  const [sourceCountry, setSourceCountry] = useState('US')
-  const [targetCountry, setTargetCountry] = useState('IN')
+  const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
+  const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
+  const [searchLanguage, setSearchLanguage] = useState('all')
+  const [targetLanguage, setTargetLanguage] = useState('es')
   const [translatedName, setTranslatedName] = useState('')
   const [translateError, setTranslateError] = useState('')
+  const [searchError, setSearchError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
-  const [error, setError] = useState('')
+  const [exportLanguage, setExportLanguage] = useState<string>(availableLanguages[0])
+  const [exportError, setExportError] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState('')
 
-  const countryOptions = [
-    { code: 'US', label: 'English (US)' },
-    { code: 'GB', label: 'English (UK)' },
-    { code: 'IN', label: 'India' },
-    { code: 'ES', label: 'Spain' },
-    { code: 'FR', label: 'France' },
-    { code: 'DE', label: 'Germany' },
-  ]
+  const getLanguageLabel = (code: string) => {
+    const raw = code.trim()
+    const normalized = raw.toLowerCase()
+
+    // Backend may return either ISO codes (en) or full names (English).
+    if (normalized.length > 3) {
+      return raw
+    }
+
+    try {
+      const displayNames = new Intl.DisplayNames([i18n.language], { type: 'language' })
+      return displayNames.of(normalized) ?? normalized.toUpperCase()
+    } catch {
+      return normalized.toUpperCase()
+    }
+  }
+
+  useEffect(() => {
+    let isActive = true
+
+    const loadLanguages = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/languages`)
+        if (!response.ok) {
+          throw new Error('Failed to load languages')
+        }
+
+        const data = (await response.json()) as LanguagesResponse
+        const nextLanguages = Array.isArray(data.languages) && data.languages.length > 0 ? data.languages : FALLBACK_LANGUAGES
+        if (!isActive) {
+          return
+        }
+
+        setAvailableLanguages(nextLanguages)
+        setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
+        setExportLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
+      } catch {
+        if (!isActive) {
+          return
+        }
+
+        setAvailableLanguages(FALLBACK_LANGUAGES)
+        setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
+      }
+    }
+
+    void loadLanguages()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  const extractTranslatedName = (rows: TranslateResultRow[]) => {
+    const names = rows
+      .map((row) => row.name)
+      .filter((name): name is string => Boolean(name && name.trim()))
+
+    if (names.length === 0) {
+      return '-'
+    }
+
+    return Array.from(new Set(names)).join(', ')
+  }
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setError('Please enter a search term')
+      setSearchError('Please enter a search term')
       return
     }
 
     setIsLoading(true)
-    setError('')
+    setSearchError('')
+    setTranslateError('')
     setSearchResults([])
-    setSelectedDrug(null)
+    setSelectedResult(null)
+    setTranslatedName('')
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/drugs/search?q=${encodeURIComponent(searchQuery)}&limit=50`
-      )
+      const response = await fetch(`${API_BASE_URL}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          limit: 20,
+        }),
+      })
+
       if (!response.ok) {
-        throw new Error('Failed to search drugs')
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.detail ?? 'Failed to search')
       }
-      const data = await response.json()
-      setSearchResults(Array.isArray(data) ? data : [])
+
+      const data = (await response.json()) as SearchResponse
+      const rows = Array.isArray(data.results) ? data.results : []
+      const filteredRows =
+        searchLanguage === 'all'
+          ? rows
+          : rows.filter((row) => row.language.toLowerCase() === searchLanguage.toLowerCase())
+
+      setSearchResults(filteredRows)
+
+      if (filteredRows.length === 0) {
+        setSearchError('No results found')
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during search')
+      setSearchError(err instanceof Error ? err.message : 'An error occurred during search')
       setSearchResults([])
     } finally {
       setIsLoading(false)
@@ -71,14 +175,13 @@ function App() {
 
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleSearch()
+      void handleSearch()
     }
   }
 
-  const handleTranslate = async () => {
-    if (!selectedDrug) {
-      setTranslateError('Select a drug result first')
-      setTranslatedName('')
+  const handleTranslateSelected = async () => {
+    if (!selectedResult) {
+      setTranslateError('Select a search result first')
       return
     }
 
@@ -87,36 +190,29 @@ function App() {
     setTranslatedName('')
 
     try {
-      const namesResponse = await fetch(
-        `${API_BASE_URL}/drugs/${encodeURIComponent(selectedDrug.source)}/${encodeURIComponent(selectedDrug.source_id)}/names`
-      )
-      if (!namesResponse.ok) {
-        throw new Error('Could not fetch names for selected drug')
+      const response = await fetch(`${API_BASE_URL}/translate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          term: selectedResult.name,
+          source_lang: selectedResult.language,
+          target_lang: targetLanguage,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.detail ?? 'Translation request failed')
       }
 
-      const namesData = (await namesResponse.json()) as DrugName[]
-      const sourceName =
-        namesData.find((n) => n.country === sourceCountry && n.is_primary) ||
-        namesData.find((n) => n.country === sourceCountry) ||
-        namesData[0]
-
-      if (!sourceName?.name) {
-        throw new Error('No usable source name found for selected drug')
+      const payload = (await response.json()) as TranslateResponse
+      const name = payload.found ? extractTranslatedName(payload.results ?? []) : '-'
+      setTranslatedName(name)
+      if (!payload.found || name === '-') {
+        setTranslateError('No translation found for the selected language')
       }
-
-      const translateResponse = await fetch(
-        `${API_BASE_URL}/translate?name=${encodeURIComponent(sourceName.name)}&from_country=${encodeURIComponent(sourceCountry)}&to_country=${encodeURIComponent(targetCountry)}`
-      )
-
-      if (!translateResponse.ok) {
-        if (translateResponse.status === 404) {
-          throw new Error('No translation found for the selected countries')
-        }
-        throw new Error('Translation request failed')
-      }
-
-      const translation = await translateResponse.json()
-      setTranslatedName(translation.translated_name || '')
     } catch (err) {
       setTranslateError(err instanceof Error ? err.message : 'Translation failed')
     } finally {
@@ -124,12 +220,68 @@ function App() {
     }
   }
 
-  const languages = [
-    { code: 'en', label: 'English' },
-    { code: 'es', label: 'Spanish' },
-    { code: 'fr', label: 'French' },
-    { code: 'de', label: 'German' },
-  ]
+  const rowsToCsv = (rows: any[]) => {
+    if (!rows || rows.length === 0) return ''
+    const headerOrder = ['concept_id', 'source_id', 'source_name', 'name', 'type', 'country', 'language', 'uploaded_at']
+    const keys = Array.from(new Set([...headerOrder, ...Object.keys(rows[0] || {})]))
+    const escapeVal = (v: any) => {
+      if (v === null || v === undefined) return ''
+      const s = String(v)
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`
+      }
+      return s
+    }
+    const lines = [keys.join(',')]
+    rows.forEach((r) => {
+      lines.push(keys.map((k) => escapeVal((r as any)[k])).join(','))
+    })
+    return lines.join('\n')
+  }
+
+  const downloadBlob = (filename: string, text: string) => {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const fetchAndDownload = async (urlSuffix: string, filename: string) => {
+    setIsExporting(true)
+    setExportError('')
+    setExportMessage('')
+    try {
+      const res = await fetch(`${API_BASE_URL}${urlSuffix}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.detail ?? 'Export failed')
+      }
+      const data = await res.json()
+      const rows = Array.isArray(data.rows) ? data.rows : data.results ?? []
+      const csv = rowsToCsv(rows)
+      if (!csv) throw new Error('No rows to export')
+      downloadBlob(filename, csv)
+      setExportMessage(`Downloaded ${rows.length} rows`)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+  const downloadByLanguage = () => {
+    if (!exportLanguage.trim()) {
+      setExportError('Choose a language')
+      return
+    }
+    fetchAndDownload(`/csv/language/${encodeURIComponent(exportLanguage.trim())}`, `codex_language_${exportLanguage.trim()}.csv`)
+  }
+
+  const languages = availableLanguages.map((code) => ({ code, label: getLanguageLabel(code) }))
 
   return (
     <div className="page-shell">
@@ -197,125 +349,163 @@ function App() {
 
         <section className="tool-panel">
           <h2>{t('home.searchTitle')}</h2>
-          <div className="search-grid">
-            <div className="field-stack">
-              <label htmlFor="source-lang">{t('home.sourceLanguage')}</label>
-              <select
-                id="source-lang"
-                value={sourceCountry}
-                onChange={(event) => setSourceCountry(event.target.value)}
-              >
-                {countryOptions.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
+          <div className="search-surface">
+            <div className="search-grid">
+              <div className="field-stack">
+                <label htmlFor="search-language">Search language</label>
+                <select
+                  id="search-language"
+                  value={searchLanguage}
+                  onChange={(event) => setSearchLanguage(event.target.value)}
+                >
+                  <option value="all">All languages</option>
+                  {languages.map((lang) => (
+                    <option key={`search-${lang.code}`} value={lang.code}>
+                      {lang.label} ({lang.code.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="search-row" style={{ gridColumn: '1 / -1' }}>
+                <input
+                  id="drug-search"
+                  placeholder={t('home.sourcePlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                />
+                <button type="button" onClick={handleSearch} disabled={isLoading}>
+                  {isLoading ? 'Searching...' : t('common.search')}
+                </button>
+              </div>
             </div>
-            <div className="search-row">
-              <input 
-                id="drug-search" 
-                placeholder={t('home.sourcePlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-              />
-              <button type="button" onClick={handleSearch} disabled={isLoading}>
-                {isLoading ? 'Searching...' : t('common.search')}
-              </button>
-            </div>
-          </div>
 
-          <div className="results-block">
-            <h3>{t('home.resultsTitle')}</h3>
-            {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-            {searchResults.length > 0 ? (
-              <>
+            <div className="results-block">
+              <h3>{t('home.resultsTitle')}</h3>
+              {searchError && <div className="message message--error">{searchError}</div>}
+              {translateError && <div className="message message--error">{translateError}</div>}
+              {isTranslating && <div className="message message--info">Translating selected result...</div>}
+              {searchResults.length > 0 ? (
+                <div className="results-table-wrap">
+                  <table className="results-table">
+                    <thead>
+                      <tr>
+                        <th>Drug Name</th>
+                        <th>Type</th>
+                        <th>Language</th>
+                        <th>Country</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchResults.map((row, index) => (
+                        <tr
+                          key={`${row.name}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
+                          className={
+                            selectedResult &&
+                            selectedResult.name === row.name &&
+                            selectedResult.language === row.language &&
+                            selectedResult.country === row.country &&
+                            selectedResult.source_id === row.source_id
+                              ? 'row-selected'
+                              : ''
+                          }
+                          onClick={() => {
+                            setSelectedResult(row)
+                            setTranslatedName('')
+                            setTranslateError('')
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <td>{row.name}</td>
+                          <td>{row.type}</td>
+                          <td>{row.language}</td>
+                          <td>{row.country ?? '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : searchQuery && !isLoading ? (
+                <div className="message message--muted">No results found</div>
+              ) : (
                 <button type="button" className="results-select">
-                  <span>
-                    {selectedDrug
-                      ? selectedDrug.canonical_name
-                      : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} found`}
-                  </span>
+                  <span>{t('home.sampleMedicine')}</span>
                   <span aria-hidden="true">▾</span>
                 </button>
-                <div style={{ marginTop: '10px', maxHeight: '200px', overflowY: 'auto' }}>
-                  {searchResults.map((drug, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        setSelectedDrug(drug)
-                        setTranslatedName('')
-                        setTranslateError('')
-                      }}
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #e0e0e0',
-                        cursor: 'pointer',
-                        backgroundColor: selectedDrug === drug ? '#f0f0f0' : 'transparent',
-                      }}
-                    >
-                      <strong>{drug.canonical_name}</strong>
-                      <div style={{ fontSize: '0.85em', color: '#666' }}>
-                        {drug.source} / {drug.source_id}
-                      </div>
+              )}
+
+              {selectedResult && (
+                <div style={{ marginTop: '14px' }}>
+                  <div className="search-grid">
+                    <div className="field-stack">
+                      <label htmlFor="target-language">Translate selected into</label>
+                      <select
+                        id="target-language"
+                        value={targetLanguage}
+                        onChange={(event) => setTargetLanguage(event.target.value)}
+                      >
+                        {languages.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.label} ({lang.code.toUpperCase()})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
-                </div>
-                {selectedDrug && (
-                  <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
-                    <p><strong>{selectedDrug.canonical_name}</strong></p>
-                    <p style={{ fontSize: '0.9em', color: '#666' }}>
-                      Source: {selectedDrug.source} ({selectedDrug.source_id})
-                    </p>
+                    <div className="search-row">
+                      <button type="button" onClick={handleTranslateSelected} disabled={isTranslating}>
+                        {isTranslating ? 'Translating...' : 'Translate Selected'}
+                      </button>
+                    </div>
                   </div>
-                )}
-              </>
-            ) : searchQuery && !isLoading ? (
-              <div style={{ color: '#999' }}>No results found</div>
-            ) : (
-              <button type="button" className="results-select">
-                <span>{t('home.sampleMedicine')}</span>
-                <span aria-hidden="true">▾</span>
-              </button>
-            )}
+
+                  <div className="results-table-wrap" style={{ marginTop: '10px' }}>
+                    <table className="results-table">
+                      <thead>
+                        <tr>
+                          <th>Original Drug Name (Language)</th>
+                          <th>Drug Name in {targetLanguage.toUpperCase()}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>{selectedResult.name} ({selectedResult.language})</td>
+                          <td>{translatedName || '-'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
-        <section className="tool-panel">
-          <h2>{t('home.localizeTitle')}</h2>
-          <div className="translate-grid">
-            <div className="field-stack">
-              <label htmlFor="target-lang">{t('home.targetLanguage')}</label>
-              <select
-                id="target-lang"
-                value={targetCountry}
-                onChange={(event) => setTargetCountry(event.target.value)}
-              >
-                {countryOptions.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
+        <section className="tool-panel" style={{ marginTop: 20 }}>
+          <h2>Export CSV</h2>
+          <div className="search-surface">
+            <div className="search-grid">
+              <div className="field-stack">
+                <label htmlFor="export-language">Language</label>
+                <select id="export-language" value={exportLanguage} onChange={(e) => setExportLanguage(e.target.value)}>
+                  {availableLanguages.map((l) => (
+                    <option key={l} value={l}>
+                      {getLanguageLabel(l)} ({l})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field-stack" style={{ alignSelf: 'end' }}>
+                <button type="button" className="translate-btn" onClick={downloadByLanguage} disabled={isExporting}>{isExporting ? 'Downloading...' : 'Download CSV'}</button>
+              </div>
             </div>
-            <button
-              type="button"
-              className="translate-btn"
-              onClick={handleTranslate}
-              disabled={isTranslating || !selectedDrug}
-            >
-              {isTranslating ? 'Translating...' : t('common.translate')}
-            </button>
-            <input
-              value={translatedName}
-              readOnly
-              placeholder={t('home.translationPlaceholder')}
-              aria-label="Translation output"
-            />
+            <div style={{ marginTop: 10 }}>
+              {isExporting && <div className="message message--info">Preparing CSV...</div>}
+              {exportError && <div className="message message--error">{exportError}</div>}
+              {exportMessage && <div className="message message--success">{exportMessage}</div>}
+            </div>
           </div>
-          {translateError && <div style={{ color: 'red', marginTop: '8px' }}>{translateError}</div>}
         </section>
+
       </main>
     </div>
   )
