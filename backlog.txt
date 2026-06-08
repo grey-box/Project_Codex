@@ -1,0 +1,66 @@
+1. Populate the real (full) database from the scripts we have completed (using implemented api/backend endpoints)
+    a. The scripts to populate from the source databases are in a repo (don't remember which one) - one script per source.
+    b. Combine into one source.  Will want to a single 'button' (command-line) to get the latest data
+        1'. For now, maybe wipe out and re-populate our local database (need to see what extra data would also need to be re-created)
+
+2. Integrate the api/backend branch with the UI branch
+
+3. QA-test
+    a. Did the language packs load?
+    b. Did the workflows behave as intended?
+
+4. Implement the "medical professional" "administrator" authentication system
+    a. UI
+    b. API/backend (design the tables, etc)
+
+5. Core API structure in place
+    a. This might be 'done' - need to verify
+
+6. External Codex identifiers to be mapped to Concept ID (brand names to generic names - brand-names being language-specific)
+
+7. Spreadsheet result evaluation (maybe present a UI) - determine what we include in spreadsheet
+    a. Concept ID (normalized ID from sources, etc)
+    b. Generic Name
+    c. Brand name
+    e. Source (db source, including version where applicable)
+    f. Source ID
+    g. Country
+    h. Language
+    i. Translation Brand name
+    j. Translated generic name
+    k. Drug Classification
+    l. Confidence score
+
+8. Add concept ID to language and country packs (and to the drug databases)
+    a. New column in our db's added after the pull from data sources.
+
+9. Pipeline!! (to generate product for review/usage).  Create a "launch button  (command script) to start backend and front end of real product.
+
+10. UI Review (ease of use, functionality, completeness)
+
+Phase II:  UI representation of the spreadsheet in browser .csv (spreadsheet reader)
+    a.  There are npm packages - I searched duckduckgo under "npm spreadsheet reader"
+
+US databases, internationalization (WHO) databases
+
+Country packs contain regulatory variations
+
+Long-term:  AI issues have to be addressed to be local engines first.
+
+Company-wide:  The "How to work with AI" for teams going forward.  Howe we let AI do:
+    a. Much of the coding
+    b. Much of the database structure
+    b. Testing (write unit tests, e2e tests)
+
+Documents:
+    a. API architecture (completed to as of current timestamp)
+    b. Dataset relationships (database code exposes this) (completed as of current timestamp)
+    c. Mapping strategies
+    d. Normalizing relationships
+    e. Spreadsheet structure
+
+Concept id (high level policy, full implementation deferred to fall)
+  Generate if doesn't exist.  If previously generated, that's persistent (start with identifier such as <primary-key>-CodexConcept-<generated-id>)
+  If WHO entry exists, use it.
+  If rxnorm, use it.
+  Concept id is 1 to many, from context ID to database ID
