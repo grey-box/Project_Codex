@@ -2,6 +2,7 @@
     a. The scripts to populate from the source databases are in a repo (don't remember which one) - one script per source.
     b. Combine into one source.  Will want to a single 'button' (command-line) to get the latest data
         1'. For now, maybe wipe out and re-populate our local database (need to see what extra data would also need to be re-created)
+Done - except for final testing on part b
 
 2. Integrate the api/backend branch with the UI branch
 
