@@ -4,6 +4,14 @@
         1'. For now, maybe wipe out and re-populate our local database (need to see what extra data would also need to be re-created)
 Done - except for final testing on part b
 
+1.01 Provide temporary printouts of the imported databases, with all fields in that database (we need to determine what ones we need
+in the unified Codex db).
+
+1.1 Generate Concept IDs and populate our local database - and the mapping tables for other database referencing the same drug (WHO).  Keep the Concept IDs in a centralized place so when downloading copies or making edits, we do not duplicate already-used IDs.
+
+1.2 Disambig page if there's more IDs (NDC, DIN) that were found - we want to get to our Concept ID (take translated names into
+account).
+
 2. Integrate the api/backend branch with the UI branch
 
 3. QA-test
@@ -65,3 +73,5 @@ Concept id (high level policy, full implementation deferred to fall)
   If WHO entry exists, use it.
   If rxnorm, use it.
   Concept id is 1 to many, from context ID to database ID
+
+Identify and extract all databases specific to all countries - and map to the Concept id.  Provide a mapping table to ensure what's involved with the concept id (one to many).  Identify RxCUI, DIN, NDC, AIC numbers to the Concept id (both ways).
