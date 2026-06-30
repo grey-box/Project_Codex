@@ -12,6 +12,12 @@ in the unified Codex db).
 1.2 Disambig page if there's more IDs (NDC, DIN) that were found - we want to get to our Concept ID (take translated names into
 account).
 
+1.3 The Concept IDs have two components, both which might be presene, or either:  The symptom or the drug.  So there could be
+a ConceptID for Advil for fever and and/or a symptom id for Advil for headache or just plain Advil (no symptom).  Therefore,
+a new ID should not be a plain increment, but two increments, one for drug and one for symptom (string, not integer, or an object
+if the db accepts that type).  One possibility on format: <drug-id>-<symptom-id>.  We will want to query by drug, drug/symptom or
+just plain symptom.
+
 2. Integrate the api/backend branch with the UI branch
 
 3. QA-test
