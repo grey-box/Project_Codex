@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #d9dde2;
+  font-family: 'Source Sans 3', 'Trebuchet MS', sans-serif;
+}

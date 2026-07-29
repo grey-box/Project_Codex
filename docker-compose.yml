@@ -1,9 +1,9 @@
 services:
-
+  # The Frontend Service
   frontend:
     build:
       context: ./frontend
-    containter_name: codex-frontend
+    container_name: codex-frontend
     ports:
       - "9000:9000"
     depends_on:
@@ -12,9 +12,10 @@ services:
       - ./frontend:/app
       - /app/node_modules
     
+  # The API Service
   api:
     build:
-      context: ./backend/translation
+      context: ./backend/codex_build
     container_name: codex-api
     ports:
       - "8000:8000"
@@ -26,10 +27,11 @@ services:
       neo4j:
         condition: service_healthy
     volumes:
-      - ./backend/translation:/app
+      - ./backend/codex_build:/app
     
+  # The Backend Service
   neo4j:
-    image: neo4j:5.18
+    image: neo4j:5.18.0
     container_name: codex-neo4j
     environment:
       NEO4J_AUTH: "neo4j/changeme"

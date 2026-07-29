@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "about": "Über uns"
+  },
+  "common": {
+    "help": "Hilfe",
+    "search": "Suchen",
+    "translate": "Übersetzen"
+  },
+  "home": {
+    "pageTitle": "Projekt Medizinischer Kodex",
+    "pageDescription": "Ein Werkzeug zur Koordination medizinischer Ausrüstung zwischen Ländern.",
+    "searchTitle": "Nach Medikamentennamen suchen...",
+    "sourceLanguage": "Ausgangssprache",
+    "sourcePlaceholder": "Wort zum Suchen",
+    "resultsTitle": "Ergebnisse",
+    "sampleMedicine": "Medikament 1",
+    "localizeTitle": "Medikamentennamen übersetzen/lokalisieren...",
+    "targetLanguage": "Zielsprache",
+    "targetPlaceholder": "Zielsprache",
+    "translationPlaceholder": "Die Übersetzung wird hier angezeigt"
+  }
+}

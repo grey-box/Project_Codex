@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "about": "À propos"
+  },
+  "common": {
+    "help": "Aide",
+    "search": "Rechercher",
+    "translate": "Traduire"
+  },
+  "home": {
+    "pageTitle": "Projet Codex Médical",
+    "pageDescription": "Un outil développé pour aider à coordonner les équipements médicaux entre les pays.",
+    "searchTitle": "Rechercher un nom de médicament...",
+    "sourceLanguage": "Langue source",
+    "sourcePlaceholder": "Mot à rechercher",
+    "resultsTitle": "Résultats",
+    "sampleMedicine": "Médicament 1",
+    "localizeTitle": "Traduire/Localiser le nom du médicament...",
+    "targetLanguage": "Langue cible",
+    "targetPlaceholder": "Langue cible",
+    "translationPlaceholder": "La traduction s'affichera ici"
+  }
+}
