@@ -2,12 +2,14 @@
     a. The scripts to populate from the source databases are in a repo (don't remember which one) - one script per source.
     b. Combine into one source.  Will want to a single 'button' (command-line) to get the latest data
         1'. For now, maybe wipe out and re-populate our local database (need to see what extra data would also need to be re-created)
-Done - except for final testing on part b
+Done
 
 1.01 Provide temporary printouts of the imported databases, with all fields in that database (we need to determine what ones we need
 in the unified Codex db).
+Partially done - the first 10 records.  Need the rest, possibly chunked to reduce memory cache requirements.
 
 1.1 Generate Concept IDs and populate our local database - and the mapping tables for other database referencing the same drug (WHO).  Keep the Concept IDs in a centralized place so when downloading copies or making edits, we do not duplicate already-used IDs.
+Initial implementation done - need the constant number of separator in the id, even if the contents are blank.
 
 1.2 Disambig page if there's more IDs (NDC, DIN) that were found - we want to get to our Concept ID (take translated names into
 account).
@@ -19,6 +21,7 @@ if the db accepts that type).  One possibility on format: <drug-id>-<symptom-id>
 just plain symptom.
 
 2. Integrate the api/backend branch with the UI branch
+Done - except for translation
 
 3. QA-test
     a. Did the language packs load?
@@ -30,8 +33,10 @@ just plain symptom.
 
 5. Core API structure in place
     a. This might be 'done' - need to verify
+Needs to use the new db and debugged
 
 6. External Codex identifiers to be mapped to Concept ID (brand names to generic names - brand-names being language-specific)
+Debugging - implementation done
 
 7. Spreadsheet result evaluation (maybe present a UI) - determine what we include in spreadsheet
     a. Concept ID (normalized ID from sources, etc)
@@ -48,6 +53,7 @@ just plain symptom.
 
 8. Add concept ID to language and country packs (and to the drug databases)
     a. New column in our db's added after the pull from data sources.
+Done
 
 9. Pipeline!! (to generate product for review/usage).  Create a "launch button  (command script) to start backend and front end of real product.
 
