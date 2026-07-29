@@ -1,0 +1,51 @@
+services:
+
+  frontend:
+    build:
+      context: ./frontend
+    containter_name: codex-frontend
+    ports:
+      - "9000:9000"
+    depends_on:
+      - api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    
+  api:
+    build:
+      context: ./backend/translation
+    container_name: codex-api
+    ports:
+      - "8000:8000"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=changeme
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ./backend/translation:/app
+    
+  neo4j:
+    image: neo4j:5.18
+    container_name: codex-neo4j
+    environment:
+      NEO4J_AUTH: "neo4j/changeme"
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+    ports:
+      - "7474:7474"   # Neo4j Browser → http://localhost:7474
+      - "7687:7687"   # Bolt (used by the API)
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p changeme 'RETURN 1' > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    
+volumes:
+  neo4j_data:

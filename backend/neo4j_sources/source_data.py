@@ -25,7 +25,7 @@ load_dotenv(env_path)
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "changeme")
 NEO4J_DB = os.getenv("NEO4J_DB", "neo4j")
 
 FORCE = os.getenv("FORCE", "0") == "1"
@@ -78,7 +78,7 @@ def drugbank(driver):
     DRUGBANK_API_BASE = os.getenv("DRUGBANK_API_BASE", "https://api.drugbank.com/discovery/v1")
     DRUGBANK_API_KEY = os.getenv("DRUGBANK_API_KEY")
     if not DRUGBANK_API_KEY:
-        print("ERROR: Missing DRUGBANK_API_KEY in .env"); sys.exit(1)
+        print("ERROR: Missing DRUGBANK_API_KEY in .env"); return
 
     DRUGBANK_RELEASE = os.getenv("DRUGBANK_RELEASE", "API")
     ROOT_ID = os.getenv("DRUGBANK_ROOT_ID", "drugbank:root")
@@ -171,7 +171,7 @@ def snomed(driver):
 
     def api_get(path, params=None):
         limiter.wait()
-        r = requests.get(f"{SNOWSTORM_BASE.rstrip('/')}/{path.lstrip('/')}", headers={"Accept": "application/json", "Accept-Language": os.getenv("ACCEPT_LANGUAGE", "en")}, params=params or {}, timeout=60)
+        r = requests.get(f"{SNOWSTORM_BASE.rstrip('/')}/{path.lstrip('/')}", headers={"Accept": "application/json", "Accept-Language": os.getenv("ACCEPT_LANGUAGE", "en"), "User_Agent": "logan.watersmith@grey-box.ca"}, params=params or {}, timeout=60)
         r.raise_for_status()
         return r.json()
 
@@ -203,13 +203,37 @@ def snomed(driver):
             sess.run("MERGE (n:SNOMED {id: $id}) ON CREATE SET n.code=$id, n.title=$t, n.ds=$ds ON MATCH SET n.ds=$ds", id=cid, t=term or None, ds=DATASET)
             return cid
 
-        # BFS Tree Traversal
-        root_full = api_get(f"browser/{SNOMED_BRANCH}/concepts/{SNOMED_ROOT_ID}")
+        root_full = None
+        retries = 3
+        
+        for attempt in range(retries):
+            try:
+                log.info("Fetching SNOMED root concept %s (Attempt %d/%d)...", SNOMED_ROOT_ID, attempt + 1, retries)
+                root_full = api_get(f"browser/{SNOMED_BRANCH}/concepts/{SNOMED_ROOT_ID}")
+                break  # Success! Break out of the retry loop
+            except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError, requests.exceptions.RequestException) as net_err:
+                log.warning("SNOMED Server dropped connection on root lookup: %s", net_err)
+                if attempt < retries - 1:
+                    log.info("Sleeping 5s before retrying root lookup...")
+                    time.sleep(5.0)
+                else:
+                    log.error("Failed all retries to connect to SNOMED server. Skipping SNOMED module completely.")
+                    sess.run("MERGE (n:SNOMED {id: $id}) ON CREATE SET n.code=$id, n.title='SNOMED', n.ds=$ds ON MATCH SET n.ds=$ds", id=SNOMED_ROOT_ID, ds=DATASET)
+                    sess.run("MATCH (i:Ingest {uid: $uid}), (r:SNOMED {id: $rid}) MERGE (i)-[:ROOT]->(r)", uid=run_uid, rid=SNOMED_ROOT_ID)
+                    return  # Safely exits run_snomed() so main() moves to RxNorm
+
+        # If it passed but root_full is somehow empty, exit gracefully
+        if not root_full:
+            return
+
+        # Core initialization with the database
         upsert_snomed_node(root_full)
         sess.run("MATCH (i:Ingest {uid: $uid}), (r:SNOMED {id: $rid}) MERGE (i)-[:ROOT]->(r)", uid=run_uid, rid=SNOMED_ROOT_ID)
 
+        # BFS Tree Traversal
         queue = deque([(SNOMED_ROOT_ID, None)])
         visited = set()
+
         while queue:
             cid, parent = queue.popleft()
             if cid in visited: continue
@@ -358,7 +382,8 @@ def icd11(driver):
         sess.run("CREATE (i:Ingest {uid:$uid, dataset:$ds, release:$rel, startedAt:$s})", uid=run_uid, ds=DATASET, rel=ICD_RELEASE_ID, s=utc_iso())
         
         full_root = icd_get(ch21_id)
-        sess.run("MERGE (n:ICD {id: $id}) ON CREATE SET n.code=$c, n.title=$t, n.ds=$ds", id=ch21_id, c=full_root.get("code"), t=full_root.get("title", {}).get("@value"), ds=DATASET)
+        # sess.run("MERGE (n:ICD {id: $id}) ON CREATE SET n.code=$c, n.title=$t, n.ds=$ds", id=ch21_id, c=full_root.get("code"), t=full_root.get("title", {}).get("@value"), ds=DATASET)
+        sess.run("MERGE (n:ICD {id: $id}) ON CREATE SET n.code=$c, n.title='ICD 11', n.ds=$ds", id=ch21_id, c=full_root.get("code"), ds=DATASET)        
         sess.run("MATCH (i:Ingest {uid: $uid}), (r:ICD {id: $rid}) MERGE (i)-[:ROOT]->(r)", uid=run_uid, rid=ch21_id)
 
         queue = deque([(ch21_id, None)])
@@ -392,29 +417,44 @@ def unify_graph(driver):
     log.info(">>> Combining graphes into a singular source...")
     
     with driver.session(database=NEO4J_DB) as sess:
+        sess.run("""
+                MERGE (g:G_ROOT {id: 'GLOBAL_ROOT'})
+                ON CREATE SET g.title = 'Global Root', g.initializedAt = $ts
+            """, ts=utc_iso())
+        
         # Secondary label (:Concept) applied to every medical node
         log.info("Creating global structural indexes...")
-        sess.run("CREATE INDEX global_concept_code IF NOT EXISTS FOR (n:Concept) REQUIRE n.code")
+        sess.run("CREATE INDEX global_concept_code IF NOT EXISTS FOR (n:Concept) ON n.code")
+
+        sess.run("""
+            MATCH (:Ingest)-[:ROOT]->(root)
+            SET root:Source
+        """)
         
-        log.info("Applying global :Concept labels...")
-        sess.run("MATCH (n:DRUG) SET n:Concept")
-        sess.run("MATCH (n:SNOMED) SET n:Concept")
-        sess.run("MATCH (n:RXN) SET n:Concept")
-        sess.run("MATCH (n:ICD) SET n:Concept")
+        log.info("Applying global :Concept labels to all internal medical entities...")
+        sess.run("MATCH (n:DRUG) WHERE NOT n:Source SET n:Concept")
+        sess.run("MATCH (n:SNOMED) WHERE NOT n:Source SET n:Concept")
+        sess.run("MATCH (n:RXN) WHERE NOT n:Source SET n:Concept")
+        sess.run("MATCH (n:ICD) WHERE NOT n:Source SET n:Concept")
         
         log.info("Creating connections between RxNorm and DrugBank...")
         sess.run("""
-            MATCH (r:RXN), (d:DRUG)
+            MATCH (r:RXN:Concept), (d:DRUG:Concept)
             WHERE r.name = d.title OR r.rxcui = d.code
             MERGE (r)-[:SAME_AS {derivedBy: 'property_match'}]->(d)
         """)
         
         log.info("Creating connections between SNOMED CT and ICD-11...")
         sess.run("""
-            MATCH (s:SNOMED), (i:ICD)
+            MATCH (s:SNOMED:Concept), (i:ICD:Concept)
             WHERE s.code = i.code OR s.title = i.title
             MERGE (s)-[:MAPS_TO {derivedBy: 'exact_string_match'}]->(i)
         """)
+
+        sess.run("""
+                MATCH (g:G_ROOT {id: 'GLOBAL_ROOT'}), (src:Source)
+                MERGE (g)-[:HAS_SOURCE]->(src)
+            """)
         
     log.info("<<< Graph combination complete. All sources are now connected.")
 
@@ -431,11 +471,19 @@ def main():
             sc = smoke_test(check_session)
             log.info("Graph connection smoke test passed.")
 
-        # Ingest separate sources into the single database
-        drugbank(driver)
-        snomed(driver)
-        rxnorm(driver)
-        icd11(driver)
+        # Ingest separate sources into the single database based on user choice
+        if "drugbank" in sys.argv[1:]:
+            log.info("Ingesting DrugBank.")
+            drugbank(driver)
+        if "snomed" in sys.argv[1:]:
+            log.info("Ingesting SNOMED.")
+            snomed(driver)
+        if "rxnorm" in sys.argv[1:]:
+            log.info("Ingesting RXNorm.")
+            rxnorm(driver)
+        if "icd11" in sys.argv[1:]:
+            log.info("Ingesting ICD11.")
+            icd11(driver)
 
         # Link them together to make a singular source
         unify_graph(driver)

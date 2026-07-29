@@ -1,5 +1,5 @@
 # Import dependencies
-from codex.neo4j_driver import create_translation, get_translation_data, find_missing_translations, find_missing_brands, get_equivalent_brands, language_exists, resolve_to_base_term, driver
+from backend.translation.neo4j_driver import create_translation, get_translation_data, find_missing_translations, find_missing_brands, get_equivalent_brands, language_exists, resolve_to_base_term, driver
 import json
 import os
 
