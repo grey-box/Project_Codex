@@ -8,6 +8,11 @@
     "search": "Rechercher",
     "translate": "Traduire"
   },
+  "sides": {
+    "populateLabel": "Remplir les sources locales:",
+    "populateButton": "Remplir",
+    "populateLoader": "Remplissage en cours..."
+  },
   "home": {
     "pageTitle": "Projet Codex Médical",
     "pageDescription": "Un outil développé pour aider à coordonner les équipements médicaux entre les pays.",

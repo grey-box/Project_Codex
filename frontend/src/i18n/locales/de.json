@@ -8,6 +8,11 @@
     "search": "Suchen",
     "translate": "Übersetzen"
   },
+  "sides": {
+    "populateLabel": "Lokale Datenquellen füllen:",
+    "populateButton": "Füllen",
+    "populateLoader": "Füllt Daten..."
+  },
   "home": {
     "pageTitle": "Projekt Medizinischer Kodex",
     "pageDescription": "Ein Werkzeug zur Koordination medizinischer Ausrüstung zwischen Ländern.",

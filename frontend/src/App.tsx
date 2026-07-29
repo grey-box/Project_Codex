@@ -287,6 +287,7 @@ function App() {
   const [isSnomedSelected, setIsSnomedSelected] = useState(false);
   const [isRxNormSelected, setIsRxNormSelected] = useState(false);
   const [isICD11Selected, setIsICD11Selected] = useState(false);
+  const [isPopulationLoading, setIsPopulationLoading] = useState(false);
 
   const handlePopulateClick = async () => {
     let sources: string[] = []
@@ -302,6 +303,7 @@ function App() {
     if (isICD11Selected) {
       sources.push("icd11")
     }
+    setIsPopulationLoading(true);
     try{
       const response = await fetch('http://localhost:8000/api/populate-sources', {
         method: 'POST',
@@ -316,6 +318,8 @@ function App() {
     } catch (error) {
       console.error("Error calling Python function:", error);
       alert("Something went wrong on the backend.");
+    } finally {
+      setIsPopulationLoading(false);
     }
   };
 
@@ -374,6 +378,8 @@ function App() {
 
       <main className="sides">
         <section className="populateDrugbank">
+          <h3 className="populate-label">{t('sides.populateLabel')}</h3>
+
           <label className="populateDrugbank-checkbox">
             <input type="checkbox" 
             checked={isDrugbankSelected} 
@@ -410,10 +416,18 @@ function App() {
         </section>
 
         <section className="populate">
+          {isPopulationLoading && (
+          <div className="populate-overlay">
+            <div className="spinner"></div>
+            <span>{t('sides.populateLoader')}</span>
+          </div>
+          )}
+
           <button type="button" 
           className="populate-btn" 
-          onClick={handlePopulateClick}>
-            {t('Populate local source(s)')}
+          onClick={handlePopulateClick}
+          disabled={isPopulationLoading}>
+            {t('sides.populateButton')}
           </button>
         </section>
       </main>

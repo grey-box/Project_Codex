@@ -8,6 +8,11 @@
     "search": "Buscar",
     "translate": "Traducir"
   },
+  "sides": {
+    "populateLabel": "Rellenar fuente(s) local(es):",
+    "populateButton": "Rellenar",
+    "populateLoader": "Rellenando..."
+  },
   "home": {
     "pageTitle": "Proyecto Códice Médico",
     "pageDescription": "Una herramienta desarrollada para ayudar a coordinar equipos médicos entre países.",

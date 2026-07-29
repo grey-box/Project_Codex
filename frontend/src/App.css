@@ -125,21 +125,6 @@
   cursor: pointer;
 }
 
-.populate-btn {
-  border: none;
-  border-radius: 8px;
-  background: #4e7f77;
-  color: #fff;
-  font-weight: 700;
-  font-size: 17px;
-  width: 150px;
-  height: 50px;
-  cursor: pointer;
-  position: absolute;
-  top: 200px;
-  left: 75px;
-}
-
 /* Customize the label (the container) */
 .container {
   display: block;
@@ -208,16 +193,26 @@
   transform: rotate(45deg);
 }
 
+.populate-label {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f1826;
+  position: absolute;
+  top: 265px;
+  left: 32px;
+}
+
 .populateDrugbank-checkbox {
   display: flex;
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-family: sans-serif;
   user-select: none;
   position: absolute;
-  top: 100px;
-  left: 100px;
+  top: 320px;
+  left: 90px;
   font-size: 1.2rem;
 }
 
@@ -226,11 +221,10 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-family: sans-serif;
   user-select: none;
   position: absolute;
-  top: 125px;
-  left: 100px;
+  top: 345px;
+  left: 90px;
   font-size: 1.2rem;
 }
 
@@ -239,11 +233,10 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-family: sans-serif;
   user-select: none;
   position: absolute;
-  top: 150px;
-  left: 100px;
+  top: 370px;
+  left: 90px;
   font-size: 1.2rem;
 }
 
@@ -252,12 +245,65 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-family: sans-serif;
   user-select: none;
   position: absolute;
-  top: 175px;
-  left: 100px;
+  top: 395px;
+  left: 90px;
   font-size: 1.2rem;
+}
+
+
+.populate-btn {
+  border: none;
+  border-radius: 8px;
+  background: #4e7f77;
+  color: #fff;
+  font-weight: 700;
+  font-size: 17px;
+  width: 150px;
+  height: 50px;
+  cursor: pointer;
+  position: absolute;
+  top: 425px;
+  left: 75px;
+}
+
+.populate-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.populate-overlay {
+  position: absolute;
+  top: 425px;
+  left: 75px;
+  width: 150px;
+  height: 50px;
+  background-color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 10;
+  border-radius: 8px; /* Match your button's corners if needed */
+  font-size: 17px;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .tool-panel {

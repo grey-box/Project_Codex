@@ -8,20 +8,16 @@ import os
 import sys
 import time
 import uuid
-import json
+import re
 import logging
 from datetime import datetime, timezone
 from collections import deque
 
 import requests
 from neo4j import GraphDatabase, WRITE_ACCESS
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 
-env_path = find_dotenv(usecwd=True)
-if not env_path:
-    print("ERROR: .env not found at repo root")
-    sys.exit(1)
-load_dotenv(env_path)
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
@@ -68,6 +64,24 @@ def smoke_test(sess):
     c = sess.run("MATCH (s:SmokeTest) RETURN count(s) AS c").single()["c"]
     sess.run("MATCH (s:SmokeTest) DELETE s")
     return c
+
+def conceptID(text: str, symptom: str = None, source: str = None) -> str:
+    if not text:
+        return "unknown"
+    text = text.lower().strip()
+    text = text.replace(',', '-')
+    text = re.sub(r'[^a-z0-9,-]', '', text)
+    text = re.sub(r'-+', '-', text)
+
+    if symptom:
+        clean_symptom = re.sub(r'[^a-z0-9-]', '', source.lower().strip())
+        text = f"{text}-{clean_symptom}"
+    
+    if source:
+        clean_source = re.sub(r'[^a-z0-9-]', '', source.lower().strip())
+        text = f"{text}-{clean_source}"
+        
+    return text
 
 
 # --------------------
@@ -125,7 +139,7 @@ def drugbank(driver):
             for d in items:
                 dbid = d.get("drugbank_id") or d.get("id")
                 name = d.get("name") or d.get("generic_name") or d.get("brand_name") or ""
-                if dbid: yield dbid, name
+                if dbid: yield d, dbid, name
             link = resp.headers.get("Link", "")
             if link and 'rel="next"' in link:
                 page += 1
@@ -149,10 +163,15 @@ def drugbank(driver):
         sess.run("MERGE (n:DRUG {id: $id}) ON CREATE SET n.code = $id, n.title = $title, n.ds = $ds", id=ROOT_ID, title=ROOT_TITLE, ds=DATASET)
         sess.run("MATCH (i:Ingest {uid: $uid}), (r:DRUG {id: $rootId}) MERGE (i)-[:ROOT]->(r)", uid=run_uid, rootId=ROOT_ID)
 
-        for code, title in iter_drugs():
-            sess.run("MERGE (n:DRUG {id: $id}) ON CREATE SET n.code=$id, n.title=$t, n.ds=$ds ON MATCH SET n.ds=$ds", id=code, t=title or None, ds=DATASET)
-            sess.run("MATCH (p:DRUG {id: $parent}), (c:DRUG {id: $child}) MERGE (p)-[:HAS_CHILD]->(c)", parent=ROOT_ID, child=code)
-            processed += 1
+        for d, code, title in iter_drugs():
+            symptoms = d.get("symptoms", [])
+            for symptom_name in symptoms:
+                if not symptom_name:
+                    continue
+                concept_id = concept_id(title, symptom_name, source="drugbank")
+
+                sess.run("MERGE (n:DRUG {id: $id}) ON CREATE SET n.conceptID=$conceptID, n.code=$id, n.title=$t, n.ds=$ds ON MATCH SET n.ds=$ds", id=code, conceptID=concept_id, t=title or None, ds=DATASET)
+                sess.run("MATCH (p:DRUG {id: $parent}), (c:DRUG {id: $child}) MERGE (p)-[:HAS_CHILD]->(c)", parent=ROOT_ID, child=code)
 
         rec = sess.run("MATCH (n:DRUG {ds: $ds}) WITH count(n) AS n MATCH (:DRUG {ds: $ds})-[rel:HAS_CHILD]->(:DRUG {ds: $ds}) RETURN n, count(rel) AS r", ds=DATASET).single()
         sess.run("MATCH (i:Ingest {uid: $uid}) SET i.finishedAt = $finishedAt, i.nodeCount = $nodeCount, i.edgeCount = $edgeCount", uid=run_uid, finishedAt=utc_iso(), nodeCount=rec["n"], edgeCount=rec["r"])
@@ -218,8 +237,6 @@ def snomed(driver):
                     time.sleep(5.0)
                 else:
                     log.error("Failed all retries to connect to SNOMED server. Skipping SNOMED module completely.")
-                    sess.run("MERGE (n:SNOMED {id: $id}) ON CREATE SET n.code=$id, n.title='SNOMED', n.ds=$ds ON MATCH SET n.ds=$ds", id=SNOMED_ROOT_ID, ds=DATASET)
-                    sess.run("MATCH (i:Ingest {uid: $uid}), (r:SNOMED {id: $rid}) MERGE (i)-[:ROOT]->(r)", uid=run_uid, rid=SNOMED_ROOT_ID)
                     return  # Safely exits run_snomed() so main() moves to RxNorm
 
         # If it passed but root_full is somehow empty, exit gracefully
@@ -296,7 +313,8 @@ def rxnorm(driver):
         roots = [{"rxcui": m.get("rxcui"), "name": m.get("name"), "tty": m.get("tty")} for m in js.get("minConceptGroup", {}).get("minConcept", []) if m.get("rxcui")]
 
         for m in roots:
-            sess.run("MERGE (n:RXN {rxcui: $rxcui}) ON CREATE SET n.name=$name, n.tty=$tty, n.ds=$ds", rxcui=m["rxcui"], name=m["name"], tty=m["tty"], ds=DATASET)
+            concept_id = conceptID(m.get("name"), source="rxnorm")
+            sess.run("MERGE (n:RXN {rxcui: $rxcui}) ON CREATE SET n.conceptID=$conceptID, n.name=$name, n.tty=$tty, n.ds=$ds", rxcui=m["rxcui"], conceptID=concept_id, name=m["name"], tty=m["tty"], ds=DATASET)
             sess.run("MATCH (p:RXN {rxcui: 'ROOT'}), (c:RXN {rxcui: $c}) MERGE (p)-[:HAS_CHILD]->(c)", c=m["rxcui"])
 
         for idx, m in enumerate(roots):
@@ -311,7 +329,8 @@ def rxnorm(driver):
                     if isinstance(props, dict): props = [props]
                     for p in props:
                         if p.get("rxcui"):
-                            sess.run("MERGE (n:RXN {rxcui: $rxcui}) ON CREATE SET n.name=$name, n.tty=$tty, n.ds=$ds ON MATCH SET n.ds=$ds", rxcui=p["rxcui"], name=p["name"], tty=p["tty"], ds=DATASET)
+                            concept_id = conceptID(p.get("name"), source="rxnorm")
+                            sess.run("MERGE (n:RXN {rxcui: $rxcui}) ON CREATE SET n.conceptID=$conceptID, n.name=$name, n.tty=$tty, n.ds=$ds ON MATCH SET n.ds=$ds", rxcui=p["rxcui"], conceptID=concept_id, name=p["name"], tty=p["tty"], ds=DATASET)
                             sess.run("MATCH (p:RXN {rxcui: $p}), (c:RXN {rxcui: $c}) MERGE (p)-[:HAS_CHILD]->(c)", p=m["rxcui"], c=p["rxcui"])
             except Exception as e: log.debug("Skipped paths on CUI %s: %s", m["rxcui"], e)
 
