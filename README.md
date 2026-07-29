@@ -1,8 +1,5 @@
 # codex-cli — Medical Translation Terminal
 
-Test the backend translation engine directly from your terminal.
-No frontend, no Flask, no middleware. Just Neo4j + Python.
-
 ---
 
 ## Setup (once)

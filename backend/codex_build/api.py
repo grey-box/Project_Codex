@@ -25,9 +25,9 @@ import os
 import sys
 import tempfile
 import logging
-from typing import Optional, List
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, status
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -89,6 +89,15 @@ async def handle_populate(data: SourceSelection):
 
 # ── Request / response models ────────────────────────────────────────────────
 
+class SearchResponse(BaseModel):
+    source_id: str
+    source_name: str
+    name: str
+    type: str
+    country: str
+    language: str
+    uploaded_at: str
+
 class TranslateRequest(BaseModel):
     term: str
     lang: Optional[str] = None
@@ -99,7 +108,6 @@ class TranslateRequest(BaseModel):
         "lang": "es",
         "country": "MX",
     }}}
-
 
 class TranslationResult(BaseModel):
     translation: str
@@ -177,6 +185,28 @@ def health():
         api_version=app.version,
     )
 
+@app.post(
+    "/search",
+    response_model=SearchResponse,
+    tags=["search"],
+)
+def search(term: str):
+    try:
+        with driver.session() as session:
+            canonical = resolve_to_base_term(session, term) or term
+    except Exception as exc:
+        log.exception("search raised an unexpected error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return SearchResponse(
+        source_id=0,
+        source_name="",
+        name=canonical,
+        type="drug",
+        country="US",
+        language="en",
+        uploaded_at=""
+    )
 
 @app.post(
     "/translate",

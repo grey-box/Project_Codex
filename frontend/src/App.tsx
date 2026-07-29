@@ -17,9 +17,13 @@ interface SearchResultRow {
 }
 
 interface SearchResponse {
-  query: string
-  count: number
-  results: SearchResultRow[]
+  source_id: string
+  source_name: string
+  name: string
+  type: string
+  country: string
+  language: string
+  uploaded_at: string
 }
 
 interface TranslateResultRow {
@@ -154,15 +158,10 @@ function App() {
       }
 
       const data = (await response.json()) as SearchResponse
-      const rows = Array.isArray(data.results) ? data.results : []
-      const filteredRows =
-        searchLanguage === 'all'
-          ? rows
-          : rows.filter((row) => row.language.toLowerCase() === searchLanguage.toLowerCase())
 
-      setSearchResults(filteredRows)
+      setSearchResults([data])
 
-      if (filteredRows.length === 0) {
+      if (searchResults.length === 0) {
         setSearchError('No results found')
       }
     } catch (err) {
