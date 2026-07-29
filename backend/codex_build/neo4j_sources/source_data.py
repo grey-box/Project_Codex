@@ -477,6 +477,44 @@ def unify_graph(driver):
         
     log.info("<<< Graph combination complete. All sources are now connected.")
 
+def print_databases(driver):
+    log.info("\n" + "="*60 + "\IMPORTED DATABASES\n" + "="*60)
+    
+    # We query for distinct source labels in your system
+    vocab_labels = ["DRUG", "SNOMED", "RXN", "ICD"]
+    
+    with driver.session(database=NEO4J_DB) as sess:
+        for label in vocab_labels:
+            query = f"""
+                MATCH (n:{label})
+                RETURN n.id AS node_id, properties(n) AS all_fields
+                LIMIT 10
+            """
+            results = sess.run(query)
+
+            if label == "DRUG":
+                log.info(f"\n--- Database Records for DrugBank ---")
+            if label == "SNOMED":
+                log.info(f"\n--- Database Records for Snomed ---")
+            if label == "RXN":
+                log.info(f"\n--- Database Records for RxNorm ---")
+            if label == "ICD":
+                log.info(f"\n--- Database Records for ICD 11 ---")
+            
+            has_records = False
+            for record in results:
+                has_records = True
+                node_id = record["node_id"]
+                fields = record["all_fields"]
+                
+                formatted_fields = ", ".join([f"{k}: '{v}'" for k, v in fields.items()])
+                log.info(f"ID: [{node_id}] -> {{ {formatted_fields} }}")
+                
+            if not has_records:
+                log.info(f"No records found for label :{label} (Skipped or Empty).")
+                
+    log.info("\n" + "="*60 + "\nEND OF DATABASE READOUT\n" + "="*60)
+
 def source_data(sources):
     log.info("=" * 60)
     log.info("Creating Singular Medical Knowledge Graph")
@@ -506,6 +544,8 @@ def source_data(sources):
 
         # Link them together to make a singular source
         unify_graph(driver)
+
+        print_databases(driver)
 
     except Exception as e:
         log.critical("Pipeline was terminated prematurely: %s", e)
