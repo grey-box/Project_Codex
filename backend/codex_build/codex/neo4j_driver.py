@@ -47,27 +47,32 @@ def create_translation(session, canonical, brand, country, lang_code, lang_name,
     print(f"Added {canonical} → {translation} ({lang_name}) / Brand: {brand} in {country}")
 
 # Retrieves all translations and related info for a given term
-def get_translation_data(session, canonical, lang=None, country=None):
+def get_translation_data(session, canonical, lang, country):
     query = """
     MATCH (t:Term)
-    WHERE t.canonical = $canonical
+    WHERE t.canonical IS NOT NULL 
+      AND (
+        t.canonical = $canonical 
         OR apoc.text.jaroWinklerDistance(t.canonical, $canonical) < 0.20
+      )
     MATCH (tr:Translation)-[:OF_TERM]->(t)
     MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
-    MATCH (tr)-[:USED_IN]->(c:Country)
-    WHERE ($lang IS NULL OR l.code = $lang)
-        AND ($country IS NULL OR c.iso2 = $country)
+    OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
     OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+    WHERE ($lang IS NULL OR l.code = $lang)
+      AND ($country IS NULL OR c.iso2 = $country)
     RETURN DISTINCT
         tr.text AS translation, 
         l.name AS language,
         b.name AS brand, 
+        l.code AS lang_code,
         c.iso2 AS country,
         c.name AS country_name
     ORDER BY language, country
     """
-     # Runs the query and return the results as a list
-    return list(session.run(query, canonical=canonical, lang=lang, country=country))
+    
+    result = session.run(query, canonical=canonical, lang=lang, country=country)
+    return [r.data() for r in result]
 
 # Finds countries where this term has no translation
 def find_missing_translations(session, term):
@@ -165,7 +170,7 @@ def resolve_to_base_term(session, term):
     """
 
     result = session.run(query, term=term).single()
-    return result["base"] if result else term
+    return result["base"] if result else None
 
 # Checks whether a language pack exists in the database
 def language_exists(lang_code: str) -> bool:

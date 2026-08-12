@@ -2,6 +2,37 @@ import './App.css'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, type KeyboardEvent } from 'react'
 
+interface CountryOption {
+  code: string;
+  label: string;
+}
+
+// Map language codes to available countries
+const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
+  es: [
+    { code: 'MX', label: 'Mexico' },
+    { code: 'ES', label: 'Spain' },
+  ],
+  en: [
+    { code: 'US', label: 'United States' },
+    { code: 'GB', label: 'United Kingdom' },
+    { code: 'CA', label: 'Canada' },
+    { code: 'NG', label: 'Nigeria' },
+  ],
+  fr: [
+    { code: 'FR', label: 'France' },
+    { code: 'CA', label: 'Canada' },
+    { code: 'BE', label: 'Belgium' },
+  ],
+  ru: [
+    { code: 'RU', label: 'Russia' },
+  ],
+  ua: [
+    { code: 'UA', label: 'Ukraine' },
+    { code: 'PL', label: 'Poland' },
+  ],
+};
+
 interface LanguagesResponse {
   languages: string[]
 }
@@ -29,7 +60,7 @@ interface SearchResponse {
 interface TranslateResultRow {
   source_id: string | null
   source_name: string | null
-  name: string
+  translation: string
   type: string
   country: string | null
   language: string
@@ -52,6 +83,7 @@ function App() {
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [searchLanguage, setSearchLanguage] = useState('all')
   const [targetLanguage, setTargetLanguage] = useState('es')
+  const [targetCountry, setTargetCountry] = useState("MX")
   const [translatedName, setTranslatedName] = useState('')
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
@@ -78,6 +110,23 @@ function App() {
       return normalized.toUpperCase()
     }
   }
+
+  const availableCountries = LANGUAGE_COUNTRY_MAP[targetLanguage] ?? [];
+
+  const getFirstCountryForLanguage = (langCode: string): string => {
+    const available = LANGUAGE_COUNTRY_MAP[langCode] ?? [];
+    return available.length > 0 ? available[0].code : '';
+  };
+  
+  const handleLanguageChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = event.target.value;
+    const newCountry = getFirstCountryForLanguage(newLang);
+
+    // Update React state
+    setTargetLanguage(newLang);
+    setTargetCountry(newCountry);
+    setTranslatedName('')
+  };
 
   useEffect(() => {
     let isActive = true
@@ -117,7 +166,7 @@ function App() {
 
   const extractTranslatedName = (rows: TranslateResultRow[]) => {
     const names = rows
-      .map((row) => row.name)
+      .map((row) => row.translation)
       .filter((name): name is string => Boolean(name && name.trim()))
 
     if (names.length === 0) {
@@ -141,7 +190,7 @@ function App() {
     setTranslatedName('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/search`, {
+      const response = await fetch(`${API_BASE_URL}/search?term=${encodeURIComponent(searchQuery.toLowerCase())}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -157,12 +206,14 @@ function App() {
         throw new Error(errorBody?.detail ?? 'Failed to search')
       }
 
-      const data = (await response.json()) as SearchResponse
+      const data = (await response.json()) as SearchResponse | null
 
-      setSearchResults([data])
-
-      if (searchResults.length === 0) {
+      if (!data || !data.name) {
+        setSearchResults([])
         setSearchError('No results found')
+      } else {
+        setSearchResults([data])
+        setSearchError('')
       }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'An error occurred during search')
@@ -178,11 +229,19 @@ function App() {
     }
   }
 
-  const handleTranslateSelected = async () => {
+  const handleTranslateSelected = async (
+    lang = targetLanguage,
+    country = targetCountry
+  ) => {
     if (!selectedResult) {
       setTranslateError('Select a search result first')
       return
     }
+
+    const validCountries = (LANGUAGE_COUNTRY_MAP[lang] ?? []).map((c) => c.code);
+    const finalCountry = validCountries.includes(country)
+      ? country
+      : getFirstCountryForLanguage(lang);
 
     setIsTranslating(true)
     setTranslateError('')
@@ -196,8 +255,8 @@ function App() {
         },
         body: JSON.stringify({
           term: selectedResult.name,
-          source_lang: selectedResult.language,
-          target_lang: targetLanguage,
+          lang: lang,
+          country: finalCountry
         }),
       })
 
@@ -207,9 +266,10 @@ function App() {
       }
 
       const payload = (await response.json()) as TranslateResponse
-      const name = payload.found ? extractTranslatedName(payload.results ?? []) : '-'
+      const results = payload.results ?? []
+      const name = results.length > 0 ? extractTranslatedName(results) : '-'
       setTranslatedName(name)
-      if (!payload.found || name === '-') {
+      if (results.length === 0 || name === '-') {
         setTranslateError('No translation found for the selected language')
       }
     } catch (err) {
@@ -520,8 +580,6 @@ function App() {
                     </tbody>
                   </table>
                 </div>
-              ) : searchQuery && !isLoading ? (
-                <div className="message message--muted">No results found</div>
               ) : (
                 <button type="button" className="results-select">
                   <span>{t('home.sampleMedicine')}</span>
@@ -537,7 +595,7 @@ function App() {
                       <select
                         id="target-language"
                         value={targetLanguage}
-                        onChange={(event) => setTargetLanguage(event.target.value)}
+                        onChange={handleLanguageChange}
                       >
                         {languages.map((lang) => (
                           <option key={lang.code} value={lang.code}>
@@ -546,8 +604,27 @@ function App() {
                         ))}
                       </select>
                     </div>
+                    <div className="field-stack">
+                      <label htmlFor="target-country">Country</label>
+                      <select
+                        id="target-country"
+                        value={targetCountry}
+                        onChange={(e) => setTargetCountry(e.target.value)}
+                        disabled={availableCountries.length === 0}
+                      >
+                        {availableCountries.length > 0 ? (
+                          availableCountries.map((country) => (
+                            <option key={country.code} value={country.code}>
+                              {country.label} ({country.code.toUpperCase()})
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">No countries available</option>
+                        )}
+                      </select>
+                    </div>
                     <div className="search-row">
-                      <button type="button" onClick={handleTranslateSelected} disabled={isTranslating}>
+                      <button type="button" onClick={() => handleTranslateSelected(targetLanguage, targetCountry)} disabled={isTranslating}>
                         {isTranslating ? 'Translating...' : 'Translate Selected'}
                       </button>
                     </div>

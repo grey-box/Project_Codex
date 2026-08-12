@@ -6,7 +6,7 @@
 
 ```bash
 docker compose up --build
-# Wait ~20 seconds for Neo4j, frontend, and api to be ready
+# Wait ~30 seconds for Neo4j, frontend, and api to be ready
 # Optional: check http://localhost:7474 in a browser (login: neo4j / changeme)
 ```
 

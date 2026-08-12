@@ -65,6 +65,7 @@ def smoke_test(sess):
     sess.run("MATCH (s:SmokeTest) DELETE s")
     return c
 
+# Separate by \
 def conceptID(text: str, symptom: str = None, source: str = None) -> str:
     if not text:
         return "unknown"
@@ -73,13 +74,15 @@ def conceptID(text: str, symptom: str = None, source: str = None) -> str:
     text = re.sub(r'[^a-z0-9,-]', '', text)
     text = re.sub(r'-+', '-', text)
 
+    clean_symptom = ""
     if symptom:
         clean_symptom = re.sub(r'[^a-z0-9-]', '', source.lower().strip())
-        text = f"{text}-{clean_symptom}"
-    
+    text = f"{text}-{clean_symptom}"
+
+    clean_source = ""
     if source:
         clean_source = re.sub(r'[^a-z0-9-]', '', source.lower().strip())
-        text = f"{text}-{clean_source}"
+    text = f"{text}-{clean_source}"
         
     return text
 
@@ -478,42 +481,45 @@ def unify_graph(driver):
     log.info("<<< Graph combination complete. All sources are now connected.")
 
 def print_databases(driver):
-    log.info("\n" + "="*60 + "\IMPORTED DATABASES\n" + "="*60)
-    
-    # We query for distinct source labels in your system
-    vocab_labels = ["DRUG", "SNOMED", "RXN", "ICD"]
-    
-    with driver.session(database=NEO4J_DB) as sess:
-        for label in vocab_labels:
-            query = f"""
-                MATCH (n:{label})
-                RETURN n.id AS node_id, properties(n) AS all_fields
-                LIMIT 10
-            """
-            results = sess.run(query)
+    # Create .txt file
+    with open("databases.txt", "w") as file:
+        file.write("\n" + "="*60 + "\nIMPORTED DATABASES\n" + "="*60 + "\n")
+        vocab_labels = ["DRUG", "SNOMED", "RXN", "ICD"]
+        
+        with driver.session(database=NEO4J_DB) as sess:
+            for label in vocab_labels:
+                query = f"""
+                    MATCH (n:{label})
+                    RETURN n.id AS node_id, properties(n) AS all_fields
+                """
+                results = sess.run(query)
 
-            if label == "DRUG":
-                log.info(f"\n--- Database Records for DrugBank ---")
-            if label == "SNOMED":
-                log.info(f"\n--- Database Records for Snomed ---")
-            if label == "RXN":
-                log.info(f"\n--- Database Records for RxNorm ---")
-            if label == "ICD":
-                log.info(f"\n--- Database Records for ICD 11 ---")
-            
-            has_records = False
-            for record in results:
-                has_records = True
-                node_id = record["node_id"]
-                fields = record["all_fields"]
+                if label == "DRUG":
+                    log.info("Importing DrugBank")
+                    file.write(f"--- Database Records for DrugBank ---\n")
+                if label == "SNOMED":
+                    log.info("Importing SNOMED")
+                    file.write(f"--- Database Records for Snomed ---\n")
+                if label == "RXN":
+                    log.info("Importing RxNorm")
+                    file.write(f"--- Database Records for RxNorm ---\n")
+                if label == "ICD":
+                    log.info("Importing ICD 11")
+                    file.write(f"--- Database Records for ICD 11 ---\n")
                 
-                formatted_fields = ", ".join([f"{k}: '{v}'" for k, v in fields.items()])
-                log.info(f"ID: [{node_id}] -> {{ {formatted_fields} }}")
+                has_records = False
+                for record in results:
+                    has_records = True
+                    node_id = record["node_id"]
+                    fields = record["all_fields"]
+                    
+                    formatted_fields = ", ".join([f"{k}: '{v}'" for k, v in fields.items()])
+                    file.write(f"ID: [{node_id}] -> {{ {formatted_fields} }}\n")
+                    
+                if not has_records:
+                    file.write(f"No records found for label :{label} (Skipped or Empty).\n")
                 
-            if not has_records:
-                log.info(f"No records found for label :{label} (Skipped or Empty).")
-                
-    log.info("\n" + "="*60 + "\nEND OF DATABASE READOUT\n" + "="*60)
+        file.write("="*60 + "\nEND OF DATABASE READOUT\n" + "="*60)
 
 def source_data(sources):
     log.info("=" * 60)

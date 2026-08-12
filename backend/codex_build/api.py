@@ -30,6 +30,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from pathlib import Path
+import ast
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -52,6 +55,7 @@ try:
         find_missing_brands,
         get_equivalent_brands,
         resolve_to_base_term,
+        get_translation_data
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -61,10 +65,38 @@ except Exception as exc:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 log = logging.getLogger("codex.api")
 
+TARGET_FOLDER_PATH = Path("./codex/language_packs")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    demo_load()
+    print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
+    
+    if TARGET_FOLDER_PATH.exists() and TARGET_FOLDER_PATH.is_dir():
+        # Iterate over every file in the target folder
+        for file_path in TARGET_FOLDER_PATH.iterdir():
+            if file_path.is_file():
+                print(f"Found file: {file_path.name}")
+                
+                # Open the local file from disk
+                with open(file_path, "rb") as f:
+                    # Construct a FastAPI UploadFile object dynamically
+                    upload_file = UploadFile(
+                        filename=file_path.name,
+                        file=f
+                    )
+                    
+                    # Call your load_pack function for each file
+                    await load_pack(upload_file)
+    else:
+        print(f"Warning: Directory '{TARGET_FOLDER_PATH}' does not exist.")
+
+    yield 
+
 app = FastAPI(
     title="Codex Medical Translation API",
     description="Translate drug names across languages and countries using Neo4j.",
     version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -100,8 +132,8 @@ class SearchResponse(BaseModel):
 
 class TranslateRequest(BaseModel):
     term: str
-    lang: Optional[str] = None
-    country: Optional[str] = None
+    lang: str
+    country: str
 
     model_config = {"json_schema_extra": {"example": {
         "term": "ibuprofen",
@@ -118,12 +150,6 @@ class TranslationResult(BaseModel):
 
 class TranslateResponse(BaseModel):
     canonical: str
-    requested_language: Optional[str]
-    used_language: Optional[str]
-    fallback_used: bool
-    fallback_type: Optional[str] = None
-    fallback_chain: Optional[list[str]] = None
-    missing_language_pack: Optional[bool] = None
     results: list[TranslationResult]
 
 
@@ -187,19 +213,21 @@ def health():
 
 @app.post(
     "/search",
-    response_model=SearchResponse,
+    response_model=SearchResponse | None,
     tags=["search"],
 )
 def search(term: str):
     try:
         with driver.session() as session:
-            canonical = resolve_to_base_term(session, term) or term
+            canonical = resolve_to_base_term(session, term)
+            if not canonical:
+                return None
     except Exception as exc:
         log.exception("search raised an unexpected error")
         raise HTTPException(status_code=500, detail=str(exc))
 
     return SearchResponse(
-        source_id=0,
+        source_id="0",
         source_name="",
         name=canonical,
         type="drug",
@@ -220,19 +248,14 @@ def translate_term(body: TranslateRequest):
 
     - Resolves brand names and fuzzy input to a canonical term first.
     - Falls back through configured language chains if no direct match.
-    - Falls back to English as the last resort.
-    - Returns `missing_language_pack: true` if the language has no data loaded.
 
     JSON SETUP
       incoming
-      { "term": "ibuprofen", "lang": "es", "country": "MX" }
+      { "term": "ibuprofen", "source_lang": "en", "target_lang": "es", "country": "MX" }
       
       outgoing
       {
       "canonical": "ibuprofen",
-      "requested_language": "es",
-      "used_language": "es",
-      "fallback_used": false,
       "results": [
         { "translation": "ibuprofeno", "language": "Spanish", "brand": "Advil", "country": "MX" }
       ]
@@ -241,29 +264,49 @@ def translate_term(body: TranslateRequest):
     log.info("Translate  term=%r  lang=%s  country=%s", body.term, body.lang, body.country)
 
     try:
-        raw = translate(term=body.term, lang=body.lang, country=body.country)
+        raw_data = translate(term=body.term, lang=body.lang, country=body.country)
+        if isinstance(raw_data, str):
+            raw = ast.literal_eval(raw_data)
+        else:
+            raw = raw_data
     except Exception as exc:
         log.exception("translate() raised an unexpected error")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    raw_results = raw.get("results", []) if isinstance(raw, dict) else []
+    target_lang_str = (body.lang or "").strip().lower()
+    LANGUAGE_MAP = {
+        "fr": "french",
+        "es": "spanish",
+        "en": "english",
+        "ru": "russian",
+        "ua": "ukrainian",
+    }
+    mapped_lang_name = LANGUAGE_MAP.get(target_lang_str, target_lang_str)
+
     results = [
         TranslationResult(
-            translation=r["translation"],
-            language=r["language"],
+            translation=r.get("translation", ""),
+            language=r.get("language", ""),
             brand=r.get("brand"),
             country=r.get("country"),
         )
-        for r in raw.get("results", [])
+        for r in raw_results
+        if (
+            not body.lang 
+            or str(r.get("language", "")).lower() == target_lang_str
+            or str(r.get("lang_code", "")).lower() == target_lang_str
+            or str(r.get("language_code", "")).lower() == target_lang_str
+            or str(r.get("language", "")).lower() == mapped_lang_name
+        )
+        and (
+            not body.country 
+            or str(r.get("country", "")).lower() == body.country.lower()
+        )
     ]
 
     return TranslateResponse(
-        canonical=raw.get("canonical", body.term),
-        requested_language=raw.get("requested_language"),
-        used_language=raw.get("used_language"),
-        fallback_used=raw.get("fallback_used", False),
-        fallback_type=raw.get("fallback_type"),
-        fallback_chain=raw.get("fallback_chain"),
-        missing_language_pack=raw.get("missing_language_pack"),
+        canonical=body.term,
         results=results,
     )
 
