@@ -27,7 +27,7 @@ const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
   ru: [
     { code: 'RU', label: 'Russia' },
   ],
-  ua: [
+  uk: [
     { code: 'UA', label: 'Ukraine' },
     { code: 'PL', label: 'Poland' },
   ],

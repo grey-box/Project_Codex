@@ -40,6 +40,8 @@ def create_translation(session, canonical, brand, country, lang_code, lang_name,
         MERGE (b:Brand {name:$brand})
         MERGE (b)-[:SOLD_IN]->(c)
         MERGE (tr)-[:HAS_BRAND]->(b)
+        MERGE (t)-[:SOLD_AS]->(b)
+        MERGE (b)-[:CONTAINS]->(t)
         """
         session.run(query, canonical=canonical, translation=translation, country=country, brand=brand)
 
@@ -155,12 +157,20 @@ def resolve_to_base_term(session, term):
     WHERE t.canonical = $term
     RETURN t.canonical AS base
     UNION
+    MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+    WHERE b.name = $term
+    RETURN t.canonical AS base
+    UNION
     MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
     WHERE tr.text = $term
     RETURN t.canonical AS base
     UNION
     MATCH (t:Term)
     WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
+    RETURN t.canonical AS base
+    UNION
+    MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+    WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
     RETURN t.canonical AS base
     UNION
     MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)

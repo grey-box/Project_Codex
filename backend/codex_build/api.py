@@ -280,7 +280,7 @@ def translate_term(body: TranslateRequest):
         "es": "spanish",
         "en": "english",
         "ru": "russian",
-        "ua": "ukrainian",
+        "uk": "ukrainian",
     }
     mapped_lang_name = LANGUAGE_MAP.get(target_lang_str, target_lang_str)
 
