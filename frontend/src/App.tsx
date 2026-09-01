@@ -89,10 +89,10 @@ function App() {
   const [searchError, setSearchError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
-  const [exportLanguage, setExportLanguage] = useState<string>(availableLanguages[0])
-  const [exportError, setExportError] = useState('')
-  const [isExporting, setIsExporting] = useState(false)
-  const [exportMessage, setExportMessage] = useState('')
+  const [importError, setImportError] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [importLanguage, setImportLanguage] = useState<File | null>(null)
+  const [importMessage, setImportMessage] = useState('')
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -128,10 +128,13 @@ function App() {
     setTranslatedName('')
   };
 
-  useEffect(() => {
-    let isActive = true
+  const handleImportLanguageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setImportLanguage(event.target.files[0])
+    }
+  };
 
-    const loadLanguages = async () => {
+  const loadLanguages = async (isActive: boolean) => {
       try {
         const response = await fetch(`${API_BASE_URL}/languages`)
         if (!response.ok) {
@@ -146,7 +149,6 @@ function App() {
 
         setAvailableLanguages(nextLanguages)
         setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
-        setExportLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
       } catch {
         if (!isActive) {
           return
@@ -157,7 +159,10 @@ function App() {
       }
     }
 
-    void loadLanguages()
+  useEffect(() => {
+    let isActive = true
+
+    loadLanguages(isActive)
 
     return () => {
       isActive = false
@@ -279,65 +284,37 @@ function App() {
     }
   }
 
-  const rowsToCsv = (rows: any[]) => {
-    if (!rows || rows.length === 0) return ''
-    const headerOrder = ['concept_id', 'source_id', 'source_name', 'name', 'type', 'country', 'language', 'uploaded_at']
-    const keys = Array.from(new Set([...headerOrder, ...Object.keys(rows[0] || {})]))
-    const escapeVal = (v: any) => {
-      if (v === null || v === undefined) return ''
-      const s = String(v)
-      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
-        return `"${s.replace(/"/g, '""')}"`
-      }
-      return s
-    }
-    const lines = [keys.join(',')]
-    rows.forEach((r) => {
-      lines.push(keys.map((k) => escapeVal((r as any)[k])).join(','))
-    })
-    return lines.join('\n')
-  }
-
-  const downloadBlob = (filename: string, text: string) => {
-    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-  }
-
-  const fetchAndDownload = async (urlSuffix: string, filename: string) => {
-    setIsExporting(true)
-    setExportError('')
-    setExportMessage('')
-    try {
-      const res = await fetch(`${API_BASE_URL}${urlSuffix}`)
-      if (!res.ok) {
-        const err = await res.json().catch(() => null)
-        throw new Error(err?.detail ?? 'Export failed')
-      }
-      const data = await res.json()
-      const rows = Array.isArray(data.rows) ? data.rows : data.results ?? []
-      const csv = rowsToCsv(rows)
-      if (!csv) throw new Error('No rows to export')
-      downloadBlob(filename, csv)
-      setExportMessage(`Downloaded ${rows.length} rows`)
-    } catch (err) {
-      setExportError(err instanceof Error ? err.message : 'Export failed')
-    } finally {
-      setIsExporting(false)
-    }
-  }
-  const downloadByLanguage = () => {
-    if (!exportLanguage.trim()) {
-      setExportError('Choose a language')
+  const handleImportLanguageLocal = async () => {
+    setImportMessage('')
+    setImportError('')
+    if (!importLanguage) {
+      setImportError('Please select a language file!')
       return
     }
-    fetchAndDownload(`/csv/language/${encodeURIComponent(exportLanguage.trim())}`, `codex_language_${exportLanguage.trim()}.csv`)
+    setIsImporting(true)
+    const formData = new FormData()
+    formData.append("file", importLanguage)
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/packs/load`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+          throw new Error('Failed to import language')
+      }
+      
+      const data = await response.json();
+      
+      loadLanguages(true)
+      setImportError('')
+      setImportMessage(`Success! ${data.message}`);
+    } catch (error) {
+      setImportError(`Error: ${(error as Error).message}`);
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   const languages = availableLanguages.map((code) => ({ code, label: getLanguageLabel(code) }))
@@ -652,30 +629,20 @@ function App() {
           </div>
         </section>
 
-        <section className="tool-panel" style={{ marginTop: 20 }}>
-          <h2>Export CSV</h2>
+        <section className="tool-panel">
           <div className="search-surface">
-            <div className="search-grid">
-              <div className="field-stack">
-                <label htmlFor="export-language">Language</label>
-                <select id="export-language" value={exportLanguage} onChange={(e) => setExportLanguage(e.target.value)}>
-                  {availableLanguages.map((l) => (
-                    <option key={l} value={l}>
-                      {getLanguageLabel(l)} ({l})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field-stack" style={{ alignSelf: 'end' }}>
-                <button type="button" className="translate-btn" onClick={downloadByLanguage} disabled={isExporting}>{isExporting ? 'Downloading...' : 'Download CSV'}</button>
+            <h1>{t('home.importTitle')}</h1>
+              <form onSubmit={handleImportLanguageLocal}>
+                <input type="file" onChange={handleImportLanguageChange} />
+                <button type="submit" disabled={!importLanguage}>Upload</button>
+                <div className="field-stack" style={{ alignSelf: 'end' }}></div>
+              </form>
+              <div style={{ marginTop: 10 }}>
+                {isImporting && <div className="message message--info">Importing language...</div>}
+                {importError && <div className="message message--error">{importError}</div>}
+                {importMessage && <div className="message message--success">{importMessage}</div>}
               </div>
             </div>
-            <div style={{ marginTop: 10 }}>
-              {isExporting && <div className="message message--info">Preparing CSV...</div>}
-              {exportError && <div className="message message--error">{exportError}</div>}
-              {exportMessage && <div className="message message--success">{exportMessage}</div>}
-            </div>
-          </div>
         </section>
 
       </main>
