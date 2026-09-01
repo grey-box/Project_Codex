@@ -68,7 +68,6 @@ log = logging.getLogger("codex.api")
 TARGET_FOLDER_PATH = Path("./codex/language_packs")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    demo_load()
     print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
     
     if TARGET_FOLDER_PATH.exists() and TARGET_FOLDER_PATH.is_dir():
@@ -110,7 +109,10 @@ app.add_middleware(
 class SourceSelection(BaseModel):
     selectedSources: List[str]
 
-@app.post("/api/populate-sources")
+@app.post(
+    "/api/populate-sources",
+    tags=["data"]
+)
 async def handle_populate(data: SourceSelection):
     sources = data.selectedSources
     
@@ -214,7 +216,7 @@ def health():
 @app.post(
     "/search",
     response_model=SearchResponse | None,
-    tags=["search"],
+    tags=["translation"],
 )
 def search(term: str):
     try:
@@ -346,30 +348,6 @@ def audit_term(term: str):
             for e in equivalents
         ],
     )
-
-
-@app.post(
-    "/demo/load",
-    response_model=MessageResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Load built-in sample data",
-    tags=["data"],
-)
-def demo_load():
-    """
-    Loads Ibuprofen, Paracetamol, and Amoxicillin with translations across
-    US, GB, FR, ES, MX, NG, IN into Neo4j.
-
-    Safe to call multiple times (uses MERGE — no duplicates).
-    """
-    log.info("Loading demo data")
-    try:
-        result = load_demo_data()
-        return MessageResponse(message=result.get("status", "Demo data loaded"))
-    except Exception as exc:
-        log.exception("demo_load failed")
-        raise HTTPException(status_code=500, detail=str(exc))
-
 
 @app.post(
     "/packs/load",
