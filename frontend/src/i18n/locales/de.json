@@ -24,6 +24,7 @@
     "localizeTitle": "Medikamentennamen übersetzen/lokalisieren...",
     "targetLanguage": "Zielsprache",
     "targetPlaceholder": "Zielsprache",
-    "translationPlaceholder": "Die Übersetzung wird hier angezeigt"
+    "translationPlaceholder": "Die Übersetzung wird hier angezeigt",
+    "importTitle": "Sprachdatei importieren"
   }
 }

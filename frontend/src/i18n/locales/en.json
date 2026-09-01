@@ -24,6 +24,7 @@
     "localizeTitle": "Translate/Localize drug name...",
     "targetLanguage": "Target Language",
     "targetPlaceholder": "Target Language",
-    "translationPlaceholder": "Translation will appear here"
+    "translationPlaceholder": "Translation will appear here",
+    "importTitle": "Import Language File"
   }
 }
