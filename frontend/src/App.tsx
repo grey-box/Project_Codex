@@ -17,7 +17,6 @@ const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
     { code: 'US', label: 'United States' },
     { code: 'GB', label: 'United Kingdom' },
     { code: 'CA', label: 'Canada' },
-    { code: 'NG', label: 'Nigeria' },
   ],
   fr: [
     { code: 'FR', label: 'France' },
@@ -76,7 +75,7 @@ interface TranslateResponse {
 }
 
 const API_BASE_URL = 'http://localhost:8000'
-const FALLBACK_LANGUAGES = ['en', 'es', 'fr', 'de']
+const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
 
 function App() {
   const { t, i18n } = useTranslation()
@@ -98,6 +97,7 @@ function App() {
   const [importLanguage, setImportLanguage] = useState<File | null>(null)
   const [importMessage, setImportMessage] = useState('')
   const [hasBrand, setHasBrand] = useState(false)
+  const [progress, setProgress] = useState<string>('');
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -367,20 +367,50 @@ function App() {
       sources.push("icd11")
     }
     setIsPopulationLoading(true);
-    try{
+    setProgress('Starting population...');
+    try {
       const response = await fetch('http://localhost:8000/api/populate-sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selectedSources: sources }),
       });
 
-      const data = await response.json();
-      if (data.status === "success") {
-        alert(data.message); 
+      if (!response.body) return;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // Keep the incomplete last line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+
+          try {
+            const cleanLine = trimmed.startsWith('data:') ? trimmed.replace(/^data:\s*/, '') : trimmed;
+            const parsed = JSON.parse(cleanLine);
+
+            if (parsed.progress) {
+              setProgress(parsed.progress); 
+            }
+          } catch (err) {
+            console.error('Error parsing JSON chunk:', err);
+          }
+        }
       }
+      setProgress('Successfully populated Neo4j!');
     } catch (error) {
-      console.error("Error calling Python function:", error);
-      alert("Something went wrong on the backend.");
+      console.error('Error during streaming:', error);
+      setProgress('Error processing request.');
     } finally {
       setIsPopulationLoading(false);
     }
@@ -493,6 +523,8 @@ function App() {
             {t('sides.populateButton')}
           </button>
         </section>
+
+        <h3 className="populate-loading-label">{progress}</h3>
       </main>
 
       <main className="content">

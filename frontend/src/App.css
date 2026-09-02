@@ -204,6 +204,22 @@
   left: 32px;
 }
 
+.populate-loading-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center; 
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #0f1826;
+  position: absolute;
+  top: 450px;
+  left: 10px;
+  width: 300px;
+  height: 5vh;
+  box-sizing: border-box;
+}
+
 .populateDrugbank-checkbox {
   display: flex;
   align-items: center;

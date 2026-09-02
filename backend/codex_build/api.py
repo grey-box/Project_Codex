@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 import ast
@@ -62,7 +62,7 @@ try:
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
-    sys.exit(1)
+    raise exc
 
 # ── App setup ────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
@@ -118,11 +118,15 @@ class SourceSelection(BaseModel):
 )
 async def handle_populate(data: SourceSelection):
     sources = data.selectedSources
-    
-    source_data(sources)
-    
-    return {"status": "success", "message": "Successfully populated Neo4j!"}
-
+    return StreamingResponse(
+        source_data(sources),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no", 
+            "Connection": "keep-alive",
+        }
+    )
 
 # ── Request / response models ────────────────────────────────────────────────
 
@@ -426,7 +430,6 @@ def list_languages():
     except Exception as exc:
         log.exception("list_languages failed")
         raise HTTPException(status_code=500, detail=str(exc))
-
 
 # ── Entry point (for running directly) ──────────────────────────────────────
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ import time
 import uuid
 import re
 import logging
+import json
+import asyncio
 from datetime import datetime, timezone
 from collections import deque
 
@@ -91,7 +93,7 @@ def conceptID(text: str, symptom: str = None, source: str = None) -> str:
 # DrugBank
 # --------------------
 
-def drugbank(driver):
+async def drugbank(driver):
     DRUGBANK_API_BASE = os.getenv("DRUGBANK_API_BASE", "https://api.drugbank.com/discovery/v1")
     DRUGBANK_API_KEY = os.getenv("DRUGBANK_API_KEY")
     if not DRUGBANK_API_KEY:
@@ -166,7 +168,11 @@ def drugbank(driver):
         sess.run("MERGE (n:DRUG {id: $id}) ON CREATE SET n.code = $id, n.title = $title, n.ds = $ds", id=ROOT_ID, title=ROOT_TITLE, ds=DATASET)
         sess.run("MATCH (i:Ingest {uid: $uid}), (r:DRUG {id: $rootId}) MERGE (i)-[:ROOT]->(r)", uid=run_uid, rootId=ROOT_ID)
 
+        pages = 0
         for d, code, title in iter_drugs():
+            if pages % 100 == 0:
+                yield json.dumps({"progress": f"Processing page {pages} of ??? for DrugBank"}) + "\n"
+                await asyncio.sleep(0)
             symptoms = d.get("symptoms", [])
             for symptom_name in symptoms:
                 if not symptom_name:
@@ -175,7 +181,10 @@ def drugbank(driver):
 
                 sess.run("MERGE (n:DRUG {id: $id}) ON CREATE SET n.conceptID=$conceptID, n.code=$id, n.title=$t, n.ds=$ds ON MATCH SET n.ds=$ds", id=code, conceptID=concept_id, t=title or None, ds=DATASET)
                 sess.run("MATCH (p:DRUG {id: $parent}), (c:DRUG {id: $child}) MERGE (p)-[:HAS_CHILD]->(c)", parent=ROOT_ID, child=code)
+            pages += 1
 
+        yield json.dumps({"progress": "DrugBank completed successfully!"}) + "\n"
+        await asyncio.sleep(0)
         rec = sess.run("MATCH (n:DRUG {ds: $ds}) WITH count(n) AS n MATCH (:DRUG {ds: $ds})-[rel:HAS_CHILD]->(:DRUG {ds: $ds}) RETURN n, count(rel) AS r", ds=DATASET).single()
         sess.run("MATCH (i:Ingest {uid: $uid}) SET i.finishedAt = $finishedAt, i.nodeCount = $nodeCount, i.edgeCount = $edgeCount", uid=run_uid, finishedAt=utc_iso(), nodeCount=rec["n"], edgeCount=rec["r"])
 
@@ -183,7 +192,7 @@ def drugbank(driver):
 # SNOMED
 # --------------------
 
-def snomed(driver):
+async def snomed(driver):
     SNOWSTORM_BASE = os.getenv("SNOWSTORM_BASE", "https://snowstorm.ihtsdotools.org/snowstorm/snomed-ct")
     SNOMED_BRANCH = os.getenv("SNOMED_BRANCH", "MAIN")
     SNOMED_ROOT_ID = os.getenv("SNOMED_ROOT_ID", "404684003")
@@ -254,7 +263,11 @@ def snomed(driver):
         queue = deque([(SNOMED_ROOT_ID, None)])
         visited = set()
 
+        pages = 0
         while queue:
+            if pages % 100 == 0:
+                yield json.dumps({"progress": f"Processing page {pages} of {len(queue)} for SNOMED"}) + "\n"
+                await asyncio.sleep(0)
             cid, parent = queue.popleft()
             if cid in visited: continue
             visited.add(cid)
@@ -272,7 +285,10 @@ def snomed(driver):
                     if ch_id and ch_id not in visited: queue.append((ch_id, cid))
             except Exception as e:
                 log.warning("Failed step processing SNOMED code %s: %s", cid, e)
+            pages += 1
 
+        yield json.dumps({"progress": "SNOMED completed successfully!"}) + "\n"
+        await asyncio.sleep(0)
         rec = sess.run("MATCH (n:SNOMED {ds: $ds}) WITH count(n) AS n MATCH (:SNOMED {ds: $ds})-[rel:HAS_CHILD]->(:SNOMED {ds: $ds}) RETURN n, count(rel) AS r", ds=DATASET).single()
         sess.run("MATCH (i:Ingest {uid: $uid}) SET i.finishedAt=$f, i.nodeCount=$n, i.edgeCount=$r", uid=run_uid, f=utc_iso(), n=rec["n"], r=rec["r"])
 
@@ -280,7 +296,7 @@ def snomed(driver):
 # RXNORM
 # --------------------
 
-def rxnorm(driver):
+async def rxnorm(driver):
     PRESCRIBABLE_ONLY = os.getenv("RXN_PRESCRIBABLE", "1") == "1"
     RXN_RELEASE_ID = os.getenv("RXN_RELEASE_ID", "current")
     DATASET = f"RxNorm:{'prescribable' if PRESCRIBABLE_ONLY else 'all'}:{RXN_RELEASE_ID}"
@@ -321,7 +337,9 @@ def rxnorm(driver):
             sess.run("MATCH (p:RXN {rxcui: 'ROOT'}), (c:RXN {rxcui: $c}) MERGE (p)-[:HAS_CHILD]->(c)", c=m["rxcui"])
 
         for idx, m in enumerate(roots):
-            if idx % 250 == 0: log.info("RxNorm build processing roots: %d / %d", idx, len(roots))
+            if idx % 250 == 0: 
+                yield json.dumps({"progress": f"Processing page {idx} of {len(roots)} for RXNorm"}) + "\n"
+                await asyncio.sleep(0)
             try:
                 rel_js = rx_get(f"/rxcui/{m['rxcui']}/allrelated.json")
                 groups = rel_js.get("allRelatedGroup", {}).get("conceptGroup", [])
@@ -337,6 +355,8 @@ def rxnorm(driver):
                             sess.run("MATCH (p:RXN {rxcui: $p}), (c:RXN {rxcui: $c}) MERGE (p)-[:HAS_CHILD]->(c)", p=m["rxcui"], c=p["rxcui"])
             except Exception as e: log.debug("Skipped paths on CUI %s: %s", m["rxcui"], e)
 
+        yield json.dumps({"progress": "RXNorm completed successfully!"}) + "\n"
+        await asyncio.sleep(0)
         rec = sess.run("MATCH (n:RXN {ds: $ds}) WITH count(n) AS n MATCH (:RXN {ds: $ds})-[rel:HAS_CHILD]->(:RXN {ds: $ds}) RETURN n, count(rel) AS r", ds=DATASET).single()
         sess.run("MATCH (i:Ingest {uid: $uid}) SET i.finishedAt=$f, i.nodeCount=$n, i.edgeCount=$r", uid=run_uid, f=utc_iso(), n=rec["n"], r=rec["r"])
 
@@ -344,7 +364,7 @@ def rxnorm(driver):
 # ICD-11
 # --------------------
 
-def icd11(driver):
+async def icd11(driver):
     ICD_CLIENT_ID = os.getenv("ICD_CLIENT_ID")
     ICD_CLIENT_SECRET = os.getenv("ICD_CLIENT_SECRET")
     if not ICD_CLIENT_ID or not ICD_CLIENT_SECRET:
@@ -410,7 +430,11 @@ def icd11(driver):
 
         queue = deque([(ch21_id, None)])
         visited = set()
+        pages = 0
         while queue:
+            if pages % 10 == 0:
+                yield json.dumps({"progress": f"Processing page {pages} of {len(queue)} for ICD11"}) + "\n"
+                await asyncio.sleep(0)
             nid, parent = queue.popleft()
             if nid in visited: continue
             visited.add(nid)
@@ -427,7 +451,10 @@ def icd11(driver):
             for child in children:
                 cid, _, _ = get_node_details(child)
                 if cid and cid not in visited: queue.append((cid, nid))
+            pages += 1
 
+        yield json.dumps({"progress": "ICD11 completed successfully!"}) + "\n"
+        await asyncio.sleep(0)
         rec = sess.run("MATCH (n:ICD {ds: $ds}) WITH count(n) AS n MATCH (:ICD {ds: $ds})-[rel:HAS_CHILD]->(:ICD {ds: $ds}) RETURN n, count(rel) AS r", ds=DATASET).single()
         sess.run("MATCH (i:Ingest {uid: $uid}) SET i.finishedAt=$f, i.nodeCount=$n, i.edgeCount=$r", uid=run_uid, f=utc_iso(), n=rec["n"], r=rec["r"])
 
@@ -521,7 +548,7 @@ def print_databases(driver):
                 
         file.write("="*60 + "\nEND OF DATABASE READOUT\n" + "="*60)
 
-def source_data(sources):
+async def source_data(sources):
     log.info("=" * 60)
     log.info("Creating Singular Medical Knowledge Graph")
     log.info("=" * 60)
@@ -537,16 +564,29 @@ def source_data(sources):
         # Ingest separate sources into the single database based on user choice
         if "drugbank" in sources:
             log.info("Ingesting DrugBank.")
-            drugbank(driver)
+            yield json.dumps({"progress": "Ingesting DrugBank..."}) + "\n"
+            await asyncio.sleep(0)
+            async for chunk in drugbank(driver):
+                yield chunk
         if "snomed" in sources:
             log.info("Ingesting SNOMED.")
-            snomed(driver)
+            yield json.dumps({"progress": "Ingesting SNOMED..."}) + "\n"
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            async for chunk in snomed(driver):
+                yield chunk
         if "rxnorm" in sources:
             log.info("Ingesting RXNorm.")
-            rxnorm(driver)
+            yield json.dumps({"progress": "Ingesting RXNorm..."}) + "\n"
+            await asyncio.sleep(0)
+            async for chunk in rxnorm(driver):
+                yield chunk
         if "icd11" in sources:
             log.info("Ingesting ICD11.")
-            icd11(driver)
+            yield json.dumps({"progress": "Ingesting ICD11..."}) + "\n"
+            await asyncio.sleep(0)
+            async for chunk in icd11(driver):
+                yield chunk
 
         # Link them together to make a singular source
         unify_graph(driver)
@@ -555,7 +595,7 @@ def source_data(sources):
 
     except Exception as e:
         log.critical("Pipeline was terminated prematurely: %s", e)
-        sys.exit(2)
+        raise e
     finally:
         driver.close()
 
