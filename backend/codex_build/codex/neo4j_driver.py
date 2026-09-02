@@ -153,34 +153,47 @@ def get_equivalent_brands(session, term):
 # Resolves any input (canonical, translated, or fuzzy) to a base canonical term
 def resolve_to_base_term(session, term): 
     query = """
-    MATCH (t:Term)
-    WHERE t.canonical = $term
-    RETURN t.canonical AS base
-    UNION
-    MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-    WHERE b.name = $term
-    RETURN t.canonical AS base
-    UNION
-    MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-    WHERE tr.text = $term
-    RETURN t.canonical AS base
-    UNION
-    MATCH (t:Term)
-    WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
-    RETURN t.canonical AS base
-    UNION
-    MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-    WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
-    RETURN t.canonical AS base
-    UNION
-    MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-    WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
-    RETURN t.canonical AS base
-    
+    CALL {
+        MATCH (t:Term)
+        WHERE t.canonical = $term
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE b.name = $term
+        RETURN b.name AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+        WHERE tr.text = $term
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)
+        WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
+        RETURN b.name AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+        WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base
+    }
+    WITH collect({brand: brand, base: base}) AS results
+    WITH results, any(r IN results WHERE r.brand = r.base) AS exactMatch
+    UNWIND results AS row
+    WITH row, exactMatch
+    WHERE exactMatch = false OR row.brand = row.base
+    RETURN row.brand AS brand, row.base AS base
     """
 
     result = session.run(query, term=term).single()
-    return result["base"] if result else None
+    if not result:
+        return None
+    elif (result["base"] == result["brand"]):
+        return result["base"], None
+    else:
+        return result["base"], result["brand"]
+        
 
 # Checks whether a language pack exists in the database
 def language_exists(lang_code: str) -> bool:
@@ -208,3 +221,71 @@ def get_brands_for_term(session, term):
     """
 
     return list(session.run(query, term=term))
+
+# Retrieves all countries associated with a term
+def get_countries_for_term(session, term):
+    query = """
+    MATCH (t:Term)
+    WHERE t.canonical = $term
+        OR apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
+    MATCH (tr:Translation)-[:OF_TERM]->(t)
+    WHERE toLower(tr.text) = toLower(t.canonical)
+    RETURN collect(DISTINCT tr.country) AS country
+    ORDER BY country
+    """
+
+    result = session.run(query, term=term)
+    countries = result.single().value() if result.peek() else []
+    countries = ', '.join(countries)
+    return countries
+
+# Retrieves all languages associated with a term
+def get_languages_for_term(session, term):
+    query = """
+    MATCH (t:Term)
+    WHERE t.canonical = $term
+        OR apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
+    MATCH (tr:Translation)-[:OF_TERM]->(t)
+    WHERE toLower(tr.text) = toLower(t.canonical)
+    MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    RETURN collect(DISTINCT toUpper(l.code)) AS language
+    ORDER BY language
+    """
+
+    result = session.run(query, term=term)
+    languages = result.single().value() if result.peek() else []
+    languages = ', '.join(languages)
+    return languages
+
+# Retrieves all countries associated with a brand
+def get_countries_for_brand(session, term):
+    query = """
+    MATCH (b:Brand)
+    WHERE b.name = $term
+        OR apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
+    MATCH (tr:Translation)-[:HAS_BRAND]->(b)
+    RETURN collect(DISTINCT tr.country) AS country
+    ORDER BY country
+    """
+
+    result = session.run(query, term=term)
+    countries = result.single().value() if result.peek() else []
+    countries = ', '.join(countries)
+    return countries
+
+# Retrieves all languages associated with a brand
+def get_languages_for_brand(session, term):
+    query = """
+    MATCH (b:Brand)
+    WHERE b.name = $term
+        OR apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
+    MATCH (tr:Translation)-[:HAS_BRAND]->(b)
+    MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    RETURN collect(DISTINCT toUpper(l.code)) AS language
+    ORDER BY language
+    """
+
+    result = session.run(query, term=term)
+    languages = result.single().value() if result.peek() else []
+    languages = ', '.join(languages)
+    return languages

@@ -7,7 +7,8 @@
         {
             "canonical": "Ibuprofen",
             "entries": [
-                {"translation": "Ibuprofeno","country": "ES","brand": "Neobrufen"}
+                {"translation": "Ibuprofeno","country": "ES","brand": "Neobrufen"},
+                {"translation": "Ibuprofeno","country": "MX","brand": "Advil"}
             ]
         },
         {
@@ -19,7 +20,8 @@
         {
             "canonical": "Amoxicillin",
             "entries": [
-                {"translation": "Amoxicilina","country": "ES","brand": "Clamoxyl"}
+                {"translation": "Amoxicilina","country": "ES","brand": "Clamoxyl"},
+                {"translation": "Amoxicilina","country": "ES","brand": "Amoxil"}
             ]
         },
         {

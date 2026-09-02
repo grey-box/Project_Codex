@@ -46,7 +46,6 @@ try:
     from codex.services.translation_service import (
         translate,
         load_language_pack,
-        load_demo_data,
     )
     from codex.neo4j_driver import (
         driver,
@@ -55,7 +54,11 @@ try:
         find_missing_brands,
         get_equivalent_brands,
         resolve_to_base_term,
-        get_translation_data
+        get_translation_data,
+        get_countries_for_term,
+        get_languages_for_term,
+        get_countries_for_brand,
+        get_languages_for_brand,
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -127,6 +130,7 @@ class SearchResponse(BaseModel):
     source_id: str
     source_name: str
     name: str
+    brand: Optional[str]
     type: str
     country: str
     language: str
@@ -221,9 +225,15 @@ def health():
 def search(term: str):
     try:
         with driver.session() as session:
-            canonical = resolve_to_base_term(session, term)
+            canonical, brand = resolve_to_base_term(session, term)
             if not canonical:
                 return None
+            if not brand:
+                countries = get_countries_for_term(session, canonical)
+                languages = get_languages_for_term(session, canonical)
+            else:
+                countries = get_countries_for_brand(session, brand)
+                languages = get_languages_for_brand(session, brand)
     except Exception as exc:
         log.exception("search raised an unexpected error")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -232,9 +242,10 @@ def search(term: str):
         source_id="0",
         source_name="",
         name=canonical,
+        brand=brand,
         type="drug",
-        country="US",
-        language="en",
+        country=countries,
+        language=languages,
         uploaded_at=""
     )
 

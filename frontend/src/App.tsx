@@ -41,8 +41,9 @@ interface SearchResultRow {
   source_id: string | null
   source_name: string | null
   name: string
+  brand: string | null
   type: string
-  country: string | null
+  country: string
   language: string
   uploaded_at: string | null
 }
@@ -51,6 +52,7 @@ interface SearchResponse {
   source_id: string
   source_name: string
   name: string
+  brand: string
   type: string
   country: string
   language: string
@@ -61,6 +63,7 @@ interface TranslateResultRow {
   source_id: string | null
   source_name: string | null
   translation: string
+  brand: string | null
   type: string
   country: string | null
   language: string
@@ -85,6 +88,7 @@ function App() {
   const [targetLanguage, setTargetLanguage] = useState('es')
   const [targetCountry, setTargetCountry] = useState("MX")
   const [translatedName, setTranslatedName] = useState('')
+  const [translatedBrand, setTranslatedBrand] = useState('')
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -93,6 +97,7 @@ function App() {
   const [isImporting, setIsImporting] = useState(false)
   const [importLanguage, setImportLanguage] = useState<File | null>(null)
   const [importMessage, setImportMessage] = useState('')
+  const [hasBrand, setHasBrand] = useState(false)
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -126,6 +131,7 @@ function App() {
     setTargetLanguage(newLang);
     setTargetCountry(newCountry);
     setTranslatedName('')
+    setTranslatedBrand('')
   };
 
   const handleImportLanguageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,6 +187,18 @@ function App() {
     return Array.from(new Set(names)).join(', ')
   }
 
+  const extractTranslatedBrand = (rows: TranslateResultRow[]) => {
+    const brands = rows
+      .map((row) => row.brand)
+      .filter((brand): brand is string => Boolean(brand && brand.trim()))
+
+    if (brands.length === 0) {
+      return '-'
+    }
+
+    return Array.from(new Set(brands)).join(', ')
+  }
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchError('Please enter a search term')
@@ -193,6 +211,7 @@ function App() {
     setSearchResults([])
     setSelectedResult(null)
     setTranslatedName('')
+    setTranslatedBrand('')
 
     try {
       const response = await fetch(`${API_BASE_URL}/search?term=${encodeURIComponent(searchQuery.toLowerCase())}`, {
@@ -217,6 +236,11 @@ function App() {
         setSearchResults([])
         setSearchError('No results found')
       } else {
+        if (data.brand) {
+          setHasBrand(true)
+        } else {
+          setHasBrand(false)
+        }
         setSearchResults([data])
         setSearchError('')
       }
@@ -251,6 +275,7 @@ function App() {
     setIsTranslating(true)
     setTranslateError('')
     setTranslatedName('')
+    setTranslatedBrand('')
 
     try {
       const response = await fetch(`${API_BASE_URL}/translate`, {
@@ -273,7 +298,9 @@ function App() {
       const payload = (await response.json()) as TranslateResponse
       const results = payload.results ?? []
       const name = results.length > 0 ? extractTranslatedName(results) : '-'
+      const brand = results.length > 0 ? extractTranslatedBrand(results) : '-'
       setTranslatedName(name)
+      setTranslatedBrand(brand)
       if (results.length === 0 || name === '-') {
         setTranslateError('No translation found for the selected language')
       }
@@ -522,19 +549,28 @@ function App() {
                   <table className="results-table">
                     <thead>
                       <tr>
-                        <th>Drug Name</th>
+                        {hasBrand && <th>Drug Name for Brand</th>}
+                        {!hasBrand && <th>Drug Name</th>}
+
+                        {hasBrand && <th>Brand</th>}
+
                         <th>Type</th>
-                        <th>Language</th>
-                        <th>Country</th>
+
+                        {hasBrand && <th>Language for Brand</th>}
+                        {!hasBrand && <th>Language</th>}
+
+                        {hasBrand && <th>Countries for Brand</th>}
+                        {!hasBrand && <th>Countries</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {searchResults.map((row, index) => (
                         <tr
-                          key={`${row.name}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
+                          key={`${row.name}-${row.brand}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
                           className={
                             selectedResult &&
                             selectedResult.name === row.name &&
+                            selectedResult.brand === row.brand &&
                             selectedResult.language === row.language &&
                             selectedResult.country === row.country &&
                             selectedResult.source_id === row.source_id
@@ -545,11 +581,14 @@ function App() {
                             setSelectedResult(row)
                             setTranslatedName('')
                             setTranslateError('')
+                            setTranslatedBrand('')
                           }}
                           style={{ cursor: 'pointer' }}
                         >
                           <td>{row.name}</td>
-                          <td>{row.type}</td>
+                          {hasBrand && <td>{row.brand}</td>}
+                          {hasBrand && <td>brand name drug</td>}
+                          {!hasBrand && <td>{row.type}</td>}
                           <td>{row.language}</td>
                           <td>{row.country ?? '-'}</td>
                         </tr>
@@ -611,14 +650,16 @@ function App() {
                     <table className="results-table">
                       <thead>
                         <tr>
-                          <th>Original Drug Name (Language)</th>
+                          <th>Original Drug Name (Languages)</th>
                           <th>Drug Name in {targetLanguage.toUpperCase()}</th>
+                          <th>Drug Brand Name in {targetCountry.toUpperCase()}</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
                           <td>{selectedResult.name} ({selectedResult.language})</td>
                           <td>{translatedName || '-'}</td>
+                          <td>{translatedBrand || '-'}</td>
                         </tr>
                       </tbody>
                     </table>

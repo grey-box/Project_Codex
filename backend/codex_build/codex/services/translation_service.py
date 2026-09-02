@@ -54,7 +54,7 @@ def translate(term: str, lang: str = None, country: str = None):
 
     with driver.session() as session:
         # Resolve user input (canonical, translated, or fuzzy) to base term
-        canonical = resolve_to_base_term(session, term)
+        canonical, _ = resolve_to_base_term(session, term)
         if canonical:
             term = canonical.lower()
     
