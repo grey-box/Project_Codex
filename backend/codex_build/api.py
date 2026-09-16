@@ -322,8 +322,10 @@ def translate_term(body: TranslateRequest):
         )
     ]
 
+    resolved_canonical = raw.get("canonical") if isinstance(raw, dict) and raw.get("canonical") else body.term
+
     return TranslateResponse(
-        canonical=body.term,
+        canonical=resolved_canonical,
         results=results,
     )
 

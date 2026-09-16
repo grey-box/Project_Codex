@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from collections import deque
 
 import requests
-from neo4j import GraphDatabase, WRITE_ACCESS
+from neo4j import GraphDatabase, WRITE_ACCESS  # type: ignore
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
