@@ -166,7 +166,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
 
       {/* Progress / Status Message */}
       {progress && (
-        <div className="mb-3 p-2 bg-slate-100 rounded-md text-xs text-slate-700 font-medium break-words text-center">
+        <div className="mb-3 p-2 bg-slate-100 rounded-md text-xs text-slate-700 font-medium wrap-break-word text-center">
           {progress}
         </div>
       )}

@@ -91,7 +91,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
             size="md"
             onClick={onTranslate}
             isLoading={isTranslating}
-            className="w-full sm:w-auto px-6 h-[42px]"
+            className="w-full sm:w-auto px-6 h-10.5"
           >
             Translate Selected
           </Button>

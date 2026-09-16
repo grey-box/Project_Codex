@@ -80,7 +80,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             size="md"
             onClick={onSearch}
             isLoading={isLoading}
-            className="sm:w-auto w-full px-6 h-[42px] shrink-0"
+            className="sm:w-auto w-full px-6 h-10.5 shrink-0"
           >
             {t('common.search') || 'Search'}
           </Button>
