@@ -204,6 +204,44 @@
   left: 32px;
 }
 
+.key-label {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f1826;
+  position: absolute;
+  top: 550px;
+  left: 20px;
+}
+
+.drugbankAPIKey-row {
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 10px;
+  position: absolute;
+  top: 610px;
+  left: 75px;
+}
+
+.icdID-row {
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 10px;
+  position: absolute;
+  top: 635px;
+  left: 75px;
+}
+
+.icdSecret-row {
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 10px;
+  position: absolute;
+  top: 660px;
+  left: 75px;
+}
+
 .populate-loading-label {
   display: flex;
   align-items: center;
@@ -213,7 +251,7 @@
   font-weight: 500;
   color: #0f1826;
   position: absolute;
-  top: 450px;
+  top: 460px;
   left: 10px;
   width: 300px;
   height: 5vh;

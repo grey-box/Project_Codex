@@ -12,12 +12,15 @@ import re
 import logging
 import json
 import asyncio
+import httpx
 from datetime import datetime, timezone
 from collections import deque
 
 import requests
 from neo4j import GraphDatabase, WRITE_ACCESS
 from dotenv import load_dotenv
+from urllib.request import urlopen, Request
+from urllib.parse import quote
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -93,9 +96,9 @@ def conceptID(text: str, symptom: str = None, source: str = None) -> str:
 # DrugBank
 # --------------------
 
-async def drugbank(driver):
+async def drugbank(driver, drugbankKey):
     DRUGBANK_API_BASE = os.getenv("DRUGBANK_API_BASE", "https://api.drugbank.com/discovery/v1")
-    DRUGBANK_API_KEY = os.getenv("DRUGBANK_API_KEY")
+    DRUGBANK_API_KEY = drugbankKey
     if not DRUGBANK_API_KEY:
         print("ERROR: Missing DRUGBANK_API_KEY in .env"); return
 
@@ -192,28 +195,26 @@ async def drugbank(driver):
 # SNOMED
 # --------------------
 
+# NOTE: Need local download of database for this to work.
 async def snomed(driver):
-    SNOWSTORM_BASE = os.getenv("SNOWSTORM_BASE", "https://snowstorm.ihtsdotools.org/snowstorm/snomed-ct")
+    SNOWSTORM_BASE = os.getenv("SNOWSTORM_BASE", "https://browser.ihtsdotools.org/snowstorm/snomed-ct")
     SNOMED_BRANCH = os.getenv("SNOMED_BRANCH", "MAIN")
     SNOMED_ROOT_ID = os.getenv("SNOMED_ROOT_ID", "404684003")
-    SNOMED_RELEASE = os.getenv("SNOMED_RELEASE", "")
-    
-    limiter = SharedRateLimiter(int(os.getenv("RATE_LIMIT_RPM", "200")))
+    SNOMED_RELEASE = os.getenv("SNOMED_RELEASE", "2026-09-01")
 
+    SNOMED_USER_AGENT = 'logan.watersmith@grey-box.ca'
+    
+    # limiter = SharedRateLimiter(int(os.getenv("RATE_LIMIT_RPM", "200")))
+
+    '''
     def api_get(path, params=None):
         limiter.wait()
         r = requests.get(f"{SNOWSTORM_BASE.rstrip('/')}/{path.lstrip('/')}", headers={"Accept": "application/json", "Accept-Language": os.getenv("ACCEPT_LANGUAGE", "en"), "User_Agent": "logan.watersmith@grey-box.ca"}, params=params or {}, timeout=60)
         r.raise_for_status()
         return r.json()
+    '''
 
-    release = SNOMED_RELEASE or "latest"
-    try:
-        v_data = api_get("codesystems/SNOMEDCT/versions")
-        items = v_data.get("items") if isinstance(v_data, dict) else v_data
-        if items: release = items[0].get("version") or items[0].get("effectiveDate") or "latest"
-    except Exception: pass
-
-    DATASET = f"SNOMEDCT:{SNOMED_BRANCH}:{release}"
+    DATASET = f"SNOMEDCT:{SNOMED_BRANCH}:{SNOMED_RELEASE}"
 
     with driver.session(database=NEO4J_DB, default_access_mode=WRITE_ACCESS) as sess:
         sess.run("CREATE CONSTRAINT snomed_node_id IF NOT EXISTS FOR (n:SNOMED) REQUIRE n.id IS UNIQUE")
@@ -225,7 +226,14 @@ async def snomed(driver):
             sess.run("MATCH (n:SNOMED {ds: $ds}) DETACH DELETE n", ds=DATASET)
 
         run_uid = str(uuid.uuid4())
-        sess.run("CREATE (i:Ingest {uid:$uid, dataset:$ds, release:$rel, startedAt:$s})", uid=run_uid, ds=DATASET, rel=release, s=utc_iso())
+        sess.run("CREATE (i:Ingest {uid:$uid, dataset:$ds, release:$rel, startedAt:$s})", uid=run_uid, ds=DATASET, rel=SNOMED_RELEASE, s=utc_iso())
+
+        def urlopen_with_header(url):
+            # adds User-Agent header otherwise urlopen on its own gets an IP blocked response
+            req = Request(url)
+            req.add_header('User-Agent', SNOMED_USER_AGENT)
+            req.add_header('method', 'GET')
+            return urlopen(req)
 
         def upsert_snomed_node(node):
             cid = node.get("conceptId") or node.get("id") or ""
@@ -240,7 +248,15 @@ async def snomed(driver):
         for attempt in range(retries):
             try:
                 log.info("Fetching SNOMED root concept %s (Attempt %d/%d)...", SNOMED_ROOT_ID, attempt + 1, retries)
-                root_full = api_get(f"browser/{SNOMED_BRANCH}/concepts/{SNOMED_ROOT_ID}")
+                encoded_branch = quote(SNOMED_BRANCH, safe='')
+                root_url = f"{SNOWSTORM_BASE}/browser/{encoded_branch}/{SNOMED_RELEASE}/concepts/{SNOMED_ROOT_ID}"
+                async with httpx.AsyncClient(follow_redirects=True) as client:
+                    response = await(client.get(root_url, headers={'User-Agent': SNOMED_USER_AGENT}))
+                    response.raise_for_status()
+                    root_full = response.json()
+                    # urlopen_with_header(root_url).read()
+                    # root_full = json.loads(response.decode('utf-8'))
+                # root_full = api_get(f"browser/{SNOMED_BRANCH}/concepts/{SNOMED_ROOT_ID}")
                 break  # Success! Break out of the retry loop
             except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError, requests.exceptions.RequestException) as net_err:
                 log.warning("SNOMED Server dropped connection on root lookup: %s", net_err)
@@ -273,12 +289,18 @@ async def snomed(driver):
             visited.add(cid)
 
             try:
-                full = api_get(f"browser/{SNOMED_BRANCH}/concepts/{cid}")
+                # full = api_get(f"browser/{SNOMED_BRANCH}/concepts/{cid}")
+                cid_url = SNOWSTORM_BASE + '/browser/' + SNOMED_BRANCH + '/' + SNOMED_RELEASE + '/concepts/' + cid
+                response = urlopen_with_header(cid_url).read()
+                full = json.loads(response.decode('utf-8'))
                 upsert_snomed_node(full)
                 if parent:
                     sess.run("MATCH (p:SNOMED {id: $p}), (c:SNOMED {id: $c}) MERGE (p)-[:HAS_CHILD]->(c)", p=parent, c=cid)
                 
-                children = api_get(f"browser/{SNOMED_BRANCH}/concepts/{cid}/children")
+                # children = api_get(f"browser/{SNOMED_BRANCH}/concepts/{cid}/children")
+                children_url = SNOWSTORM_BASE + '/browser/' + SNOMED_BRANCH + '/' + SNOMED_RELEASE + '/concepts/' + cid + '/children'
+                response = urlopen_with_header(children_url).read()
+                children = json.loads(response.decode('utf-8'))
                 items = children if isinstance(children, list) else children.get("items", [])
                 for ch in items:
                     ch_id = ch.get("conceptId") or ch.get("id")
@@ -364,9 +386,9 @@ async def rxnorm(driver):
 # ICD-11
 # --------------------
 
-async def icd11(driver):
-    ICD_CLIENT_ID = os.getenv("ICD_CLIENT_ID")
-    ICD_CLIENT_SECRET = os.getenv("ICD_CLIENT_SECRET")
+async def icd11(driver, icdID, icdSecret):
+    ICD_CLIENT_ID = icdID
+    ICD_CLIENT_SECRET = icdSecret
     if not ICD_CLIENT_ID or not ICD_CLIENT_SECRET:
         log.error("Missing ICD credentials. Skipping ICD-11."); return
 
@@ -548,7 +570,7 @@ def print_databases(driver):
                 
         file.write("="*60 + "\nEND OF DATABASE READOUT\n" + "="*60)
 
-async def source_data(sources):
+async def source_data(sources, drugbankKey, icdID, icdSecret):
     log.info("=" * 60)
     log.info("Creating Singular Medical Knowledge Graph")
     log.info("=" * 60)
@@ -566,7 +588,7 @@ async def source_data(sources):
             log.info("Ingesting DrugBank.")
             yield json.dumps({"progress": "Ingesting DrugBank..."}) + "\n"
             await asyncio.sleep(0)
-            async for chunk in drugbank(driver):
+            async for chunk in drugbank(driver, drugbankKey):
                 yield chunk
         if "snomed" in sources:
             log.info("Ingesting SNOMED.")
@@ -585,7 +607,7 @@ async def source_data(sources):
             log.info("Ingesting ICD11.")
             yield json.dumps({"progress": "Ingesting ICD11..."}) + "\n"
             await asyncio.sleep(0)
-            async for chunk in icd11(driver):
+            async for chunk in icd11(driver, icdID, icdSecret):
                 yield chunk
 
         # Link them together to make a singular source
@@ -604,5 +626,8 @@ async def source_data(sources):
     log.info("=" * 60)
 
 if __name__ == "__main__":
-    sources = sys.argv[1:]
-    source_data(sources)
+    sources = sys.argv[1]
+    drugbankKey = sys.argv[2]
+    icdID = sys.argv[3]
+    icdSecret = sys.argv[4]
+    source_data(sources, drugbankKey, icdID, icdSecret)

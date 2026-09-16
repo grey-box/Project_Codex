@@ -78,6 +78,9 @@ const API_BASE_URL = 'http://localhost:8000'
 const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
 
 function App() {
+  const [drugbankAPIKey, setDrugbankAPIKey] = useState<string>('');
+  const [icdID, setIcdID] = useState<string>('');
+  const [icdSecret, setIcdSecret] = useState<string>('');
   const { t, i18n } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
@@ -230,18 +233,21 @@ function App() {
         throw new Error(errorBody?.detail ?? 'Failed to search')
       }
 
-      const data = (await response.json()) as SearchResponse | null
-
-      if (!data || !data.name) {
+      const data = (await response.json()) as SearchResponse[]
+      if (data.length == 0) {
         setSearchResults([])
         setSearchError('No results found')
       } else {
-        if (data.brand) {
-          setHasBrand(true)
-        } else {
-          setHasBrand(false)
+        let results: SearchResultRow[] = [];
+        for (let i = 0; i < data.length; i++) {
+          if (data[i].brand) {
+            setHasBrand(true)
+          } else if (hasBrand) {
+            data[i].brand = ""
+          }
+          results.push(data[i])
         }
-        setSearchResults([data])
+        setSearchResults(results)
         setSearchError('')
       }
     } catch (err) {
@@ -372,7 +378,12 @@ function App() {
       const response = await fetch('http://localhost:8000/api/populate-sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedSources: sources }),
+        body: JSON.stringify({ 
+          selectedSources: sources,
+          DBAPIKey: drugbankAPIKey,
+          ICDID: icdID,
+          ICDSecret: icdSecret
+        }),
       });
 
       if (!response.body) return;
@@ -525,6 +536,38 @@ function App() {
         </section>
 
         <h3 className="populate-loading-label">{progress}</h3>
+
+        <section className="drugbankKey">
+          <h3 className="key-label">{t('sides.keyLabel')}</h3>
+
+          <label className="drugbankAPIKey-row">
+            <input
+              id="drugbankAPIKey"
+              placeholder={t('sides.drugbankAPIKey')}
+              value={drugbankAPIKey}
+              onChange={(e) => setDrugbankAPIKey(e.target.value)}
+            />
+          </label>
+        </section>
+
+        <section className="icd11Keys">
+          <label className="icdID-row">
+            <input
+              id="icdID"
+              placeholder={t('sides.icdID')}
+              value={icdID}
+              onChange={(e) => setIcdID(e.target.value)}
+            />
+          </label>
+          <label className="icdSecret-row">
+            <input
+              id="icdSecret"
+              placeholder={t('sides.icdSecret')}
+              value={icdSecret}
+              onChange={(e) => setIcdSecret(e.target.value)}
+            />
+          </label>
+        </section>
       </main>
 
       <main className="content">
@@ -581,7 +624,7 @@ function App() {
                   <table className="results-table">
                     <thead>
                       <tr>
-                        {hasBrand && <th>Drug Name for Brand</th>}
+                        {hasBrand && <th>Drug/Brand Name</th>}
                         {!hasBrand && <th>Drug Name</th>}
 
                         {hasBrand && <th>Brand</th>}
@@ -619,7 +662,7 @@ function App() {
                         >
                           <td>{row.name}</td>
                           {hasBrand && <td>{row.brand}</td>}
-                          {hasBrand && <td>brand name drug</td>}
+                          {hasBrand && <td>{row.type}</td>}
                           {!hasBrand && <td>{row.type}</td>}
                           <td>{row.language}</td>
                           <td>{row.country ?? '-'}</td>
