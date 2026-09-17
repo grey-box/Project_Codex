@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Select, Alert } from '../ui'
 import type { SearchResultRow, LanguageOption, CountryOption } from '../../types/codex'
 
@@ -31,6 +32,8 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
   translatedBrand,
   translateError,
 }) => {
+  const { t } = useTranslation()
+
   const languageOptions = languages.map((lang) => ({
     value: lang.code,
     label: `${lang.label} (${lang.code.toUpperCase()})`,
@@ -42,7 +45,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
           value: c.code,
           label: `${c.label} (${c.code.toUpperCase()})`,
         }))
-      : [{ value: '', label: 'No countries available' }]
+      : [{ value: '', label: t('home.noCountries') || 'No countries available' }]
 
   return (
     <div className="w-full mt-6 pt-6 border-t border-slate-200 space-y-4">
@@ -50,10 +53,10 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
         <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-base">🌐</span>
         <div>
           <h4 className="text-sm font-bold text-slate-800">
-            Translate & Cross-Reference Drug
+            {t('home.localizeTitle') || 'Translate & Cross-Reference Drug'}
           </h4>
           <p className="text-xs text-slate-500">
-            Selected drug: <strong className="text-slate-700">{selectedResult.name}</strong> ({selectedResult.language.toUpperCase()})
+            {t('home.selectedDrug') || 'Selected drug:'} <strong className="text-slate-700">{selectedResult.name}</strong> ({selectedResult.language.toUpperCase()})
           </p>
         </div>
       </div>
@@ -64,7 +67,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
         <div className="w-full">
           <Select
             id="target-language"
-            label="Target Language"
+            label={t('home.targetLanguage') || 'Target Language'}
             value={targetLanguage}
             options={languageOptions}
             onChange={(e) => onTargetLanguageChange(e.target.value)}
@@ -75,7 +78,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
         <div className="w-full">
           <Select
             id="target-country"
-            label="Target Country"
+            label={t('home.targetCountry') || 'Target Country'}
             value={targetCountry}
             options={countryOptions}
             disabled={availableCountries.length === 0}
@@ -93,7 +96,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
             isLoading={isTranslating}
             className="w-full sm:w-auto px-6 h-10.5"
           >
-            Translate Selected
+            {t('common.translate') || 'Translate Selected'}
           </Button>
         </div>
       </div>
@@ -105,13 +108,13 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
       {(translatedName || isTranslating) && (
         <div className="mt-4 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 md:p-5">
           <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-3">
-            Cross-Referenced Match
+            {t('home.crossReferencedMatch') || 'Cross-Referenced Match'}
           </h5>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                Original ({selectedResult.language.toUpperCase()})
+                {t('home.original') || 'Original'} ({selectedResult.language.toUpperCase()})
               </div>
               <div className="text-sm font-bold text-slate-900 mt-1">
                 {selectedResult.name}
@@ -120,7 +123,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
 
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                Translation ({targetLanguage.toUpperCase()})
+                {t('home.translation') || 'Translation'} ({targetLanguage.toUpperCase()})
               </div>
               <div className="text-sm font-bold text-emerald-700 mt-1">
                 {translatedName || (isTranslating ? '...' : '-')}
@@ -129,7 +132,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
 
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                Brand in {targetCountry.toUpperCase()}
+                {t('home.brandInCountry') || 'Brand in'} {targetCountry.toUpperCase()}
               </div>
               <div className="text-sm font-bold text-slate-800 mt-1">
                 {translatedBrand || (isTranslating ? '...' : '-')}

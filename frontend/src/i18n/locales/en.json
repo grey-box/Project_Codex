@@ -22,9 +22,16 @@
     "resultsTitle": "Results",
     "sampleMedicine": "Medicine 1",
     "localizeTitle": "Translate/Localize drug name...",
+    "selectedDrug": "Selected drug:",
     "targetLanguage": "Target Language",
     "targetPlaceholder": "Target Language",
+    "targetCountry": "Target Country",
+    "noCountries": "No countries available",
     "translationPlaceholder": "Translation will appear here",
-    "importTitle": "Import Language File"
+    "importTitle": "Import Language File",
+    "crossReferencedMatch": "Cross-Referenced Match",
+    "original": "Original",
+    "translation": "Translation",
+    "brandInCountry": "Brand in"
   }
 }

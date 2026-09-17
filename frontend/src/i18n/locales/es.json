@@ -22,9 +22,16 @@
     "resultsTitle": "Resultados",
     "sampleMedicine": "Medicina 1",
     "localizeTitle": "Traducir/Localizar nombre de medicamento...",
+    "selectedDrug": "Medicamento seleccionado:",
     "targetLanguage": "Idioma de destino",
     "targetPlaceholder": "Idioma de destino",
+    "targetCountry": "País de destino",
+    "noCountries": "No hay países disponibles",
     "translationPlaceholder": "La traducción aparecerá aquí",
-    "importTitle": "Importar archivo de idioma"
+    "importTitle": "Importar archivo de idioma",
+    "crossReferencedMatch": "Coincidencia Cruzada",
+    "original": "Original",
+    "translation": "Traducción",
+    "brandInCountry": "Marca en"
   }
 }
