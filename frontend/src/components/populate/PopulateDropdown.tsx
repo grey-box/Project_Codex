@@ -29,6 +29,9 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
     rxnorm: false,
     icd11: false,
   })
+  const [drugbankAPIKey, setDrugbankAPIKey] = useState('')
+  const [icdID, setIcdID] = useState('')
+  const [icdSecret, setIcdSecret] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState<string>('')
 
@@ -52,7 +55,12 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
       const response = await fetch(`${API_BASE_URL}/api/populate-sources`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedSources: sourcesToPopulate }),
+        body: JSON.stringify({
+          selectedSources: sourcesToPopulate,
+          DBAPIKey: drugbankAPIKey,
+          ICDID: icdID,
+          ICDSecret: icdSecret,
+        }),
       })
 
       if (!response.body) return
@@ -95,7 +103,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
 
   return (
     <Dropdown
-      widthClass="w-72 sm:w-80"
+      widthClass="w-80 sm:w-96"
       align="right"
       className={fullWidth ? 'w-full' : ''}
       trigger={(isOpen) => (
@@ -162,6 +170,58 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
             </div>
           </label>
         ))}
+      </div>
+
+      {/* API Keys Configuration Section */}
+      <div className="pt-3 border-t border-slate-100 mb-4 space-y-2.5">
+        <div className="text-xs font-semibold text-slate-700">
+          {t('sides.keyLabel') || 'API Keys & Credentials:'}
+        </div>
+
+        {/* DrugBank Key */}
+        <div>
+          <label htmlFor="drugbank-key" className="block text-[11px] font-medium text-slate-600 mb-1">
+            {t('sides.drugbankAPIKey') || 'DrugBank API Key'}
+          </label>
+          <input
+            id="drugbank-key"
+            type="password"
+            value={drugbankAPIKey}
+            onChange={(e) => setDrugbankAPIKey(e.target.value)}
+            placeholder={t('sides.drugbankAPIKey') || 'DrugBank API Key'}
+            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+          />
+        </div>
+
+        {/* ICD-11 Credentials */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label htmlFor="icd-id" className="block text-[11px] font-medium text-slate-600 mb-1">
+              {t('sides.icdID') || 'ICD-11 ID'}
+            </label>
+            <input
+              id="icd-id"
+              type="text"
+              value={icdID}
+              onChange={(e) => setIcdID(e.target.value)}
+              placeholder="Client ID"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+            />
+          </div>
+          <div>
+            <label htmlFor="icd-secret" className="block text-[11px] font-medium text-slate-600 mb-1">
+              {t('sides.icdSecret') || 'ICD-11 Secret'}
+            </label>
+            <input
+              id="icd-secret"
+              type="password"
+              value={icdSecret}
+              onChange={(e) => setIcdSecret(e.target.value)}
+              placeholder="Client Secret"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Progress / Status Message */}

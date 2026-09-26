@@ -131,7 +131,6 @@ def find_missing_brands(session, term):
             )
     return missing
 
-
 # Returns all brand names for a medication across countries
 # Shows brand equivalence between countries
 def get_equivalent_brands(session, term):
@@ -149,6 +148,55 @@ def get_equivalent_brands(session, term):
     ORDER BY country
     """
     return list(session.run(query, term=term))
+
+# Searches for canonical terms given any input (canonical, translated, or fuzzy)
+def search_database(session, term): 
+    query = """
+    CALL {
+        MATCH (t:Term)
+        WHERE t.canonical = $term
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE b.name = $term
+        RETURN b.name AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+        WHERE tr.text = $term
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)
+        WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
+        RETURN b.name AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+        WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base
+    }
+    WITH collect({brand: brand, base: base}) AS results
+    UNWIND results AS row
+    RETURN row.brand AS brand, row.base AS base
+    """
+
+    results = session.run(query, term=term)
+    if not results:
+        return None
+    
+    results_array = []
+    for result in results:
+        if (result["base"].lower() == term.lower()):
+            results_array.append([result["base"], None])
+            return results_array
+        
+        if (result["base"] == result["brand"]):
+            results_array.append([result["base"], None])
+        else:
+            results_array.append([result["base"], result["brand"]])
+    return results_array
 
 # Resolves any input (canonical, translated, or fuzzy) to a base canonical term
 def resolve_to_base_term(session, term): 
@@ -194,7 +242,6 @@ def resolve_to_base_term(session, term):
     else:
         return result["base"], result["brand"]
         
-
 # Checks whether a language pack exists in the database
 def language_exists(lang_code: str) -> bool:
     with driver.session() as session:

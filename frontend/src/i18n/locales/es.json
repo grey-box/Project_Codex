@@ -11,7 +11,11 @@
   "sides": {
     "populateLabel": "Rellenar fuente(s) local(es):",
     "populateButton": "Rellenar",
-    "populateLoader": "Rellenando..."
+    "populateLoader": "Rellenando...",
+    "keyLabel": "Ingrese sus credenciales y claves de API:",
+    "drugbankAPIKey": "Clave API de DrugBank",
+    "icdID": "ID de cliente ICD-11",
+    "icdSecret": "Clave secreta ICD-11"
   },
   "home": {
     "pageTitle": "Proyecto Códice Médico",

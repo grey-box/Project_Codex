@@ -55,7 +55,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold">
                     <th className="py-3 px-4">
-                      {hasBrand ? 'Drug Name for Brand' : 'Drug Name'}
+                      {hasBrand ? 'Drug/Brand Name' : 'Drug Name'}
                     </th>
                     {hasBrand && <th className="py-3 px-4">Brand</th>}
                     <th className="py-3 px-4">Type</th>
@@ -89,7 +89,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         {hasBrand && <td className="py-3 px-4">{row.brand || '-'}</td>}
                         <td className="py-3 px-4">
                           <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
-                            {hasBrand ? 'brand name drug' : row.type || 'ingredient'}
+                            {row.type || (hasBrand ? 'brand name drug' : 'ingredient')}
                           </span>
                         </td>
                         <td className="py-3 px-4 uppercase">{row.language}</td>
@@ -131,7 +131,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
                     <span>
-                      Type: {hasBrand ? 'brand name drug' : row.type || 'ingredient'}
+                      Type: {row.type || (hasBrand ? 'brand name drug' : 'ingredient')}
                     </span>
                     <span>•</span>
                     <span>Country: {row.country ?? 'N/A'}</span>

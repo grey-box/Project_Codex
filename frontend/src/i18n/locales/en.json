@@ -11,7 +11,11 @@
   "sides": {
     "populateLabel": "Populate local source(s):",
     "populateButton": "Populate",
-    "populateLoader": "Populating..."
+    "populateLoader": "Populating...",
+    "keyLabel": "Please enter your API keys:",
+    "drugbankAPIKey": "Drugbank API Key",
+    "icdID": "ICD11 ID Key",
+    "icdSecret": "ICD11 Secret Key"
   },
   "home": {
     "pageTitle": "Project Medical Codex",

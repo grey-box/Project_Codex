@@ -29,7 +29,7 @@ export async function getLanguages(): Promise<string[]> {
 /**
  * Searches for a drug / medical term in Neo4j.
  */
-export async function searchDrug(query: string): Promise<SearchResponse | null> {
+export async function searchDrug(query: string): Promise<SearchResponse[]> {
   const response = await fetch(
     `${API_BASE_URL}/search?term=${encodeURIComponent(query.toLowerCase())}`,
     {
@@ -49,8 +49,11 @@ export async function searchDrug(query: string): Promise<SearchResponse | null> 
     throw new Error(errorBody?.detail ?? 'Failed to search')
   }
 
-  const data = (await response.json()) as SearchResponse | null
-  return data
+  const data = await response.json()
+  if (Array.isArray(data)) {
+    return data as SearchResponse[]
+  }
+  return data ? [data as SearchResponse] : []
 }
 
 /**

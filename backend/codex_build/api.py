@@ -53,6 +53,7 @@ try:
         find_missing_translations,
         find_missing_brands,
         get_equivalent_brands,
+        search_database,
         resolve_to_base_term,
         get_translation_data,
         get_countries_for_term,
@@ -111,6 +112,9 @@ app.add_middleware(
 
 class SourceSelection(BaseModel):
     selectedSources: List[str]
+    DBAPIKey: str
+    ICDID: str
+    ICDSecret: str
 
 @app.post(
     "/api/populate-sources",
@@ -118,8 +122,11 @@ class SourceSelection(BaseModel):
 )
 async def handle_populate(data: SourceSelection):
     sources = data.selectedSources
+    drugbankAPIKey = data.DBAPIKey
+    icdID = data.ICDID
+    icdSecret= data.ICDSecret
     return StreamingResponse(
-        source_data(sources),
+        source_data(sources, drugbankAPIKey, icdID, icdSecret),
         media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-cache",
@@ -223,35 +230,50 @@ def health():
 
 @app.post(
     "/search",
-    response_model=SearchResponse | None,
+    response_model=List[SearchResponse],
     tags=["translation"],
 )
 def search(term: str):
+    search_results = []
     try:
         with driver.session() as session:
-            canonical, brand = resolve_to_base_term(session, term)
-            if not canonical:
-                return None
-            if not brand:
-                countries = get_countries_for_term(session, canonical)
-                languages = get_languages_for_term(session, canonical)
-            else:
-                countries = get_countries_for_brand(session, brand)
-                languages = get_languages_for_brand(session, brand)
+            results = search_database(session, term)
+            if not results:
+                return []
+            for result in results:
+                canonical = result[0]
+                brand = result[1]
+                if not brand:
+                    countries = get_countries_for_term(session, canonical)
+                    languages = get_languages_for_term(session, canonical)
+                    search_results.append(SearchResponse(
+                        source_id="0",
+                        source_name="",
+                        name=canonical,
+                        brand=brand,
+                        type="drug",
+                        country=countries,
+                        language=languages,
+                        uploaded_at=""
+                    ))
+                else:
+                    countries = get_countries_for_brand(session, brand)
+                    languages = get_languages_for_brand(session, brand)
+                    search_results.append(SearchResponse(
+                        source_id="0",
+                        source_name="",
+                        name=canonical,
+                        brand=brand,
+                        type="brand name drug",
+                        country=countries,
+                        language=languages,
+                        uploaded_at=""
+                    ))
     except Exception as exc:
         log.exception("search raised an unexpected error")
         raise HTTPException(status_code=500, detail=str(exc))
-
-    return SearchResponse(
-        source_id="0",
-        source_name="",
-        name=canonical,
-        brand=brand,
-        type="drug",
-        country=countries,
-        language=languages,
-        uploaded_at=""
-    )
+    
+    return search_results
 
 @app.post(
     "/translate",

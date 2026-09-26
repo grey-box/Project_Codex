@@ -113,12 +113,13 @@ function App() {
     try {
       const data = await searchDrug(searchQuery)
 
-      if (!data || !data.name) {
+      if (!data || data.length === 0) {
         setSearchResults([])
         setSearchError('No results found')
       } else {
-        setHasBrand(Boolean(data.brand))
-        setSearchResults([data])
+        const hasAnyBrand = data.some((item) => Boolean(item.brand))
+        setHasBrand(hasAnyBrand)
+        setSearchResults(data)
         setSearchError('')
       }
     } catch (err) {
