@@ -60,6 +60,14 @@ try:
         get_languages_for_term,
         get_countries_for_brand,
         get_languages_for_brand,
+        create_user,
+        get_user_by_email,
+        get_all_users,
+        update_user,
+        delete_user,
+        get_user_role,
+        get_users_by_role,
+        update_user_role,
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -203,6 +211,40 @@ class HealthResponse(BaseModel):
     neo4j: bool
     api_version: str
 
+class UserCreateRequest(BaseModel):
+    real_name: str
+    password: str
+    role: str
+    affiliation: str
+    email: str
+
+    model_config = {"json_schema_extra": {"example": {
+        "real_name": "Jane Doe",
+        "password": "SecurePassword123!",
+        "role": "Admin",
+        "affiliation": "Global Health Org",
+        "email": "jane.doe@example.com"
+    }}}
+
+class UserUpdateRequest(BaseModel):
+    real_name: Optional[str] = None
+    role: Optional[str] = None
+    affiliation: Optional[str] = None
+    password: Optional[str] = None
+
+class UserRoleUpdateRequest(BaseModel):
+    role: str
+
+class UserResponse(BaseModel):
+    email: str
+    real_name: str
+    role: str
+    affiliation: str
+    created_at: Optional[Any] = None
+
+class UserRoleResponse(BaseModel):
+    email: str
+    role: str
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -451,6 +493,189 @@ def list_languages():
         return LanguagesResponse(languages=codes)
     except Exception as exc:
         log.exception("list_languages failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    
+@app.post(
+    "/users",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new user",
+    tags=["users"],
+)
+def api_create_user(body: UserCreateRequest):
+    """Creates a new user node in Neo4j."""
+    try:
+        with driver.session() as session:
+            # Check if user already exists
+            existing = get_user_by_email(session, body.email)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"User with email '{body.email}' already exists."
+                )
+            
+            user = create_user(
+                session,
+                real_name=body.real_name,
+                password=body.password,
+                role=body.role,
+                affiliation=body.affiliation,
+                email=body.email
+            )
+            if not user:
+                raise HTTPException(status_code=500, detail="Failed to create user node.")
+            return user
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_create_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get(
+    "/users",
+    response_model=List[UserResponse],
+    summary="List all users or filter by role",
+    tags=["users"],
+)
+def api_get_users(
+    role: Optional[str] = Query(None, description="Optional role filter"),
+    limit: int = Query(100, ge=1, le=1000)
+):
+    """Retrieves users from Neo4j. Optionally filter by role."""
+    try:
+        with driver.session() as session:
+            if role:
+                return get_users_by_role(session, role)
+            return get_all_users(session, limit=limit)
+    except Exception as exc:
+        log.exception("api_get_users failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get(
+    "/users/{email}",
+    response_model=UserResponse,
+    summary="Get user by email",
+    tags=["users"],
+)
+def api_get_user(email: str):
+    """Fetches details for a single user by email address."""
+    try:
+        with driver.session() as session:
+            user = get_user_by_email(session, email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return user
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_get_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.patch(
+    "/users/{email}",
+    response_model=UserResponse,
+    summary="Update user details",
+    tags=["users"],
+)
+def api_update_user(email: str, body: UserUpdateRequest):
+    """Updates user fields (real_name, role, affiliation, password)."""
+    try:
+        with driver.session() as session:
+            updated = update_user(
+                session,
+                email=email,
+                real_name=body.real_name,
+                role=body.role,
+                affiliation=body.affiliation,
+                password=body.password
+            )
+            if not updated:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found or no changes were made."
+                )
+            return updated
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_update_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.delete(
+    "/users/{email}",
+    response_model=MessageResponse,
+    summary="Delete a user",
+    tags=["users"],
+)
+def api_delete_user(email: str):
+    """Removes a user node from Neo4j."""
+    try:
+        with driver.session() as session:
+            deleted = delete_user(session, email)
+            if not deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return MessageResponse(message=f"User '{email}' deleted successfully.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_delete_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.get(
+    "/users/{email}/role",
+    response_model=UserRoleResponse,
+    summary="Get a user's role",
+    tags=["users"],
+)
+def api_get_user_role(email: str):
+    """Retrieves only the role assigned to a specific user."""
+    try:
+        with driver.session() as session:
+            role = get_user_role(session, email)
+            if role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return UserRoleResponse(email=email, role=role)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_get_user_role failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.put(
+    "/users/{email}/role",
+    response_model=UserResponse,
+    summary="Update a user's role",
+    tags=["users"],
+)
+def api_update_user_role(email: str, body: UserRoleUpdateRequest):
+    """Updates only the role for a specific user."""
+    try:
+        with driver.session() as session:
+            updated = update_user_role(session, email=email, new_role=body.role)
+            if not updated:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return updated
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_update_user_role failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 # ── Entry point (for running directly) ──────────────────────────────────────

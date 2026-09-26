@@ -2,6 +2,7 @@
 from neo4j import GraphDatabase       # Python driver from Neo4j
 from dotenv import load_dotenv        # Loads environment variables from .env file
 import os                             # Access to OS environment variables
+import bcrypt                         # Used for hashing passwords
 
 # Loads environment varibles 
 load_dotenv()
@@ -336,3 +337,151 @@ def get_languages_for_brand(session, term):
     languages = result.single().value() if result.peek() else []
     languages = ', '.join(languages)
     return languages
+
+# Requires all user emails to be unique
+def init_user_constraints(session):
+    query = """
+    CREATE CONSTRAINT user_email_unique IF NOT EXISTS
+    FOR (u:User) REQUIRE u.email IS UNIQUE
+    """
+    session.run(query)
+    
+# Utility to hash passwords
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+
+# Creates a new User node with a hashed password
+def create_user(session, real_name, password, role, affiliation, email):
+    hashed_pwd = hash_password(password)
+    query = """
+    CREATE (u:User {
+        email: $email,
+        real_name: $real_name,
+        password: $password,
+        role: $role,
+        affiliation: $affiliation,
+        created_at: datetime()
+    })
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    """
+    result = session.run(
+        query, 
+        email=email.lower().strip(), 
+        real_name=real_name, 
+        password=hashed_pwd, 
+        role=role, 
+        affiliation=affiliation
+    )
+    record = result.single()
+    if record:
+        print(f"User created: {record['email']}")
+        return record.data()
+    return None
+
+# Retrieves a single user by their unique email (omits password hash from return)
+def get_user_by_email(session, email):
+    query = """
+    MATCH (u:User {email: $email})
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation, u.created_at AS created_at
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    return result.data() if result else None
+
+# Retrieves a list of all users
+def get_all_users(session, limit=100):
+    query = """
+    MATCH (u:User)
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    LIMIT $limit
+    """
+    result = session.run(query, limit=limit)
+    return [record.data() for record in result]
+
+# Dynamically updates user fields based on provided arguments
+def update_user(session, email, real_name=None, role=None, affiliation=None, password=None):
+    updates = []
+    params = {"email": email.lower().strip()}
+
+    if real_name is not None:
+        updates.append("u.real_name = $real_name")
+        params["real_name"] = real_name
+    if role is not None:
+        updates.append("u.role = $role")
+        params["role"] = role
+    if affiliation is not None:
+        updates.append("u.affiliation = $affiliation")
+        params["affiliation"] = affiliation
+    if password is not None:
+        updates.append("u.password = $password")
+        params["password"] = hash_password(password)
+
+    if not updates:
+        print("No fields provided to update.")
+        return None
+
+    set_clause = ", ".join(updates)
+    query = f"""
+    MATCH (u:User {{email: $email}})
+    SET {set_clause}, u.updated_at = datetime()
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    """
+    
+    result = session.run(query, **params).single()
+    return result.data() if result else None
+
+# Deletes a user node by email and removes any connected relationships (DETACH DELETE)
+def delete_user(session, email):
+    """."""
+    query = """
+    MATCH (u:User {email: $email})
+    DETACH DELETE u
+    RETURN count(u) AS deleted_count
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    deleted = result["deleted_count"] > 0
+    if deleted:
+        print(f"Successfully deleted user: {email}")
+    else:
+        print(f"No user found with email: {email}")
+    return deleted
+
+# Retrieves only the role assigned to a specific user
+def get_user_role(session, email: str) -> str | None:
+    query = """
+    MATCH (u:User {email: $email})
+    RETURN u.role AS role
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    return result["role"] if result else None
+
+# Retrieves all users matching a specific role
+def get_users_by_role(session, role: str) -> list[dict]:
+    query = """
+    MATCH (u:User {role: $role})
+    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation
+    ORDER BY u.real_name
+    """
+    result = session.run(query, role=role)
+    return [record.data() for record in result]
+
+# Updates the role for a specific user and logs the updated timestamp
+def update_user_role(session, email: str, new_role: str) -> dict | None:
+    query = """
+    MATCH (u:User {email: $email})
+    SET u.role = $new_role, u.updated_at = datetime()
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role
+    """
+    result = session.run(
+        query, 
+        email=email.lower().strip(), 
+        new_role=new_role
+    ).single()
+    
+    if result:
+        print(f"Updated role for {email} to '{new_role}'")
+        return result.data()
+    
+    print(f"User with email '{email}' not found.")
+    return None
