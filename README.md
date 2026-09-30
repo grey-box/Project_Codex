@@ -16,6 +16,8 @@ docker compose up --build
 
 ```
 Use http://localhost:9000 for the frontend
+NOTE: It will choose a free host port from 9000 through 9010. 
+If http://localhost:9000 does not work, try any of the other ports.
 Use http://localhost:7474 for the Neo4j backend
 Use http://localhost:8000/docs to view the API
 ```

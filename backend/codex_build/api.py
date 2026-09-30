@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from neo4j_sources.source_data import source_data
+from ocr.ocrmatching import router as ocr_router
 
 # ── Load .env before importing codex (which reads env vars at module level) ──
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -104,11 +105,23 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:9000"],
+    allow_origins=["http://localhost:9000",
+                   "http://localhost:9001",
+                   "http://localhost:9002",
+                   "http://localhost:9003",
+                   "http://localhost:9004",
+                   "http://localhost:9005",
+                   "http://localhost:9006",
+                   "http://localhost:9007",
+                   "http://localhost:9008",
+                   "http://localhost:9009",
+                   "http://localhost:9010"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(ocr_router)
 
 class SourceSelection(BaseModel):
     selectedSources: List[str]

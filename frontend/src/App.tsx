@@ -74,6 +74,20 @@ interface TranslateResponse {
   results: TranslateResultRow[]
 }
 
+interface OcrExtractedText {
+  rec_text?: string
+  rec_score?: number
+}
+
+interface FuzzyResult {
+  matching_name: string
+  matching_source: string
+  matching_algorithm: string
+  matching_uid: number
+  matching_row_number: number
+  distance?: number
+}
+
 const API_BASE_URL = 'http://localhost:8000'
 const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
 
@@ -85,7 +99,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
   const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
+  const [loadedLanguages, setLoadedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [searchLanguage, setSearchLanguage] = useState('all')
   const [targetLanguage, setTargetLanguage] = useState('es')
   const [targetCountry, setTargetCountry] = useState("MX")
@@ -101,6 +117,10 @@ function App() {
   const [importMessage, setImportMessage] = useState('')
   const [hasBrand, setHasBrand] = useState(false)
   const [progress, setProgress] = useState<string>('');
+  const [ocrFile, setOcrFile] = useState<File | null>(null)
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false)
+  const [ocrError, setOcrError] = useState('')
+  const [ocrResults, setOcrResults] = useState<Array<OcrExtractedText | FuzzyResult>>([])
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -143,6 +163,53 @@ function App() {
     }
   };
 
+  const handleOcrFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setOcrFile(event.target.files[0])
+    }
+  }
+
+  const handleOcrSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setOcrError('')
+    setOcrResults([])
+
+    if (!ocrFile) {
+      setOcrError('Please select an image file to scan.')
+      return
+    }
+
+    setIsOcrProcessing(true)
+    const formData = new FormData()
+    formData.append('file', ocrFile)
+    formData.append('source_language', searchLanguage)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/ocrmatching/`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null)
+        throw new Error(errData?.detail || 'OCR extraction failed')
+      }
+
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        setOcrResults(data)
+      } else if (data && Array.isArray(data.results)) {
+        setOcrResults(data.results)
+      } else {
+        setOcrResults([])
+      }
+    } catch (err) {
+      setOcrError((err as Error).message)
+    } finally {
+      setIsOcrProcessing(false)
+    }
+  }
+
   const loadLanguages = async (isActive: boolean) => {
       try {
         const response = await fetch(`${API_BASE_URL}/languages`)
@@ -156,14 +223,18 @@ function App() {
           return
         }
 
+        setLoadedLanguages(nextLanguages)
         setAvailableLanguages(nextLanguages)
+        setSelectedLanguages(nextLanguages)
         setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
       } catch {
         if (!isActive) {
           return
         }
 
+        setLoadedLanguages(FALLBACK_LANGUAGES)
         setAvailableLanguages(FALLBACK_LANGUAGES)
+        setSelectedLanguages(FALLBACK_LANGUAGES)
         setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
       }
     }
@@ -177,6 +248,73 @@ function App() {
       isActive = false
     }
   }, [])
+
+  const hasActiveLanguageMatch = (
+    itemLanguageString: string | null | undefined,
+    activeLanguages: string[],
+    selectedSearchLanguage: string = 'all'
+  ): boolean => {
+    if (!itemLanguageString) { 
+      return false 
+    }
+
+    const activeNormalized = activeLanguages.map((l) => l.toLowerCase().trim())
+    const itemLangs = itemLanguageString
+      .split(',')
+      .map((lang) => lang.trim().toLowerCase())
+
+    const matchesActiveLanguages = itemLangs.some((lang) =>
+      activeNormalized.includes(lang)
+    )
+
+    if (!matchesActiveLanguages) { 
+      return false 
+    }
+
+    const searchLangNormalized = selectedSearchLanguage.toLowerCase().trim()
+    if (searchLangNormalized !== 'all') {
+      return itemLangs.includes(searchLangNormalized)
+    }
+
+    return true
+  }
+
+  const handleCheckboxToggle = (code: string) => {
+    setSelectedLanguages((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    )
+  }
+
+  const handleSelectAll = () => {
+    setSelectedLanguages([...loadedLanguages])
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedLanguages([])
+  }
+
+  const handleApplyLanguageFilter = () => {
+    const filtered = loadedLanguages.filter((code) => selectedLanguages.includes(code))
+    setAvailableLanguages(filtered)
+    if (!filtered.includes(targetLanguage) && filtered.length > 0) {
+      setTargetLanguage(filtered[0])
+      setTargetCountry(getFirstCountryForLanguage(filtered[0]))
+    }
+
+    if (searchResults.length > 0) {
+      const updatedResults = searchResults.filter((item) =>
+        hasActiveLanguageMatch(item.language, filtered)
+      )
+
+      setSearchResults(updatedResults)
+
+      if (selectedResult && !hasActiveLanguageMatch(selectedResult.language, filtered)) {
+        setSelectedResult(null)
+        setTranslatedName('')
+        setTranslatedBrand('')
+      }
+    }
+  }
 
   const extractTranslatedName = (rows: TranslateResultRow[]) => {
     const names = rows
@@ -234,18 +372,23 @@ function App() {
       }
 
       const data = (await response.json()) as SearchResponse[]
-      if (data.length == 0) {
+      
+      const filteredData = data.filter((item) =>
+        hasActiveLanguageMatch(item.language, availableLanguages, searchLanguage)
+      )
+
+      if (filteredData.length === 0) {
         setSearchResults([])
-        setSearchError('No results found')
+        setSearchError('No results found for selected languages')
       } else {
         let results: SearchResultRow[] = [];
-        for (let i = 0; i < data.length; i++) {
-          if (data[i].brand) {
+        for (let i = 0; i < filteredData.length; i++) {
+          if (filteredData[i].brand) {
             setHasBrand(true)
           } else if (hasBrand) {
-            data[i].brand = ""
+            filteredData[i].brand = ""
           }
-          results.push(data[i])
+          results.push(filteredData[i])
         }
         setSearchResults(results)
         setSearchError('')
@@ -351,7 +494,8 @@ function App() {
   }
 
   const languages = availableLanguages.map((code) => ({ code, label: getLanguageLabel(code) }))
-
+  const allLoadedLanguages = loadedLanguages.map((code) => ({ code, label: getLanguageLabel(code) }))
+  
   const [isDrugbankSelected, setIsDrugbankSelected] = useState(false);
   const [isSnomedSelected, setIsSnomedSelected] = useState(false);
   const [isRxNormSelected, setIsRxNormSelected] = useState(false);
@@ -480,7 +624,7 @@ function App() {
         </div>
       </header>
 
-      <main className="sides">
+      <aside className="sides">
         <section className="populateDrugbank">
           <h3 className="populate-label">{t('sides.populateLabel')}</h3>
 
@@ -568,7 +712,7 @@ function App() {
             />
           </label>
         </section>
-      </main>
+      </aside>
 
       <main className="content">
         <section className="hero-row">
@@ -747,6 +891,73 @@ function App() {
 
         <section className="tool-panel">
           <div className="search-surface">
+            <h2>Scan Image for Drug Names (OCR)</h2>
+            <form onSubmit={handleOcrSubmit} className="ocr-form">
+              <input type="file" accept="image/*" onChange={handleOcrFileChange} />
+              <button type="submit" disabled={!ocrFile || isOcrProcessing}>
+                {isOcrProcessing ? 'Scanning Image...' : 'Extract Text'}
+              </button>
+            </form>
+
+            {ocrError && <div className="message message--error" style={{ marginTop: 10 }}>{ocrError}</div>}
+
+            {ocrResults.length > 0 && (
+              <div className="results-block">
+                <h3>Extracted Terms & Matches</h3>
+                <div className="results-table-wrap">
+                  <table className="results-table">
+                    <thead>
+                      <tr>
+                        <th>Extracted / Matched Term</th>
+                        <th>Confidence / Distance</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ocrResults.map((item, idx) => {
+                        const termName =
+                          'rec_text' in item
+                            ? item.rec_text
+                            : 'matching_name' in item
+                            ? item.matching_name
+                            : 'Unknown'
+                        const detail =
+                          'rec_score' in item
+                            ? `Score: ${(item.rec_score! * 100).toFixed(1)}%`
+                            : 'distance' in item
+                            ? `Distance: ${item.distance}`
+                            : '-'
+
+                        return (
+                          <tr key={idx}>
+                            <td>{termName}</td>
+                            <td>{detail}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="use-term-btn"
+                                onClick={() => {
+                                  if (termName) {
+                                    setSearchQuery(termName)
+                                  }
+                                }}
+                              >
+                                Use in Search
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="tool-panel">
+          <div className="search-surface">
             <h1>{t('home.importTitle')}</h1>
               <form onSubmit={handleImportLanguageLocal}>
                 <input type="file" onChange={handleImportLanguageChange} />
@@ -762,6 +973,47 @@ function App() {
         </section>
 
       </main>
+
+      <aside className="sidebar-right">
+          <div className="sidebar-card">
+            <h3>Filter Languages</h3>
+            <p className="sidebar-desc">
+              Select which languages to enable across search and translation options:
+            </p>
+
+            <div className="quick-select-actions">
+              <button type="button" className="text-btn" onClick={handleSelectAll}>
+                Select All
+              </button>
+              <span>|</span>
+              <button type="button" className="text-btn" onClick={handleDeselectAll}>
+                Deselect All
+              </button>
+            </div>
+
+            <div className="lang-checkbox-list">
+              {allLoadedLanguages.map((lang) => (
+                <label key={`filter-${lang.code}`} className="lang-checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedLanguages.includes(lang.code)}
+                    onChange={() => handleCheckboxToggle(lang.code)}
+                  />
+                  <span>{lang.label} ({lang.code.toUpperCase()})</span>
+                </label>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="apply-languages-btn"
+              onClick={handleApplyLanguageFilter}
+              disabled={selectedLanguages.length === 0}
+            >
+              Use Selected Languages
+            </button>
+          </div>
+        </aside>
     </div>
   )
 }

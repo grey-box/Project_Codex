@@ -360,6 +360,108 @@
   }
 }
 
+.sidebar-right {
+  width: 280px;
+  min-width: 240px;
+  padding: 30px 20px 56px 0;
+  position: absolute;
+  top: 290px;
+  left: 1518px;
+}
+
+.sidebar-card {
+  background: #f8fafc;
+  border: 1px solid #d7dbe0;
+  border-radius: 12px;
+  padding: 16px;
+  position: sticky;
+  top: 20px;
+}
+
+.sidebar-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  color: #0f1826;
+}
+
+.sidebar-desc {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.quick-select-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #4e7f77;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.lang-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 16px;
+}
+
+.lang-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.apply-languages-btn {
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: #4e7f77;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.apply-languages-btn:hover:not(:disabled) {
+  background: #3c655e;
+}
+
+.apply-languages-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .sidebar-right {
+    width: min(1180px, calc(100% - 56px));
+    margin: 0 auto;
+    padding: 0 0 40px;
+  }
+}
+
 .tool-panel {
   border-bottom: 1px solid #c7ccd2;
   padding: 4px 0 30px;
@@ -420,6 +522,37 @@
   display: grid;
   grid-template-columns: 1fr 170px;
   gap: 10px;
+}
+
+.ocr-form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ocr-form button,
+.use-term-btn {
+  height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: #4e7f77;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.ocr-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.use-term-btn {
+  height: 32px;
+  font-size: 0.85rem;
+  padding: 0 10px;
 }
 
 .search-row button,
