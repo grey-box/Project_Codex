@@ -105,7 +105,7 @@ class LocalVault:
                 self._keyring_available = False
 
         # Store in memory fallback if keyring is unavailable
-        self._memory_fallback[key_name] = bytes(key_bytes)
+        self._memory_fallback[key_name] = key_bytes
 
     def get_or_create_key(self, key_name: str) -> bytes:
         """
