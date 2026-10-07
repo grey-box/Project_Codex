@@ -199,6 +199,7 @@ def search_database(session, term):
     return results_array
 
 # Resolves any input (canonical, translated, or fuzzy) to a base canonical term
+# Admin option: Change distance % on admin UI
 def resolve_to_base_term(session, term): 
     query = """
     CALL {

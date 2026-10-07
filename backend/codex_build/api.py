@@ -263,6 +263,7 @@ def search(term: str):
                         source_id="0",
                         source_name="",
                         name=canonical,
+                        # Include brand name even if generic drug is searched
                         brand=brand,
                         type="drug",
                         country=countries,
@@ -327,6 +328,7 @@ def translate_term(body: TranslateRequest):
 
     raw_results = raw.get("results", []) if isinstance(raw, dict) else []
     target_lang_str = (body.lang or "").strip().lower()
+    # Build dynamic language map
     LANGUAGE_MAP = {
         "fr": "french",
         "es": "spanish",
@@ -360,43 +362,6 @@ def translate_term(body: TranslateRequest):
     return TranslateResponse(
         canonical=body.term,
         results=results,
-    )
-
-
-@app.get(
-    "/audit/{term}",
-    response_model=AuditResponse,
-    summary="Quality audit for a term",
-    tags=["translation"],
-)
-def audit_term(term: str):
-    """
-    Returns:
-    - Countries where this term has no translation
-    - Countries where this term has no brand name
-    - All equivalent brand names across countries
-    """
-    log.info("Audit  term=%r", term)
-
-    try:
-        with driver.session() as session:
-            canonical = resolve_to_base_term(session, term) or term
-            missing_tx   = find_missing_translations(session, canonical)
-            missing_br   = find_missing_brands(session, canonical)
-            equivalents  = get_equivalent_brands(session, canonical)
-    except Exception as exc:
-        log.exception("audit raised an unexpected error")
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return AuditResponse(
-        term=term,
-        canonical=canonical,
-        missing_translations=[AuditEntry(**m) for m in missing_tx],
-        missing_brands=[AuditEntry(**m) for m in missing_br],
-        equivalent_brands=[
-            BrandEntry(brand=e["brand"], country=e["country"], country_name=e["country_name"])
-            for e in equivalents
-        ],
     )
 
 @app.post(
