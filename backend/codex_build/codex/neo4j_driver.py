@@ -352,6 +352,18 @@ def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+def authenticate_user(session, email: str, password: str):
+    query = "MATCH (u:User {email: $email}) RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.password AS password"
+    result = session.run(query, email=email.lower().strip()).single()
+    if not result:
+        return None
+    if not verify_password(password, result["password"]):
+        return None
+    return {"email": result["email"], "real_name": result["real_name"], "role": result["role"]}
+
 # Creates a new User node with a hashed password
 def create_user(session, real_name, password, role, affiliation, email):
     hashed_pwd = hash_password(password)
