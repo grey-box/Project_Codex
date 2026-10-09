@@ -561,7 +561,7 @@ def list_languages():
         raise HTTPException(status_code=500, detail=str(exc))
     
 @app.post(
-    "/login",
+    "/api/login",
     response_model=TokenResponse,
     summary="Authenticate user",
     tags=["auth"],
