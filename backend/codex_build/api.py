@@ -177,7 +177,8 @@ class SourceSelection(BaseModel):
 
 @app.post(
     "/api/populate-sources",
-    tags=["data"]
+    tags=["data"],
+    dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
 )
 async def handle_populate(data: SourceSelection):
     sources = data.selectedSources
@@ -485,6 +486,7 @@ def audit_term(term: str):
     status_code=status.HTTP_201_CREATED,
     summary="Upload and load a language pack",
     tags=["data"],
+    dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
 )
 async def load_pack(file: UploadFile = File(...)):
     """
@@ -552,6 +554,7 @@ def list_languages():
     status_code=status.HTTP_201_CREATED,
     summary="Create a new user",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_create_user(body: UserCreateRequest):
     """Creates a new user node in Neo4j."""
@@ -588,6 +591,7 @@ def api_create_user(body: UserCreateRequest):
     response_model=List[UserResponse],
     summary="List all users or filter by role",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_users(
     role: Optional[str] = Query(None, description="Optional role filter"),
@@ -609,6 +613,7 @@ def api_get_users(
     response_model=UserResponse,
     summary="Get user by email",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_user(email: str):
     """Fetches details for a single user by email address."""
@@ -633,6 +638,7 @@ def api_get_user(email: str):
     response_model=UserResponse,
     summary="Update user details",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_update_user(email: str, body: UserUpdateRequest):
     """Updates user fields (real_name, role, affiliation, password)."""
@@ -664,6 +670,7 @@ def api_update_user(email: str, body: UserUpdateRequest):
     response_model=MessageResponse,
     summary="Delete a user",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_delete_user(email: str):
     """Removes a user node from Neo4j."""
@@ -687,6 +694,7 @@ def api_delete_user(email: str):
     response_model=UserRoleResponse,
     summary="Get a user's role",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_user_role(email: str):
     """Retrieves only the role assigned to a specific user."""
@@ -711,6 +719,7 @@ def api_get_user_role(email: str):
     response_model=UserResponse,
     summary="Update a user's role",
     tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_update_user_role(email: str, body: UserRoleUpdateRequest):
     """Updates only the role for a specific user."""
