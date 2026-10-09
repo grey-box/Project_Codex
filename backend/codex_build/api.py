@@ -36,10 +36,61 @@ import ast
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+import jwt
+from datetime import datetime, timedelta, timezone
+from fastapi import Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 from neo4j_sources.source_data import source_data
 
 # ── Load .env before importing codex (which reads env vars at module level) ──
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+# ── JSON Web Token (JWT) setup and functions ─────────────────────────────────
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-fallback-key")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24   # access lasts for 24 hours
+
+security = HTTPBearer(auto_error=False)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
+    """Decodes JWT and returns payload if present, or None if unauthenticated."""
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+def require_roles(allowed_roles: List[str]):
+    """Enforces that the current authenticated user belongs to one of the allowed roles."""
+    def role_checker(current_user: Optional[dict] = Depends(get_current_user)):
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        user_role = current_user.get("role", "").lower()
+        allowed_lower = [r.lower() for r in allowed_roles]
+        if user_role not in allowed_lower:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions for this operation"
+            )
+        return current_user
+    return role_checker
 
 # ── Import backend package ───────────────────────────────────────────────────
 try:
