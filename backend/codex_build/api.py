@@ -119,6 +119,7 @@ try:
         get_user_role,
         get_users_by_role,
         update_user_role,
+        authenticate_user,
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -297,6 +298,17 @@ class UserResponse(BaseModel):
 class UserRoleResponse(BaseModel):
     email: str
     role: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -548,6 +560,36 @@ def list_languages():
         log.exception("list_languages failed")
         raise HTTPException(status_code=500, detail=str(exc))
     
+@app.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Authenticate user",
+    tags=["auth"],
+)
+def login(body: LoginRequest):
+    with driver.session() as session:
+        user = authenticate_user(session, body.email, body.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(
+        {
+            "sub": user["email"],
+            "role": user["role"],
+        }
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        role=user["role"],
+    )
+
+
 @app.post(
     "/users",
     response_model=UserResponse,
