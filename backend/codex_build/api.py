@@ -33,7 +33,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 import ast
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from dotenv import load_dotenv
 
 import jwt
@@ -47,7 +47,7 @@ from neo4j_sources.source_data import source_data
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 # ── JSON Web Token (JWT) setup and functions ─────────────────────────────────
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-fallback-key")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-fallback-key-32bytespls")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24   # access lasts for 24 hours
 
@@ -129,7 +129,9 @@ except Exception as exc:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 log = logging.getLogger("codex.api")
 
-TARGET_FOLDER_PATH = Path("./codex/language_packs")
+BASE_DIR = Path(__file__).resolve().parent
+TARGET_FOLDER_PATH = BASE_DIR / "codex" / "language_packs"
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
@@ -294,6 +296,12 @@ class UserResponse(BaseModel):
     role: str
     affiliation: str
     created_at: Optional[Any] = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, created_at: Any, _info):
+        if created_at is not None:
+            return str(created_at)
+        return None
 
 class UserRoleResponse(BaseModel):
     email: str
