@@ -376,7 +376,11 @@ def create_user(session, real_name, password, role, affiliation, email):
         affiliation: $affiliation,
         created_at: datetime()
     })
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    RETURN u.email AS email, 
+           u.real_name AS real_name, 
+           u.role AS role, 
+           u.affiliation AS affiliation,
+           toString(u.created_at) AS created_at
     """
     result = session.run(
         query, 
@@ -396,7 +400,11 @@ def create_user(session, real_name, password, role, affiliation, email):
 def get_user_by_email(session, email):
     query = """
     MATCH (u:User {email: $email})
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation, u.created_at AS created_at
+    RETURN u.email AS email, 
+           u.real_name AS real_name, 
+           u.role AS role, 
+           u.affiliation AS affiliation, 
+           toString(u.created_at) AS created_at
     """
     result = session.run(query, email=email.lower().strip()).single()
     return result.data() if result else None
@@ -405,7 +413,10 @@ def get_user_by_email(session, email):
 def get_all_users(session, limit=100):
     query = """
     MATCH (u:User)
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    RETURN u.email AS email, 
+           u.real_name AS real_name, 
+           u.role AS role, 
+           u.affiliation AS affiliation
     LIMIT $limit
     """
     result = session.run(query, limit=limit)
