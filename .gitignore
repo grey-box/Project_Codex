@@ -1,1 +1,11 @@
 node_modules
+
+# Python bytecode (regenerated every time the API runs)
+__pycache__/
+*.py[cod]
+
+# macOS Finder metadata
+.DS_Store
+
+# Runtime logs
+*.log
