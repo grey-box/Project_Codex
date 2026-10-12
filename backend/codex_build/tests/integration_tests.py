@@ -20,7 +20,8 @@ from api import app, create_access_token
 from codex.neo4j_driver import driver, create_user, get_user_by_email, delete_user
 
 TEST_ADMIN_EMAIL = "admin@email.com"
-TEST_ADMIN_PASS  = "AdminTestPassword123!"
+TEST_ADMIN_PASS = "AdminTestPassword123!"
+
 
 @pytest.fixture(scope="session")
 def test_driver():
@@ -33,11 +34,12 @@ def test_driver():
     yield driver
     driver.close()
 
+
 @pytest.fixture
 def client(test_driver):
-
     with TestClient(app) as client:
         yield client
+
 
 # Ensures a test admin user exists in Neo4j during the test run
 @pytest.fixture(scope="session", autouse=True)
@@ -45,6 +47,7 @@ def setup_test_admin():
     with driver.session() as session:
         # Check if test admin already exists; create if missing
         admin = get_user_by_email(session, TEST_ADMIN_EMAIL)
+
         if not admin:
             create_user(
                 session,
@@ -54,24 +57,35 @@ def setup_test_admin():
                 affiliation="Testing Dept",
                 email=TEST_ADMIN_EMAIL
             )
-    
-    yield  # Let tests run
-    
+
+    yield
+
     # Teardown: Delete test admin after tests complete
     with driver.session() as session:
         delete_user(session, TEST_ADMIN_EMAIL)
 
-# Generates valid JWT Auth Headers for the admin user    
+
+# Generates valid JWT Auth Headers for the admin user
 @pytest.fixture
 def admin_headers():
-    token = create_access_token({"sub": TEST_ADMIN_EMAIL, "role": "administrator"})
+    token = create_access_token({
+        "sub": TEST_ADMIN_EMAIL,
+        "role": "administrator"
+    })
+
     return {"Authorization": f"Bearer {token}"}
+
 
 # Generates valid JWT Auth Headers for a non-admin user
 @pytest.fixture
 def user_headers():
-    token = create_access_token({"sub": "med_user@email.com", "role": "medical professional"})
+    token = create_access_token({
+        "sub": "med_user@email.com",
+        "role": "medical professional"
+    })
+
     return {"Authorization": f"Bearer {token}"}
+
 
 @pytest.fixture(autouse=True)
 def run_before_each_test(client, test_driver, admin_headers):
@@ -96,18 +110,50 @@ def cleanup_database_after_tests(test_driver):
     # Cleanup after all tests have finished
     with test_driver.session() as session:
         session.run("MATCH (n) DETACH DELETE n").consume()
-    
 
 
-#___________TEST CASES______________________________________
+# ___________TEST CASES______________________________________
 
 def test_health(client, test_driver):
     response = client.get("/health")
+
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
 
 def test_get_user(client, test_driver, admin_headers):
-    response = client.get(f"/users/jane@email.com", headers=admin_headers)
+    response = client.get(
+        "/users/jane@email.com",
+        headers=admin_headers
+    )
+
     assert response.status_code == 200
     assert response.json()["real_name"] == "Jane Doe"
+
+
+def test_admin_login_and_access_protected_route(client):
+    login_response = client.post(
+        "/api/login",
+        json={
+            "email": TEST_ADMIN_EMAIL,
+            "password": TEST_ADMIN_PASS,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    login_data = login_response.json()
+
+    assert login_data["role"] == "administrator"
+    assert "access_token" in login_data
+
+    headers = {
+        "Authorization": f"Bearer {login_data['access_token']}"
+    }
+
+    users_response = client.get(
+        "/users",
+        headers=headers,
+    )
+
+    assert users_response.status_code == 200
