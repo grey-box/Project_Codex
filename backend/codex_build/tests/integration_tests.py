@@ -157,3 +157,86 @@ def test_admin_login_and_access_protected_route(client):
     )
 
     assert users_response.status_code == 200
+
+def test_admin_login_wrong_password(client):
+    response = client.post(
+        "/api/login",
+        json={
+            "email": TEST_ADMIN_EMAIL,
+            "password": "WrongPassword123!",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_login_unknown_user(client):
+    response = client.post(
+        "/api/login",
+        json={
+            "email": "doesnotexist@email.com",
+            "password": "SomePassword123!",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_users_requires_authentication(client):
+    response = client.get("/users")
+
+    assert response.status_code == 401
+
+
+def test_medical_professional_cannot_access_admin_users(client, admin_headers):
+    test_email = "medicaltest@email.com"
+    test_password = "MedicalTestPassword123!"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "Medical Test User",
+            "role": "medical professional",
+            "password": test_password,
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    login_response = client.post(
+        "/api/login",
+        json={
+            "email": test_email,
+            "password": test_password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    medical_headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    users_response = client.get(
+        "/users",
+        headers=medical_headers,
+    )
+
+    assert users_response.status_code == 403
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200

@@ -6,6 +6,8 @@ The test logs in through `/api/login` using the test administrator credentials, 
 
 This verifies that the real login, password authentication, JWT generation, and administrator-protected API access work together successfully.
 
+Additional authentication coverage verifies that incorrect passwords and unknown users are rejected with `401`, unauthenticated requests to `/users` are rejected with `401`, and authenticated medical professionals are denied access to administrator-only user routes with `403`.
+
 
 **## Running Unit Tests**
 ```bash
