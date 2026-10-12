@@ -71,3 +71,17 @@ export default defineConfig([
   },
 ])
 ```
+
+## Authentication and Administrator UI
+
+Frontend authentication is integrated with the FastAPI backend.
+
+- Login through `/api/login`
+- JWT-based authenticated API requests
+- Session-based login state and logout
+- Administrator-only User Management interface
+- Administrators can list, add, edit, change roles, and delete users
+- Protected frontend requests include `Authorization: Bearer <token>`
+- Protected operations such as `/packs/load` and `/api/populate-sources` use the authenticated token
+
+The backend remains responsible for enforcing role-based authorization.

@@ -608,3 +608,249 @@ a:focus-visible {
     text-align: left;
   }
 }
+.auth-panel {
+  position: absolute;
+  top: 92px;
+  left: 20px;
+  width: 280px;
+  padding: 16px;
+  border: 1px solid #d7dbe0;
+  border-radius: 10px;
+  background: #f8fafc;
+  box-sizing: border-box;
+  z-index: 20;
+}
+
+.auth-panel h3 {
+  margin: 0 0 12px;
+  color: #0f1826;
+  font-size: 1.15rem;
+}
+
+.auth-form {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-form label {
+  color: #384a60;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.auth-form input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d7dbe0;
+  border-radius: 7px;
+  box-sizing: border-box;
+}
+
+.auth-panel button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 7px;
+  background: #4e7f77;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth-email {
+  margin: 0 0 4px;
+  color: #2f4057;
+  overflow-wrap: anywhere;
+}
+
+.auth-role {
+  margin: 0 0 12px;
+  color: #667085;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+}
+
+.content--hidden {
+  display: none;
+}
+
+.admin-menu-btn {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.admin-content {
+  padding-top: 28px;
+}
+
+.admin-users-panel {
+  width: 100%;
+}
+
+.admin-users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.admin-users-header h2 {
+  margin: 0 0 4px;
+  color: #0f1826;
+  font-size: 2rem;
+}
+
+.admin-users-header p {
+  margin: 0;
+  color: #667085;
+}
+
+.admin-users-header button,
+.admin-user-form button,
+.admin-user-actions button {
+  border: none;
+  border-radius: 8px;
+  background: #4e7f77;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-users-header button {
+  min-height: 40px;
+  padding: 0 18px;
+}
+
+.admin-create-card {
+  margin-bottom: 22px;
+  padding: 18px;
+  border: 1px solid #d7dbe0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.admin-create-card h3 {
+  margin: 0 0 14px;
+  color: #0f1826;
+}
+
+.admin-user-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr)) auto;
+  gap: 10px;
+}
+
+.admin-user-form input,
+.admin-user-form select,
+.admin-users-table input,
+.admin-users-table select {
+  min-width: 0;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid #d7dbe0;
+  border-radius: 7px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.admin-user-form button {
+  min-height: 40px;
+  padding: 0 18px;
+}
+
+.admin-users-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #d7dbe0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-users-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e7ecf1;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-users-table th {
+  background: #eff4f8;
+  color: #223246;
+}
+
+.admin-users-table td {
+  color: #2e435a;
+}
+
+.admin-user-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.admin-user-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.admin-user-actions .secondary-btn {
+  background: #8e97a6;
+}
+
+.admin-user-actions .danger-btn {
+  background: #a54343;
+}
+
+.message--success {
+  color: #245c45;
+  background: #eaf6ef;
+  border: 1px solid #c9e7d5;
+}
+
+@media (max-width: 1100px) {
+  .admin-user-form {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .admin-user-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.sides--admin > :not(.auth-panel) {
+  display: none;
+}
+
+.admin-content {
+  width: calc(100% - 400px);
+  margin-left: 380px;
+  margin-right: 20px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 840px) {
+  .admin-content {
+    width: calc(100% - 20px);
+    margin: 500px 10px 0;
+  }
+}

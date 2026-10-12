@@ -1,6 +1,9 @@
 import './App.css'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, type KeyboardEvent } from 'react'
+import LoginPanel from './components/LoginPanel'
+import AdminUsersPanel from './components/AdminUsersPanel'
+import { API_BASE_URL } from './services/api'
 
 interface CountryOption {
   code: string;
@@ -74,7 +77,6 @@ interface TranslateResponse {
   results: TranslateResultRow[]
 }
 
-const API_BASE_URL = 'http://localhost:8000'
 const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
 
 function App() {
@@ -101,6 +103,38 @@ function App() {
   const [importMessage, setImportMessage] = useState('')
   const [hasBrand, setHasBrand] = useState(false)
   const [progress, setProgress] = useState<string>('');
+  const [authToken, setAuthToken] = useState<string | null>(
+    () => sessionStorage.getItem('codexAuthToken')
+  )
+  const [userRole, setUserRole] = useState(
+    () => sessionStorage.getItem('codexUserRole') ?? ''
+  )
+  const [userEmail, setUserEmail] = useState(
+    () => sessionStorage.getItem('codexUserEmail') ?? ''
+  )
+  const [showAdminUsers, setShowAdminUsers] = useState(false)
+
+  const handleLogin = (token: string, role: string, email: string) => {
+    setAuthToken(token)
+    setUserRole(role)
+    setUserEmail(email)
+    setShowAdminUsers(false)
+
+    sessionStorage.setItem('codexAuthToken', token)
+    sessionStorage.setItem('codexUserRole', role)
+    sessionStorage.setItem('codexUserEmail', email)
+  }
+
+  const handleLogout = () => {
+    setAuthToken(null)
+    setUserRole('')
+    setUserEmail('')
+    setShowAdminUsers(false)
+
+    sessionStorage.removeItem('codexAuthToken')
+    sessionStorage.removeItem('codexUserRole')
+    sessionStorage.removeItem('codexUserEmail')
+  }
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -320,6 +354,12 @@ function App() {
   const handleImportLanguageLocal = async () => {
     setImportMessage('')
     setImportError('')
+
+    if (!authToken) {
+      setImportError('Please log in before importing a language pack.')
+      return
+    }
+
     if (!importLanguage) {
       setImportError('Please select a language file!')
       return
@@ -331,6 +371,9 @@ function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/packs/load`, {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
         body: formData,
       })
 
@@ -359,6 +402,11 @@ function App() {
   const [isPopulationLoading, setIsPopulationLoading] = useState(false);
 
   const handlePopulateClick = async () => {
+    if (!authToken) {
+      setProgress('Please log in before populating sources.')
+      return
+    }
+
     let sources: string[] = []
     if (isDrugbankSelected) {
       sources.push("drugbank")
@@ -377,7 +425,10 @@ function App() {
     try {
       const response = await fetch('http://localhost:8000/api/populate-sources', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({ 
           selectedSources: sources,
           DBAPIKey: drugbankAPIKey,
@@ -480,7 +531,31 @@ function App() {
         </div>
       </header>
 
-      <main className="sides">
+      <main className={`sides ${showAdminUsers ? 'sides--admin' : ''}`}>
+        {!authToken ? (
+          <LoginPanel onLogin={handleLogin} />
+        ) : (
+          <section className="auth-panel">
+            <h3>Signed In</h3>
+            <p className="auth-email">{userEmail}</p>
+            <p className="auth-role">{userRole}</p>
+
+            {userRole.toLowerCase() === 'administrator' && (
+              <button
+                type="button"
+                className="admin-menu-btn"
+                onClick={() => setShowAdminUsers((current) => !current)}
+              >
+                {showAdminUsers ? 'Back to Codex' : 'User Management'}
+              </button>
+            )}
+
+            <button type="button" onClick={handleLogout}>
+              Log out
+            </button>
+          </section>
+        )}
+
         <section className="populateDrugbank">
           <h3 className="populate-label">{t('sides.populateLabel')}</h3>
 
@@ -570,7 +645,15 @@ function App() {
         </section>
       </main>
 
-      <main className="content">
+      {authToken &&
+        userRole.toLowerCase() === 'administrator' &&
+        showAdminUsers && (
+          <main className="content admin-content">
+            <AdminUsersPanel token={authToken} />
+          </main>
+        )}
+
+      <main className={`content ${showAdminUsers ? 'content--hidden' : ''}`}>
         <section className="hero-row">
           <div>
             <h1>{t('home.pageTitle')}</h1>
