@@ -494,7 +494,10 @@ def update_user_role(session, email: str, new_role: str) -> dict | None:
     query = """
     MATCH (u:User {email: $email})
     SET u.role = $new_role, u.updated_at = datetime()
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation
     """
     result = session.run(
         query, 

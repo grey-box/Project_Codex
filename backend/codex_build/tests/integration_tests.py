@@ -240,3 +240,200 @@ def test_medical_professional_cannot_access_admin_users(client, admin_headers):
     )
 
     assert delete_response.status_code == 200
+
+
+def test_admin_can_create_user(client, admin_headers):
+    test_email = "crudcreate@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Create User",
+            "role": "medical professional",
+            "password": "CrudCreatePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["email"] == test_email
+    assert data["real_name"] == "CRUD Create User"
+    assert data["role"] == "medical professional"
+    assert data["affiliation"] == "Testing Dept"
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["email"] == test_email
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+
+def test_admin_can_list_users(client, admin_headers):
+    response = client.get(
+        "/users",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 200
+
+    users = response.json()
+
+    assert isinstance(users, list)
+    assert any(
+        user["email"] == "jane@email.com"
+        for user in users
+    )
+
+
+def test_admin_can_update_user(client, admin_headers):
+    test_email = "crudupdate@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Update User",
+            "role": "medical professional",
+            "password": "CrudUpdatePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    update_response = client.patch(
+        f"/users/{test_email}",
+        headers=admin_headers,
+        json={
+            "real_name": "Updated CRUD User",
+            "affiliation": "Updated Testing Dept",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    updated = update_response.json()
+
+    assert updated["real_name"] == "Updated CRUD User"
+    assert updated["affiliation"] == "Updated Testing Dept"
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["real_name"] == "Updated CRUD User"
+    assert get_response.json()["affiliation"] == "Updated Testing Dept"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+
+def test_admin_can_change_user_role(client, admin_headers):
+    test_email = "crudrole@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Role User",
+            "role": "medical professional",
+            "password": "CrudRolePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    role_response = client.put(
+        f"/users/{test_email}/role",
+        headers=admin_headers,
+        json={
+            "role": "administrator",
+        },
+    )
+
+    assert role_response.status_code == 200
+    assert role_response.json()["role"] == "administrator"
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["role"] == "administrator"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+
+def test_admin_can_delete_user(client, admin_headers):
+    test_email = "cruddelete@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Delete User",
+            "role": "medical professional",
+            "password": "CrudDeletePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 404
