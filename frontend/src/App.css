@@ -3,9 +3,13 @@
   margin: 0 auto;
   background: #edeef0;
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
 }
 
 .top-nav {
+  grid-column: 1 / -1;
   background: #4e7f77;
   display: flex;
   justify-content: space-between;
@@ -82,6 +86,7 @@
 }
 
 .content {
+  grid-column: 2;
   width: min(1180px, calc(100% - 56px));
   margin: 0 auto;
   padding: 30px 0 56px;
@@ -193,119 +198,51 @@
   transform: rotate(45deg);
 }
 
-.populate-label {
+/* Sidebar: data sources + API keys, laid out in normal flow */
+.sides {
+  grid-column: 1;
+  align-self: start;
+  margin: 30px 0 30px clamp(16px, 2vw, 28px);
+  padding: 20px;
+  border: 1px solid #d7dbe0;
+  border-radius: 12px;
+  background: #f8fafc;
   display: flex;
-  align-items: center;
-  font-size: 1.5rem;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.populate-label,
+.key-label {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #0f1826;
-  position: absolute;
-  top: 265px;
-  left: 32px;
 }
 
 .key-label {
-  display: flex;
-  align-items: center;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #0f1826;
-  position: absolute;
-  top: 550px;
-  left: 20px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #d7dbe0;
 }
 
-.drugbankAPIKey-row {
-  display: grid;
-  grid-template-columns: 1fr 170px;
-  gap: 10px;
-  position: absolute;
-  top: 610px;
-  left: 75px;
-}
-
-.icdID-row {
-  display: grid;
-  grid-template-columns: 1fr 170px;
-  gap: 10px;
-  position: absolute;
-  top: 635px;
-  left: 75px;
-}
-
-.icdSecret-row {
-  display: grid;
-  grid-template-columns: 1fr 170px;
-  gap: 10px;
-  position: absolute;
-  top: 660px;
-  left: 75px;
-}
-
-.populate-loading-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center; 
-  font-size: 1.2rem;
-  font-weight: 500;
-  color: #0f1826;
-  position: absolute;
-  top: 460px;
-  left: 10px;
-  width: 300px;
-  height: 5vh;
-  box-sizing: border-box;
-}
-
-.populateDrugbank-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  user-select: none;
-  position: absolute;
-  top: 320px;
-  left: 90px;
-  font-size: 1.2rem;
-}
-
-.populateSnomed-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  user-select: none;
-  position: absolute;
-  top: 345px;
-  left: 90px;
-  font-size: 1.2rem;
-}
-
-.populateRxNorm-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  user-select: none;
-  position: absolute;
-  top: 370px;
-  left: 90px;
-  font-size: 1.2rem;
-}
-
+.populateDrugbank-checkbox,
+.populateSnomed-checkbox,
+.populateRxNorm-checkbox,
 .populateICD11-checkbox {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   user-select: none;
-  position: absolute;
-  top: 395px;
-  left: 90px;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  color: #253242;
 }
 
+.populate {
+  position: relative;
+  margin-top: 6px;
+}
 
 .populate-btn {
   border: none;
@@ -313,13 +250,10 @@
   background: #4e7f77;
   color: #fff;
   font-weight: 700;
-  font-size: 17px;
-  width: 150px;
-  height: 50px;
+  font-size: 16px;
+  width: 100%;
+  height: 44px;
   cursor: pointer;
-  position: absolute;
-  top: 425px;
-  left: 75px;
 }
 
 .populate-btn:disabled {
@@ -329,20 +263,49 @@
 
 .populate-overlay {
   position: absolute;
-  top: 425px;
-  left: 75px;
-  width: 150px;
-  height: 50px;
+  inset: 0;
   background-color: rgba(255, 255, 255, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   z-index: 10;
-  border-radius: 8px; /* Match your button's corners if needed */
-  font-size: 17px;
+  border-radius: 8px;
+  font-size: 16px;
   color: #1e293b;
   font-weight: 700;
+}
+
+.populate-loading-label {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #384a60;
+  text-align: center;
+}
+
+.populate-loading-label:empty {
+  display: none;
+}
+
+.drugbankKey,
+.icd11Keys {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drugbankAPIKey-row input,
+.icdID-row input,
+.icdSecret-row input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #c7ccd2;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  font-size: 14px;
+  color: #253242;
 }
 
 .spinner {
@@ -561,6 +524,19 @@ a:focus-visible {
 }
 
 @media (max-width: 840px) {
+  .page-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sides,
+  .content {
+    grid-column: 1;
+  }
+
+  .sides {
+    margin: 18px 10px 0;
+  }
+
   .top-nav {
     flex-direction: column;
     align-items: stretch;

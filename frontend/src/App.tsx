@@ -480,7 +480,7 @@ function App() {
         </div>
       </header>
 
-      <main className="sides">
+      <aside className="sides">
         <section className="populateDrugbank">
           <h3 className="populate-label">{t('sides.populateLabel')}</h3>
 
@@ -568,7 +568,7 @@ function App() {
             />
           </label>
         </section>
-      </main>
+      </aside>
 
       <main className="content">
         <section className="hero-row">
