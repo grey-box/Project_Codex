@@ -511,3 +511,12 @@ def update_user_role(session, email: str, new_role: str) -> dict | None:
     
     print(f"User with email '{email}' not found.")
     return None
+
+def count_administrators(session) -> int:
+    query = """
+    MATCH (u:User)
+    WHERE toLower(u.role) = 'administrator'
+    RETURN count(u) AS admin_count
+    """
+    result = session.run(query).single()
+    return result["admin_count"] if result else 0

@@ -437,3 +437,276 @@ def test_admin_can_delete_user(client, admin_headers):
     )
 
     assert get_response.status_code == 404
+
+
+def test_create_duplicate_user_returns_409(client, admin_headers):
+    response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": "jane@email.com",
+            "real_name": "Duplicate Jane",
+            "role": "medical professional",
+            "password": "DuplicatePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert response.status_code == 409
+
+
+def test_get_nonexistent_user_returns_404(client, admin_headers):
+    response = client.get(
+        "/users/nonexistent@email.com",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_update_nonexistent_user_returns_404(client, admin_headers):
+    response = client.patch(
+        "/users/nonexistent@email.com",
+        headers=admin_headers,
+        json={
+            "real_name": "Missing User",
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_delete_nonexistent_user_returns_404(client, admin_headers):
+    response = client.delete(
+        "/users/nonexistent@email.com",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_get_role_for_nonexistent_user_returns_404(client, admin_headers):
+    response = client.get(
+        "/users/nonexistent@email.com/role",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_update_role_for_nonexistent_user_returns_404(client, admin_headers):
+    response = client.put(
+        "/users/nonexistent@email.com/role",
+        headers=admin_headers,
+        json={
+            "role": "administrator",
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_create_user_missing_required_field_returns_422(client, admin_headers):
+    response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": "missingfield@email.com",
+            "real_name": "Missing Field User",
+            "role": "medical professional",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_invalid_token_returns_401(client):
+    response = client.get(
+        "/users",
+        headers={
+            "Authorization": "Bearer invalid-token"
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_administrator_cannot_delete_own_account(client, admin_headers):
+    response = client.delete(
+        f"/users/{TEST_ADMIN_EMAIL}",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 409
+
+    get_response = client.get(
+        f"/users/{TEST_ADMIN_EMAIL}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+
+
+def test_last_administrator_cannot_be_demoted_by_role_endpoint(client, admin_headers):
+    response = client.put(
+        f"/users/{TEST_ADMIN_EMAIL}/role",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert response.status_code == 409
+
+    get_response = client.get(
+        f"/users/{TEST_ADMIN_EMAIL}/role",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["role"] == "administrator"
+
+
+def test_last_administrator_cannot_be_demoted_by_patch(client, admin_headers):
+    response = client.patch(
+        f"/users/{TEST_ADMIN_EMAIL}",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert response.status_code == 409
+
+    get_response = client.get(
+        f"/users/{TEST_ADMIN_EMAIL}/role",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["role"] == "administrator"
+
+
+def test_administrator_can_demote_user_when_another_administrator_exists(
+    client,
+    admin_headers,
+):
+    test_email = "secondadmin@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "Second Administrator",
+            "role": "administrator",
+            "password": "SecondAdminPassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    role_response = client.put(
+        f"/users/{test_email}/role",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert role_response.status_code == 200
+    assert role_response.json()["role"] == "medical professional"
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200
+
+
+def test_stale_admin_token_for_missing_user_returns_401(client):
+    token = create_access_token({
+        "sub": "formeradmin@email.com",
+        "role": "administrator"
+    })
+
+    stale_admin_headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = client.get(
+        "/users",
+        headers=stale_admin_headers,
+    )
+
+    assert response.status_code == 401
+
+
+def test_demoted_administrator_token_uses_current_database_role(client, admin_headers):
+    test_email = "demotedadmin@email.com"
+    test_password = "DemotedAdminPassword123!"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "Demoted Administrator",
+            "role": "administrator",
+            "password": test_password,
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    login_response = client.post(
+        "/api/login",
+        json={
+            "email": test_email,
+            "password": test_password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    old_admin_headers = {
+        "Authorization": f"Bearer {login_response.json()['access_token']}"
+    }
+
+    role_response = client.put(
+        f"/users/{test_email}/role",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert role_response.status_code == 200
+
+    users_response = client.get(
+        "/users",
+        headers=old_admin_headers,
+    )
+
+    assert users_response.status_code == 403
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200

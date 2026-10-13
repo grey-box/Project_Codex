@@ -54,3 +54,19 @@ def test_function_name_here(client, test_driver, admin_headers):
     response = client.get("/example_path", headers=admin_headers)
     assert response.status_code == 200
 ```
+
+## Corner-Case and Safeguard Coverage
+
+The integration test suite includes error-handling and administrator safeguard coverage for the access-list API.
+
+Current coverage verifies that duplicate user creation returns `409`, missing required user fields return `422`, nonexistent user and role operations return `404`, and invalid authentication tokens return `401`.
+
+Administrator safeguards prevent an administrator from deleting their own account and prevent the last administrator from being demoted through either the dedicated role endpoint or the general user update endpoint. Demotion is still allowed when another administrator remains.
+
+Authentication also validates the user against the current Neo4j database state. Tokens belonging to deleted users are rejected with `401`, and previously issued administrator tokens use the current database role for the user so a demoted administrator immediately loses administrator access.
+
+Current integration test result:
+
+```text
+26 passed
+```

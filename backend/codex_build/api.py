@@ -60,18 +60,40 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
-    """Decodes JWT and returns payload if present, or None if unauthenticated."""
+    """Decodes JWT and returns the current database-backed user identity and role."""
     if not credentials:
         return None
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload
     except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    email = str(payload.get("sub", "")).lower().strip()
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    with driver.session() as session:
+        user = get_user_by_email(session, email)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload["sub"] = user["email"]
+    payload["role"] = user["role"]
+    return payload
 
 def require_roles(allowed_roles: List[str]):
     """Enforces that the current authenticated user belongs to one of the allowed roles."""
@@ -117,6 +139,7 @@ try:
         update_user,
         delete_user,
         get_user_role,
+        count_administrators,
         get_users_by_role,
         update_user_role,
         authenticate_user,
@@ -694,6 +717,20 @@ def api_update_user(email: str, body: UserUpdateRequest):
     """Updates user fields (real_name, role, affiliation, password)."""
     try:
         with driver.session() as session:
+            if body.role is not None:
+                current_role = get_user_role(session, email)
+
+                if (
+                    current_role is not None
+                    and current_role.strip().lower() == "administrator"
+                    and body.role.strip().lower() != "administrator"
+                    and count_administrators(session) <= 1
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Cannot demote the last administrator."
+                    )
+
             updated = update_user(
                 session,
                 email=email,
@@ -722,11 +759,40 @@ def api_update_user(email: str, body: UserUpdateRequest):
     tags=["users"],
     dependencies=[Depends(require_roles(["administrator"]))],
 )
-def api_delete_user(email: str):
+def api_delete_user(
+    email: str,
+    current_user: dict = Depends(get_current_user)
+):
     """Removes a user node from Neo4j."""
     try:
         with driver.session() as session:
+            role = get_user_role(session, email)
+
+            if role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+
+            current_email = str(current_user.get("sub", "")).lower().strip()
+
+            if email.lower().strip() == current_email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Administrators cannot delete their own account."
+                )
+
+            if (
+                role.strip().lower() == "administrator"
+                and count_administrators(session) <= 1
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete the last administrator."
+                )
+
             deleted = delete_user(session, email)
+
             if not deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -775,6 +841,24 @@ def api_update_user_role(email: str, body: UserRoleUpdateRequest):
     """Updates only the role for a specific user."""
     try:
         with driver.session() as session:
+            current_role = get_user_role(session, email)
+
+            if current_role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+
+            if (
+                current_role.strip().lower() == "administrator"
+                and body.role.strip().lower() != "administrator"
+                and count_administrators(session) <= 1
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot demote the last administrator."
+                )
+
             updated = update_user_role(session, email=email, new_role=body.role)
             if not updated:
                 raise HTTPException(
