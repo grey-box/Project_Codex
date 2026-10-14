@@ -27,9 +27,13 @@ except ImportError:
     print("Missing dependency: run  pip3 install httpx")
     sys.exit(1)
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# ── Config & State ────────────────────────────────────────────────────────────
 API_BASE = os.getenv("CODEX_API_URL", "http://localhost:8000")
 TIMEOUT  = 15
+
+# Authentication session state
+CURRENT_TOKEN = None
+CURRENT_USER  = None  # e.g., {"email": "admin@codex.org", "role": "administrator"}
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
 BOLD   = "\033[1m"
@@ -55,11 +59,19 @@ def _request(method: str, path: str, **kwargs):
     Make an HTTP request to the API.
     Prints the method + path + status code on every call so you can see
     exactly what is happening at the HTTP layer.
+    Automatically appends Bearer Token header if logged in.
     Returns the parsed JSON body, or None on error.
     """
+    global CURRENT_TOKEN
+
+    # Inject Authorization header if token exists
+    headers = kwargs.pop("headers", {})
+    if CURRENT_TOKEN:
+        headers["Authorization"] = f"Bearer {CURRENT_TOKEN}"
+
     try:
         with httpx.Client(base_url=API_BASE, timeout=TIMEOUT) as client:
-            resp = getattr(client, method)(path, **kwargs)
+            resp = getattr(client, method)(path, headers=headers, **kwargs)
 
         status_color = green if resp.status_code < 300 else (
             yellow if resp.status_code < 500 else red
@@ -148,6 +160,11 @@ def _print_audit(data: dict):
 
 def _print_help():
     print(f"""
+  {bold('Authentication Commands')}
+    {cyan('login')}                  Log in with email and password
+    {cyan('logout')}                 Log out of current session
+    {cyan('whoami')}                 Show current active user session
+
   {bold('Translation Commands')}
     {cyan('<drug name>')}            Translate a term (prompts for language + country)
     {cyan('audit <term>')}           Quality audit — missing translations / brands
@@ -206,6 +223,41 @@ def _prompt(label: str, default: str = "") -> str:
 
 
 # ── Command handlers ──────────────────────────────────────────────────────────
+
+def cmd_login():
+    global CURRENT_TOKEN, CURRENT_USER
+    print(bold("\n  Login"))
+    email = _prompt("Email")
+    password = _prompt("Password")
+
+    if not email or not password:
+        print(red("  ✗ Email and Password are required."))
+        return
+
+    data = _request("post", "/api/login", json={"email": email, "password": password})
+    if data:
+        CURRENT_TOKEN = data["access_token"]
+        CURRENT_USER = {"email": email, "role": data["role"]}
+        print(green(f"\n  ✓ Successfully logged in as {email} [{data['role']}]\n"))
+
+
+def cmd_logout():
+    global CURRENT_TOKEN, CURRENT_USER
+    if not CURRENT_TOKEN:
+        print(yellow("  No active session."))
+        return
+    CURRENT_TOKEN = None
+    CURRENT_USER = None
+    print(green("  ✓ Logged out successfully.\n"))
+
+
+def cmd_whoami():
+    if CURRENT_USER:
+        print(f"\n  Logged in as : {bold(CURRENT_USER['email'])}")
+        print(f"  Role         : {cyan(CURRENT_USER['role'])}\n")
+    else:
+        print(yellow("\n  Not logged in (Unauthenticated / Public Guest)\n"))
+
 
 def cmd_health():
     data = _request("get", "/health")
@@ -402,20 +454,17 @@ def main():
     print(bold("\nCodex Medical Translation — CLI"))
     print(f"  API  : {cyan(API_BASE)}")
     print(f"  Docs : {cyan(API_BASE + '/docs')}")
-    print(f"  Type {cyan('health')} to verify connection, {cyan('help')} for all commands.\n")
+    print(f"  Type {cyan('login')} to authenticate, {cyan('health')} for status, or {cyan('help')} for options.\n")
     
-    payload = {
-            "email": "some@email.com",
-            "real_name": "firstname lastname",
-            "password": "hello world",
-            "role": "Admin",
-            "affiliation": "grey-box"
-    }
-    data = _request("post", "/users", json=payload)
-
     while True:
+        # Prompt indicator showing session state
+        if CURRENT_USER:
+            user_tag = dim(f" ({CURRENT_USER['email']} [{CURRENT_USER['role']}])")
+        else:
+            user_tag = dim(" (unauthenticated)")
+
         try:
-            raw = input(bold("codex> ")).strip()
+            raw = input(bold("codex") + user_tag + bold("> ")).strip()
         except (EOFError, KeyboardInterrupt):
             print("\nBye.")
             break
@@ -430,8 +479,12 @@ def main():
             break
         elif lower in ("help", "?"):
             _print_help()
-        # elif lower == "tests":
-        #     run_tests()
+        elif lower == "login":
+            cmd_login()
+        elif lower == "logout":
+            cmd_logout()
+        elif lower == "whoami":
+            cmd_whoami()
         elif lower == "health":
             cmd_health()
         elif lower == "languages":
