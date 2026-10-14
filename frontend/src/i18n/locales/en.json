@@ -1,0 +1,34 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About"
+  },
+  "common": {
+    "help": "Help",
+    "search": "Search",
+    "translate": "Translate"
+  },
+  "sides": {
+    "populateLabel": "Populate local source(s):",
+    "populateButton": "Populate",
+    "populateLoader": "Populating...",
+    "keyLabel": "Please enter your API keys:",
+    "drugbankAPIKey": "Drugbank API Key",
+    "icdID": "ICD11 ID Key",
+    "icdSecret": "ICD11 Secret Key"
+  },
+  "home": {
+    "pageTitle": "Project Medical Codex",
+    "pageDescription": "A tool developed to help coordinate medical equipment between countries.",
+    "searchTitle": "Search for drug name...",
+    "sourceLanguage": "Source Language",
+    "sourcePlaceholder": "Word to search",
+    "resultsTitle": "Results",
+    "sampleMedicine": "Medicine 1",
+    "localizeTitle": "Translate/Localize drug name...",
+    "targetLanguage": "Target Language",
+    "targetPlaceholder": "Target Language",
+    "translationPlaceholder": "Translation will appear here",
+    "importTitle": "Import Language File"
+  }
+}

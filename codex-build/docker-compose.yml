@@ -1,6 +1,6 @@
 services:
   neo4j:
-    image: neo4j:5.18
+    image: neo4j:5.18.0
     container_name: codex-neo4j
     environment:
       NEO4J_AUTH: "neo4j/changeme"
