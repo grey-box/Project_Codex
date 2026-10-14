@@ -143,6 +143,7 @@ try:
         get_users_by_role,
         update_user_role,
         authenticate_user,
+        init_default_admin
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -157,8 +158,11 @@ TARGET_FOLDER_PATH = BASE_DIR / "codex" / "language_packs"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
+    # seed default admin user
+    init_default_admin()
     
+    # scan for and load language packs
+    print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
     if TARGET_FOLDER_PATH.exists() and TARGET_FOLDER_PATH.is_dir():
         # Iterate over every file in the target folder
         for file_path in TARGET_FOLDER_PATH.iterdir():

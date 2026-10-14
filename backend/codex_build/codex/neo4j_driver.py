@@ -520,3 +520,30 @@ def count_administrators(session) -> int:
     """
     result = session.run(query).single()
     return result["admin_count"] if result else 0
+
+# Ensures unique constraints exist and seeds a default admin user on startup
+def init_default_admin():
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@grey-box.ca")
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMeNow123!")
+
+    try:
+        with driver.session() as session:
+            # 1. Ensure email uniqueness constraint exists in Neo4j
+            init_user_constraints(session)
+
+            # 2. Check if default admin exists; create if not
+            existing_admin = get_user_by_email(session, admin_email)
+            if not existing_admin:
+                create_user(
+                    session,
+                    real_name="Default Administrator",
+                    password=admin_password,
+                    role="administrator",
+                    affiliation="System",
+                    email=admin_email,
+                )
+                print("Initialized default administrator user: %s", admin_email)
+            else:
+                print("Default administrator user already exists: %s", admin_email)
+    except Exception as exc:
+        print("ERROR: Failed to initialize default admin user: %s", exc)
