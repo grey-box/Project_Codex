@@ -1,8 +1,8 @@
-# codex-cli — Medical Translation Terminal
+# Codex — Setup Guide
 
 ---
 
-## Setup (once)
+## Quick start
 
 ```bash
 docker compose up --build
@@ -12,7 +12,9 @@ docker compose up --build
 
 ---
 
-## Usage
+## Step 6 — Load drug data
+
+Upload one CSV file per language/country combination:
 
 ```
 Use http://localhost:9000 for the frontend
@@ -21,6 +23,9 @@ If http://localhost:9000 does not work, try any of the other ports.
 Use http://localhost:7474 for the Neo4j backend
 Use http://localhost:8000/docs to view the API
 ```
+
+`term` accepts both generic names (`Ibuprofen`) and brand names (`Advil`).
+`country` is optional — omit it to return results across all countries.
 
 ---
 
