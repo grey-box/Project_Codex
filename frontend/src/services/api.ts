@@ -83,3 +83,32 @@ export async function translateDrug(
 
   return (await response.json()) as TranslateResponse
 }
+
+/**
+ * Scans an image file using OCR and extracts medical terms with fuzzy matching.
+ */
+export async function scanOcrImage(file: File, sourceLanguage?: string): Promise<import('../types/codex').OcrResultItem[]> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (sourceLanguage && sourceLanguage !== 'all') {
+    formData.append('source_language', sourceLanguage)
+  }
+
+  const response = await fetch(`${API_BASE_URL}/ocrmatching/`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => null)
+    throw new Error(errData?.detail || 'OCR extraction failed')
+  }
+
+  const data = await response.json()
+  if (Array.isArray(data)) {
+    return data
+  } else if (data && Array.isArray(data.results)) {
+    return data.results
+  }
+  return []
+}

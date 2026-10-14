@@ -3,14 +3,35 @@ import { useTranslation } from 'react-i18next'
 import { PopulateDropdown } from '../populate/PopulateDropdown'
 import { ImportLanguageModal } from '../import/ImportLanguageModal'
 import { LanguageSelector } from '../language/LanguageSelector'
+import { LanguageFilterModal } from '../language/LanguageFilterModal'
+import { OcrModal } from '../ocr/OcrModal'
 import type { LanguageOption } from '../../types/codex'
 
 interface HeaderProps {
   languages: LanguageOption[]
   onImportSuccess?: () => void
+  onSelectTerm?: (term: string) => void
+  currentSearchLanguage?: string
+  allLoadedLanguages?: LanguageOption[]
+  selectedLanguages?: string[]
+  onToggleLanguage?: (code: string) => void
+  onSelectAllLanguages?: () => void
+  onDeselectAllLanguages?: () => void
+  onApplyLanguageFilter?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ languages, onImportSuccess }) => {
+export const Header: React.FC<HeaderProps> = ({
+  languages,
+  onImportSuccess,
+  onSelectTerm,
+  currentSearchLanguage,
+  allLoadedLanguages,
+  selectedLanguages,
+  onToggleLanguage,
+  onSelectAllLanguages,
+  onDeselectAllLanguages,
+  onApplyLanguageFilter,
+}) => {
   const { t } = useTranslation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -65,6 +86,22 @@ export const Header: React.FC<HeaderProps> = ({ languages, onImportSuccess }) =>
           <div className="hidden md:flex items-center gap-3">
             <PopulateDropdown />
             <ImportLanguageModal onImportSuccess={onImportSuccess} />
+            {onSelectTerm && (
+              <OcrModal
+                onSelectTerm={onSelectTerm}
+                currentLanguage={currentSearchLanguage}
+              />
+            )}
+            {allLoadedLanguages && selectedLanguages && onToggleLanguage && onSelectAllLanguages && onDeselectAllLanguages && onApplyLanguageFilter && (
+              <LanguageFilterModal
+                allLanguages={allLoadedLanguages}
+                selectedLanguages={selectedLanguages}
+                onToggleLanguage={onToggleLanguage}
+                onSelectAll={onSelectAllLanguages}
+                onDeselectAll={onDeselectAllLanguages}
+                onApply={onApplyLanguageFilter}
+              />
+            )}
             <LanguageSelector languages={languages} />
 
             <div className="hidden lg:flex items-center gap-1.5 ml-2 pl-2 border-l border-emerald-700/60">
@@ -183,10 +220,36 @@ export const Header: React.FC<HeaderProps> = ({ languages, onImportSuccess }) =>
                   }}
                 />
               </div>
+              {onSelectTerm && (
+                <div className="w-full">
+                  <OcrModal
+                    fullWidth
+                    onSelectTerm={(term) => {
+                      onSelectTerm(term)
+                      setIsMobileMenuOpen(false)
+                    }}
+                    currentLanguage={currentSearchLanguage}
+                  />
+                </div>
+              )}
+              {allLoadedLanguages && selectedLanguages && onToggleLanguage && onSelectAllLanguages && onDeselectAllLanguages && onApplyLanguageFilter && (
+                <div className="w-full">
+                  <LanguageFilterModal
+                    fullWidth
+                    allLanguages={allLoadedLanguages}
+                    selectedLanguages={selectedLanguages}
+                    onToggleLanguage={onToggleLanguage}
+                    onSelectAll={onSelectAllLanguages}
+                    onDeselectAll={onDeselectAllLanguages}
+                    onApply={onApplyLanguageFilter}
+                  />
+                </div>
+              )}
               <div className="w-full pt-1 pb-4">
                 <LanguageSelector languages={languages} fullWidth />
               </div>
             </div>
+
 
             {/* Social & Region Footer */}
             <div className="pt-6 border-t border-emerald-800/60 flex items-center justify-between text-emerald-300">

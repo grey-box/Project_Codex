@@ -13,7 +13,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
   const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
+  const [loadedLanguages, setLoadedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [searchLanguage, setSearchLanguage] = useState('all')
   const [targetLanguage, setTargetLanguage] = useState('es')
   const [targetCountry, setTargetCountry] = useState('MX')
@@ -61,11 +63,15 @@ function App() {
     try {
       const nextLanguages = await getLanguages()
       if (!isActive) return
+      setLoadedLanguages(nextLanguages)
       setAvailableLanguages(nextLanguages)
+      setSelectedLanguages(nextLanguages)
       setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
     } catch {
       if (!isActive) return
+      setLoadedLanguages(FALLBACK_LANGUAGES)
       setAvailableLanguages(FALLBACK_LANGUAGES)
+      setSelectedLanguages(FALLBACK_LANGUAGES)
       setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
     }
   }
@@ -77,6 +83,73 @@ function App() {
       isActive = false
     }
   }, [])
+
+  const hasActiveLanguageMatch = (
+    itemLanguageString: string | null | undefined,
+    activeLanguages: string[],
+    selectedSearchLanguage: string = 'all'
+  ): boolean => {
+    if (!itemLanguageString) {
+      return false
+    }
+
+    const activeNormalized = activeLanguages.map((l) => l.toLowerCase().trim())
+    const itemLangs = itemLanguageString
+      .split(',')
+      .map((lang) => lang.trim().toLowerCase())
+
+    const matchesActiveLanguages = itemLangs.some((lang) =>
+      activeNormalized.includes(lang)
+    )
+
+    if (!matchesActiveLanguages) {
+      return false
+    }
+
+    const searchLangNormalized = selectedSearchLanguage.toLowerCase().trim()
+    if (searchLangNormalized !== 'all') {
+      return itemLangs.includes(searchLangNormalized)
+    }
+
+    return true
+  }
+
+  const handleCheckboxToggle = (code: string) => {
+    setSelectedLanguages((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    )
+  }
+
+  const handleSelectAll = () => {
+    setSelectedLanguages([...loadedLanguages])
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedLanguages([])
+  }
+
+  const handleApplyLanguageFilter = () => {
+    const filtered = loadedLanguages.filter((code) => selectedLanguages.includes(code))
+    setAvailableLanguages(filtered)
+    if (!filtered.includes(targetLanguage) && filtered.length > 0) {
+      setTargetLanguage(filtered[0])
+      setTargetCountry(getFirstCountryForLanguage(filtered[0]))
+    }
+
+    if (searchResults.length > 0) {
+      const updatedResults = searchResults.filter((item) =>
+        hasActiveLanguageMatch(item.language, filtered, searchLanguage)
+      )
+
+      setSearchResults(updatedResults)
+
+      if (selectedResult && !hasActiveLanguageMatch(selectedResult.language, filtered, searchLanguage)) {
+        setSelectedResult(null)
+        setTranslatedName('')
+        setTranslatedBrand('')
+      }
+    }
+  }
 
   const extractTranslatedName = (rows: TranslateResultRow[]) => {
     const names = rows
@@ -112,14 +185,17 @@ function App() {
 
     try {
       const data = await searchDrug(searchQuery)
+      const filteredData = data.filter((item) =>
+        hasActiveLanguageMatch(item.language, availableLanguages, searchLanguage)
+      )
 
-      if (!data || data.length === 0) {
+      if (filteredData.length === 0) {
         setSearchResults([])
-        setSearchError('No results found')
+        setSearchError('No results found for selected languages')
       } else {
-        const hasAnyBrand = data.some((item) => Boolean(item.brand))
+        const hasAnyBrand = filteredData.some((item) => Boolean(item.brand))
         setHasBrand(hasAnyBrand)
-        setSearchResults(data)
+        setSearchResults(filteredData)
         setSearchError('')
       }
     } catch (err) {
@@ -168,10 +244,28 @@ function App() {
     label: getLanguageLabel(code),
   }))
 
+  const allLoadedLanguages: LanguageOption[] = loadedLanguages.map((code) => ({
+    code,
+    label: getLanguageLabel(code),
+  }))
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       {/* Top Navigation */}
-      <Header languages={languages} onImportSuccess={() => loadLanguages(true)} />
+      <Header
+        languages={languages}
+        onImportSuccess={() => loadLanguages(true)}
+        onSelectTerm={(term) => {
+          setSearchQuery(term)
+        }}
+        currentSearchLanguage={searchLanguage}
+        allLoadedLanguages={allLoadedLanguages}
+        selectedLanguages={selectedLanguages}
+        onToggleLanguage={handleCheckboxToggle}
+        onSelectAllLanguages={handleSelectAll}
+        onDeselectAllLanguages={handleDeselectAll}
+        onApplyLanguageFilter={handleApplyLanguageFilter}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
@@ -182,7 +276,8 @@ function App() {
               {t('home.pageTitle') || 'Grey Box Pharma-Cross'}
             </h1>
             <p className="text-sm md:text-base text-slate-600 mt-1 max-w-2xl">
-              {t('home.pageDescription') || 'Multilingual medical normalization and cross-border drug intelligence powered by RxNorm and Neo4j knowledge graph.'}
+              {t('home.pageDescription') ||
+                'Multilingual medical normalization and cross-border drug intelligence powered by RxNorm and Neo4j knowledge graph.'}
             </p>
           </div>
           <button
@@ -192,6 +287,27 @@ function App() {
             {t('common.help') || 'Documentation'}
           </button>
         </section>
+
+        {/* Active Language Filter Notice (if filtered) */}
+        {availableLanguages.length < loadedLanguages.length && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span>
+                Active filter: Showing results for <strong>{availableLanguages.map(l => l.toUpperCase()).join(', ')}</strong> only.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              className="font-semibold underline hover:text-emerald-950 cursor-pointer"
+            >
+              Reset to All ({loadedLanguages.length})
+            </button>
+          </div>
+        )}
 
         {/* Search & Results Panel */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 space-y-6">

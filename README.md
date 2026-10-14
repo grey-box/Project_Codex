@@ -16,7 +16,7 @@
 docker compose up --build
 ```
 Wait ~30 seconds for Neo4j, API, and Frontend to be ready.
-- **Frontend UI:** http://localhost:9000
+- **Frontend UI:** http://localhost:9000 (or ports 9000-9010)
 - **API Docs (Swagger):** http://localhost:8000/docs
 - **Neo4j Browser:** http://localhost:7474 (login: `neo4j` / `changeme`)
 
@@ -185,6 +185,7 @@ All API responses returning tabular data use this envelope:
 | GET | `/countries` | List supported countries and their languages |
 | POST | `/csv/upload` | Upload a Codex CSV → Neo4j |
 | GET | `/csv` | Export full drug catalogue (sorted) |
+| POST | `/ocrmatching/` | Extract text from image via OCR and fuzzy match drug terms |
 
 ### POST /translate — request body
 
@@ -224,3 +225,4 @@ All API responses returning tabular data use this envelope:
   ```bash
   docker compose down -v
   ```
+

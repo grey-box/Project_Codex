@@ -81,3 +81,19 @@ export const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
 }
 
 export const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
+
+export interface OcrExtractedText {
+  rec_text?: string
+  rec_score?: number
+}
+
+export interface FuzzyResult {
+  matching_name?: string
+  matching_source?: string
+  matching_algorithm?: string
+  matching_uid?: number
+  matching_row_number?: number
+  distance?: number
+}
+
+export type OcrResultItem = OcrExtractedText & FuzzyResult
