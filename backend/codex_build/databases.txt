@@ -1,0 +1,15 @@
+
+============================================================
+IMPORTED DATABASES
+============================================================
+--- Database Records for DrugBank ---
+No records found for label :DRUG (Skipped or Empty).
+--- Database Records for Snomed ---
+No records found for label :SNOMED (Skipped or Empty).
+--- Database Records for RxNorm ---
+No records found for label :RXN (Skipped or Empty).
+--- Database Records for ICD 11 ---
+No records found for label :ICD (Skipped or Empty).
+============================================================
+END OF DATABASE READOUT
+============================================================
