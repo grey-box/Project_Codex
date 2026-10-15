@@ -1,5 +1,16 @@
 # React + TypeScript + Vite
 
+## Frontend checks
+
+Run `npm ci`, then `npm test` for the population-stream regression tests,
+`npm run build` for the production build, and `npm run lint` for ESLint.
+The tests use the TypeScript compiler and Node's built-in test runner, with no
+running API, Neo4j instance, credentials, or external data-source requests.
+
+Population tests cover rejected HTTP requests, malformed or empty streams,
+streamed errors, interrupted connections, split UTF-8 records, and a final
+JSON record without a trailing newline.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
