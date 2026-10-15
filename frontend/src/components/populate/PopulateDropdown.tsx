@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Dropdown } from '../ui'
-
-const API_BASE_URL = 'http://localhost:8000'
+import { API_BASE_URL } from '../../services/api'
+import { readPopulationResponse } from '../../services/population'
 
 interface SourceOption {
   id: string
@@ -34,6 +34,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
   const [icdSecret, setIcdSecret] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState<string>('')
+  const [populationError, setPopulationError] = useState('')
 
   const toggleSource = (id: string) => {
     setSelectedSources((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -49,6 +50,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
     if (sourcesToPopulate.length === 0) return
 
     setIsLoading(true)
+    setPopulationError('')
     setProgress('Starting population...')
 
     try {
@@ -63,39 +65,11 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
         }),
       })
 
-      if (!response.body) return
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed) continue
-
-          try {
-            const cleanLine = trimmed.startsWith('data:') ? trimmed.replace(/^data:\s*/, '') : trimmed
-            const parsed = JSON.parse(cleanLine)
-            if (parsed.progress) {
-              setProgress(parsed.progress)
-            }
-          } catch (err) {
-            console.error('Error parsing chunk:', err)
-          }
-        }
-      }
+      await readPopulationResponse(response, setProgress)
       setProgress('Successfully populated Neo4j!')
     } catch (error) {
-      console.error('Error during streaming:', error)
-      setProgress('Error processing request.')
+      setProgress('')
+      setPopulationError(error instanceof Error ? error.message : 'Error processing population request.')
     } finally {
       setIsLoading(false)
     }
@@ -226,8 +200,13 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
 
       {/* Progress / Status Message */}
       {progress && (
-        <div className="mb-3 p-2 bg-slate-100 rounded-md text-xs text-slate-700 font-medium wrap-break-word text-center">
+        <div role="status" aria-live="polite" className="mb-3 p-2 bg-slate-100 rounded-md text-xs text-slate-700 font-medium wrap-break-word text-center">
           {progress}
+        </div>
+      )}
+      {populationError && (
+        <div role="alert" className="mb-3 p-2 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 font-medium wrap-break-word text-center">
+          {populationError}
         </div>
       )}
 
