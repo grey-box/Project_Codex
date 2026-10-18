@@ -16,12 +16,6 @@ The tests verify persistence by retrieving users after create, update, and role-
 
 During role-update testing, a response validation issue was identified because the API response was missing the `affiliation` field required by the `UserResponse` model. The backend response was corrected.
 
-Current integration test result:
-
-```text
-12 passed
-```
-
 ## Setup for Integration Tests
 
 ```bash
@@ -64,9 +58,3 @@ Current coverage verifies that duplicate user creation returns `409`, missing re
 Administrator safeguards prevent an administrator from deleting their own account and prevent the last administrator from being demoted through either the dedicated role endpoint or the general user update endpoint. Demotion is still allowed when another administrator remains.
 
 Authentication also validates the user against the current Neo4j database state. Tokens belonging to deleted users are rejected with `401`, and previously issued administrator tokens use the current database role for the user so a demoted administrator immediately loses administrator access.
-
-Current integration test result:
-
-```text
-26 passed
-```
