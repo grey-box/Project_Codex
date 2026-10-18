@@ -622,6 +622,7 @@ def list_languages():
     tags=["auth"],
 )
 def login(body: LoginRequest):
+    """Authenticate a user and return a JWT access token with the current role."""
     with driver.session() as session:
         user = authenticate_user(session, body.email, body.password)
 
@@ -654,7 +655,7 @@ def login(body: LoginRequest):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_create_user(body: UserCreateRequest):
-    """Creates a new user node in Neo4j."""
+    """Create a new user in Neo4j. Returns 409 if the email already exists."""
     try:
         with driver.session() as session:
             # Check if user already exists
@@ -694,7 +695,7 @@ def api_get_users(
     role: Optional[str] = Query(None, description="Optional role filter"),
     limit: int = Query(100, ge=1, le=1000)
 ):
-    """Retrieves users from Neo4j. Optionally filter by role."""
+    """Return users from Neo4j, optionally filtered by role and limited by count."""
     try:
         with driver.session() as session:
             if role:
@@ -713,7 +714,7 @@ def api_get_users(
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_user(email: str):
-    """Fetches details for a single user by email address."""
+    """Return a single user by email. Returns 404 when the user does not exist."""
     try:
         with driver.session() as session:
             user = get_user_by_email(session, email)
@@ -738,7 +739,7 @@ def api_get_user(email: str):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_update_user(email: str, body: UserUpdateRequest):
-    """Updates user fields (real_name, role, affiliation, password)."""
+    """Update user profile fields and prevent demotion of the last administrator."""
     try:
         with driver.session() as session:
             if body.role is not None:
@@ -787,7 +788,7 @@ def api_delete_user(
     email: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Removes a user node from Neo4j."""
+    """Delete a user while preventing administrator self-deletion and removal of the last administrator."""
     try:
         with driver.session() as session:
             role = get_user_role(session, email)
@@ -837,7 +838,7 @@ def api_delete_user(
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_user_role(email: str):
-    """Retrieves only the role assigned to a specific user."""
+    """Return the role assigned to a user. Returns 404 when the user does not exist."""
     try:
         with driver.session() as session:
             role = get_user_role(session, email)
@@ -862,7 +863,7 @@ def api_get_user_role(email: str):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_update_user_role(email: str, body: UserRoleUpdateRequest):
-    """Updates only the role for a specific user."""
+    """Update a user role while preventing demotion of the last administrator."""
     try:
         with driver.session() as session:
             current_role = get_user_role(session, email)
