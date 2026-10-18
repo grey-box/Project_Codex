@@ -1,192 +1,162 @@
-import './App.css'
 import { useTranslation } from 'react-i18next'
-import { useEffect, useState, type KeyboardEvent } from 'react'
-
-interface CountryOption {
-  code: string;
-  label: string;
-}
-
-// Map language codes to available countries
-const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
-  es: [
-    { code: 'MX', label: 'Mexico' },
-    { code: 'ES', label: 'Spain' },
-  ],
-  en: [
-    { code: 'US', label: 'United States' },
-    { code: 'GB', label: 'United Kingdom' },
-    { code: 'CA', label: 'Canada' },
-  ],
-  fr: [
-    { code: 'FR', label: 'France' },
-    { code: 'CA', label: 'Canada' },
-    { code: 'BE', label: 'Belgium' },
-  ],
-  ru: [
-    { code: 'RU', label: 'Russia' },
-  ],
-  uk: [
-    { code: 'UA', label: 'Ukraine' },
-    { code: 'PL', label: 'Poland' },
-  ],
-};
-
-interface LanguagesResponse {
-  languages: string[]
-}
-
-interface SearchResultRow {
-  source_id: string | null
-  source_name: string | null
-  name: string
-  brand: string | null
-  type: string
-  country: string
-  language: string
-  uploaded_at: string | null
-}
-
-interface SearchResponse {
-  source_id: string
-  source_name: string
-  name: string
-  brand: string
-  type: string
-  country: string
-  language: string
-  uploaded_at: string
-}
-
-interface TranslateResultRow {
-  source_id: string | null
-  source_name: string | null
-  translation: string
-  brand: string | null
-  type: string
-  country: string | null
-  language: string
-  uploaded_at: string | null
-}
-
-interface TranslateResponse {
-  found: boolean
-  results: TranslateResultRow[]
-}
-
-const API_BASE_URL = 'http://localhost:8000'
-const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
+import { useEffect, useState } from 'react'
+import { Header } from './components/layout/Header'
+import { SearchBar } from './components/search/SearchBar'
+import { ResultsTable } from './components/results/ResultsTable'
+import { TranslationPanel } from './components/translation/TranslationPanel'
+import type { SearchResultRow, TranslateResultRow, LanguageOption } from './types/codex'
+import { LANGUAGE_COUNTRY_MAP, FALLBACK_LANGUAGES } from './types/codex'
+import { getLanguages, searchDrug, translateDrug } from './services/api'
 
 function App() {
-  const [drugbankAPIKey, setDrugbankAPIKey] = useState<string>('');
-  const [icdID, setIcdID] = useState<string>('');
-  const [icdSecret, setIcdSecret] = useState<string>('');
   const { t, i18n } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
   const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
+  const [loadedLanguages, setLoadedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [searchLanguage, setSearchLanguage] = useState('all')
   const [targetLanguage, setTargetLanguage] = useState('es')
-  const [targetCountry, setTargetCountry] = useState("MX")
+  const [targetCountry, setTargetCountry] = useState('MX')
   const [translatedName, setTranslatedName] = useState('')
   const [translatedBrand, setTranslatedBrand] = useState('')
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
-  const [importError, setImportError] = useState('')
-  const [isImporting, setIsImporting] = useState(false)
-  const [importLanguage, setImportLanguage] = useState<File | null>(null)
-  const [importMessage, setImportMessage] = useState('')
   const [hasBrand, setHasBrand] = useState(false)
-  const [progress, setProgress] = useState<string>('');
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
     const normalized = raw.toLowerCase()
 
-    // Backend may return either ISO codes (en) or full names (English).
-    if (normalized.length > 3) {
-      return raw
+    let label = raw
+    if (normalized.length <= 3) {
+      try {
+        const displayNames = new Intl.DisplayNames([i18n.language], { type: 'language' })
+        label = displayNames.of(normalized) ?? normalized.toUpperCase()
+      } catch {
+        label = normalized.toUpperCase()
+      }
     }
+    return label.charAt(0).toUpperCase() + label.slice(1)
+  }
 
+  const availableCountries = LANGUAGE_COUNTRY_MAP[targetLanguage] ?? []
+
+  const getFirstCountryForLanguage = (langCode: string): string => {
+    const available = LANGUAGE_COUNTRY_MAP[langCode] ?? []
+    return available.length > 0 ? available[0].code : ''
+  }
+
+  const handleLanguageChange = (newLang: string) => {
+    const newCountry = getFirstCountryForLanguage(newLang)
+    setTargetLanguage(newLang)
+    setTargetCountry(newCountry)
+    setTranslatedName('')
+    setTranslatedBrand('')
+    setTranslateError('')
+  }
+
+  const loadLanguages = async (isActive: boolean) => {
     try {
-      const displayNames = new Intl.DisplayNames([i18n.language], { type: 'language' })
-      return displayNames.of(normalized) ?? normalized.toUpperCase()
+      const nextLanguages = await getLanguages()
+      if (!isActive) return
+      setLoadedLanguages(nextLanguages)
+      setAvailableLanguages(nextLanguages)
+      setSelectedLanguages(nextLanguages)
+      setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
     } catch {
-      return normalized.toUpperCase()
+      if (!isActive) return
+      setLoadedLanguages(FALLBACK_LANGUAGES)
+      setAvailableLanguages(FALLBACK_LANGUAGES)
+      setSelectedLanguages(FALLBACK_LANGUAGES)
+      setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
     }
   }
 
-  const availableCountries = LANGUAGE_COUNTRY_MAP[targetLanguage] ?? [];
-
-  const getFirstCountryForLanguage = (langCode: string): string => {
-    const available = LANGUAGE_COUNTRY_MAP[langCode] ?? [];
-    return available.length > 0 ? available[0].code : '';
-  };
-  
-  const handleLanguageChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLang = event.target.value;
-    const newCountry = getFirstCountryForLanguage(newLang);
-
-    // Update React state
-    setTargetLanguage(newLang);
-    setTargetCountry(newCountry);
-    setTranslatedName('')
-    setTranslatedBrand('')
-  };
-
-  const handleImportLanguageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setImportLanguage(event.target.files[0])
-    }
-  };
-
-  const loadLanguages = async (isActive: boolean) => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/languages`)
-        if (!response.ok) {
-          throw new Error('Failed to load languages')
-        }
-
-        const data = (await response.json()) as LanguagesResponse
-        const nextLanguages = Array.isArray(data.languages) && data.languages.length > 0 ? data.languages : FALLBACK_LANGUAGES
-        if (!isActive) {
-          return
-        }
-
-        setAvailableLanguages(nextLanguages)
-        setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
-      } catch {
-        if (!isActive) {
-          return
-        }
-
-        setAvailableLanguages(FALLBACK_LANGUAGES)
-        setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
-      }
-    }
-
   useEffect(() => {
     let isActive = true
-
     loadLanguages(isActive)
-
     return () => {
       isActive = false
     }
   }, [])
+
+  const hasActiveLanguageMatch = (
+    itemLanguageString: string | null | undefined,
+    activeLanguages: string[],
+    selectedSearchLanguage: string = 'all'
+  ): boolean => {
+    if (!itemLanguageString) {
+      return false
+    }
+
+    const activeNormalized = activeLanguages.map((l) => l.toLowerCase().trim())
+    const itemLangs = itemLanguageString
+      .split(',')
+      .map((lang) => lang.trim().toLowerCase())
+
+    const matchesActiveLanguages = itemLangs.some((lang) =>
+      activeNormalized.includes(lang)
+    )
+
+    if (!matchesActiveLanguages) {
+      return false
+    }
+
+    const searchLangNormalized = selectedSearchLanguage.toLowerCase().trim()
+    if (searchLangNormalized !== 'all') {
+      return itemLangs.includes(searchLangNormalized)
+    }
+
+    return true
+  }
+
+  const handleCheckboxToggle = (code: string) => {
+    setSelectedLanguages((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    )
+  }
+
+  const handleSelectAll = () => {
+    setSelectedLanguages([...loadedLanguages])
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedLanguages([])
+  }
+
+  const handleApplyLanguageFilter = () => {
+    const filtered = loadedLanguages.filter((code) => selectedLanguages.includes(code))
+    setAvailableLanguages(filtered)
+    if (!filtered.includes(targetLanguage) && filtered.length > 0) {
+      setTargetLanguage(filtered[0])
+      setTargetCountry(getFirstCountryForLanguage(filtered[0]))
+    }
+
+    if (searchResults.length > 0) {
+      const updatedResults = searchResults.filter((item) =>
+        hasActiveLanguageMatch(item.language, filtered, searchLanguage)
+      )
+
+      setSearchResults(updatedResults)
+
+      if (selectedResult && !hasActiveLanguageMatch(selectedResult.language, filtered, searchLanguage)) {
+        setSelectedResult(null)
+        setTranslatedName('')
+        setTranslatedBrand('')
+      }
+    }
+  }
 
   const extractTranslatedName = (rows: TranslateResultRow[]) => {
     const names = rows
       .map((row) => row.translation)
       .filter((name): name is string => Boolean(name && name.trim()))
 
-    if (names.length === 0) {
-      return '-'
-    }
-
+    if (names.length === 0) return '-'
     return Array.from(new Set(names)).join(', ')
   }
 
@@ -195,10 +165,7 @@ function App() {
       .map((row) => row.brand)
       .filter((brand): brand is string => Boolean(brand && brand.trim()))
 
-    if (brands.length === 0) {
-      return '-'
-    }
-
+    if (brands.length === 0) return '-'
     return Array.from(new Set(brands)).join(', ')
   }
 
@@ -217,37 +184,18 @@ function App() {
     setTranslatedBrand('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/search?term=${encodeURIComponent(searchQuery.toLowerCase())}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: searchQuery,
-          limit: 20,
-        }),
-      })
+      const data = await searchDrug(searchQuery)
+      const filteredData = data.filter((item) =>
+        hasActiveLanguageMatch(item.language, availableLanguages, searchLanguage)
+      )
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null)
-        throw new Error(errorBody?.detail ?? 'Failed to search')
-      }
-
-      const data = (await response.json()) as SearchResponse[]
-      if (data.length == 0) {
+      if (filteredData.length === 0) {
         setSearchResults([])
-        setSearchError('No results found')
+        setSearchError('No results found for selected languages')
       } else {
-        let results: SearchResultRow[] = [];
-        for (let i = 0; i < data.length; i++) {
-          if (data[i].brand) {
-            setHasBrand(true)
-          } else if (hasBrand) {
-            data[i].brand = ""
-          }
-          results.push(data[i])
-        }
-        setSearchResults(results)
+        const hasAnyBrand = filteredData.some((item) => Boolean(item.brand))
+        setHasBrand(hasAnyBrand)
+        setSearchResults(filteredData)
         setSearchError('')
       }
     } catch (err) {
@@ -258,25 +206,16 @@ function App() {
     }
   }
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      void handleSearch()
-    }
-  }
-
-  const handleTranslateSelected = async (
-    lang = targetLanguage,
-    country = targetCountry
-  ) => {
+  const handleTranslateSelected = async () => {
     if (!selectedResult) {
       setTranslateError('Select a search result first')
       return
     }
 
-    const validCountries = (LANGUAGE_COUNTRY_MAP[lang] ?? []).map((c) => c.code);
-    const finalCountry = validCountries.includes(country)
-      ? country
-      : getFirstCountryForLanguage(lang);
+    const validCountries = (LANGUAGE_COUNTRY_MAP[targetLanguage] ?? []).map((c) => c.code)
+    const finalCountry = validCountries.includes(targetCountry)
+      ? targetCountry
+      : getFirstCountryForLanguage(targetLanguage)
 
     setIsTranslating(true)
     setTranslateError('')
@@ -284,24 +223,7 @@ function App() {
     setTranslatedBrand('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/translate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          term: selectedResult.name,
-          lang: lang,
-          country: finalCountry
-        }),
-      })
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null)
-        throw new Error(errorBody?.detail ?? 'Translation request failed')
-      }
-
-      const payload = (await response.json()) as TranslateResponse
+      const payload = await translateDrug(selectedResult.name, targetLanguage, finalCountry)
       const results = payload.results ?? []
       const name = results.length > 0 ? extractTranslatedName(results) : '-'
       const brand = results.length > 0 ? extractTranslatedBrand(results) : '-'
@@ -317,450 +239,118 @@ function App() {
     }
   }
 
-  const handleImportLanguageLocal = async () => {
-    setImportMessage('')
-    setImportError('')
-    if (!importLanguage) {
-      setImportError('Please select a language file!')
-      return
-    }
-    setIsImporting(true)
-    const formData = new FormData()
-    formData.append("file", importLanguage)
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/packs/load`, {
-        method: 'POST',
-        body: formData,
-      })
+  const languages: LanguageOption[] = availableLanguages.map((code) => ({
+    code,
+    label: getLanguageLabel(code),
+  }))
 
-      if (!response.ok) {
-          throw new Error('Failed to import language')
-      }
-      
-      const data = await response.json();
-      
-      loadLanguages(true)
-      setImportError('')
-      setImportMessage(`Success! ${data.message}`);
-    } catch (error) {
-      setImportError(`Error: ${(error as Error).message}`);
-    } finally {
-      setIsImporting(false)
-    }
-  }
-
-  const languages = availableLanguages.map((code) => ({ code, label: getLanguageLabel(code) }))
-
-  const [isDrugbankSelected, setIsDrugbankSelected] = useState(false);
-  const [isSnomedSelected, setIsSnomedSelected] = useState(false);
-  const [isRxNormSelected, setIsRxNormSelected] = useState(false);
-  const [isICD11Selected, setIsICD11Selected] = useState(false);
-  const [isPopulationLoading, setIsPopulationLoading] = useState(false);
-
-  const handlePopulateClick = async () => {
-    let sources: string[] = []
-    if (isDrugbankSelected) {
-      sources.push("drugbank")
-    }
-    if (isSnomedSelected) {
-      sources.push("snomed")
-    }
-    if (isRxNormSelected) {
-      sources.push("rxnorm")
-    }
-    if (isICD11Selected) {
-      sources.push("icd11")
-    }
-    setIsPopulationLoading(true);
-    setProgress('Starting population...');
-    try {
-      const response = await fetch('http://localhost:8000/api/populate-sources', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          selectedSources: sources,
-          DBAPIKey: drugbankAPIKey,
-          ICDID: icdID,
-          ICDSecret: icdSecret
-        }),
-      });
-
-      if (!response.body) return;
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        
-        // Keep the incomplete last line in the buffer
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          try {
-            const cleanLine = trimmed.startsWith('data:') ? trimmed.replace(/^data:\s*/, '') : trimmed;
-            const parsed = JSON.parse(cleanLine);
-
-            if (parsed.progress) {
-              setProgress(parsed.progress); 
-            }
-          } catch (err) {
-            console.error('Error parsing JSON chunk:', err);
-          }
-        }
-      }
-      setProgress('Successfully populated Neo4j!');
-    } catch (error) {
-      console.error('Error during streaming:', error);
-      setProgress('Error processing request.');
-    } finally {
-      setIsPopulationLoading(false);
-    }
-  };
+  const allLoadedLanguages: LanguageOption[] = loadedLanguages.map((code) => ({
+    code,
+    label: getLanguageLabel(code),
+  }))
 
   return (
-    <div className="page-shell">
-      <header className="top-nav" aria-label="Main navigation">
-        <div className="top-nav__left">
-          <a href="#" className="brand" aria-label="Grey Box home">
-            GREY-BOX
-          </a>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+      {/* Top Navigation */}
+      <Header
+        languages={languages}
+        onImportSuccess={() => loadLanguages(true)}
+        onSelectTerm={(term) => {
+          setSearchQuery(term)
+        }}
+        currentSearchLanguage={searchLanguage}
+        allLoadedLanguages={allLoadedLanguages}
+        selectedLanguages={selectedLanguages}
+        onToggleLanguage={handleCheckboxToggle}
+        onSelectAllLanguages={handleSelectAll}
+        onDeselectAllLanguages={handleDeselectAll}
+        onApplyLanguageFilter={handleApplyLanguageFilter}
+      />
 
-          <nav className="main-links">
-            <a href="#">{t('nav.home')}</a>
-            <a href="#">{t('nav.about')}</a>
-          </nav>
-        </div>
-
-        <div className="top-nav__right">
-          <select
-            aria-label="Select interface language"
-            value={i18n.language}
-            onChange={(event) => i18n.changeLanguage(event.target.value)}
-          >
-            {languages.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.label}
-              </option>
-            ))}
-          </select>
-
-          <button type="button" className="icon-btn" aria-label="Open regions">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm8 10c0 1.07-.22 2.09-.61 3h-3.13a15.3 15.3 0 00.17-3 15.3 15.3 0 00-.17-3h3.13c.39.91.61 1.93.61 3zM12 20c-1.03-1.11-1.81-2.29-2.36-3.5h4.72c-.55 1.21-1.33 2.39-2.36 3.5zM9.11 15A13.3 13.3 0 018.8 12c0-1.04.11-2.04.31-3h5.78c.2.96.31 1.96.31 3 0 1.04-.11 2.04-.31 3H9.11zM4.61 15A7.97 7.97 0 014 12c0-1.07.22-2.09.61-3h3.13a15.3 15.3 0 00-.17 3c0 1.02.06 2.02.17 3H4.61zm1.01 1.5h2.43c.34.84.75 1.66 1.23 2.44a8.05 8.05 0 01-3.66-2.44zM8.05 7.5H5.62a8.05 8.05 0 013.66-2.44 14.1 14.1 0 00-1.23 2.44zm5.95-2.44a8.05 8.05 0 013.66 2.44h-2.43A14.1 14.1 0 0014 5.06zm1.95 13.88c.48-.78.89-1.6 1.23-2.44h2.43a8.05 8.05 0 01-3.66 2.44z" />
-            </svg>
-          </button>
-
-          <button type="button" className="icon-btn" aria-label="Open X profile">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18.9 2h3.2l-7 8 8.2 12h-6.4L12 15l-6.2 7H2.5l7.5-8.4L2.1 2h6.5l4.4 6.3L18.9 2zm-1.1 18h1.8L7.6 4H5.7l12.1 16z" />
-            </svg>
-          </button>
-
-          <button type="button" className="icon-btn" aria-label="Open Facebook profile">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M13.5 21v-8h2.7l.4-3h-3.1V8.1c0-.9.3-1.6 1.7-1.6h1.5V3.8c-.3 0-1.2-.1-2.2-.1-2.2 0-3.8 1.3-3.8 3.8V10H8v3h2.7v8h2.8z" />
-            </svg>
-          </button>
-
-          <button type="button" className="icon-btn" aria-label="Open LinkedIn profile">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6.4 8.7a1.7 1.7 0 110-3.4 1.7 1.7 0 010 3.4zM8 20H4.8V10H8v10zm12 0h-3.2v-5.4c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9V20H9.7V10h3.1v1.4h.1c.4-.8 1.5-1.8 3.1-1.8 3.3 0 3.9 2.2 3.9 5V20z" />
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      <main className="sides">
-        <section className="populateDrugbank">
-          <h3 className="populate-label">{t('sides.populateLabel')}</h3>
-
-          <label className="populateDrugbank-checkbox">
-            <input type="checkbox" 
-            checked={isDrugbankSelected} 
-            onChange={(e) => setIsDrugbankSelected(e.target.checked)}/>
-            <span className="checkbox-label">DrugBank</span>
-          </label>
-        </section>
-
-        <section className="populateSnomed">
-          <label className="populateSnomed-checkbox">
-            <input type="checkbox" 
-            checked={isSnomedSelected} 
-            onChange={(e) => setIsSnomedSelected(e.target.checked)}/>
-            <span className="checkbox-label">SNOMED</span>
-          </label>
-        </section>
-
-        <section className="populateRxNorm">
-          <label className="populateRxNorm-checkbox">
-            <input type="checkbox" 
-            checked={isRxNormSelected} 
-            onChange={(e) => setIsRxNormSelected(e.target.checked)}/>
-            <span className="checkbox-label">RxNorm</span>
-          </label>
-        </section>
-
-        <section className="populateICD11">
-          <label className="populateICD11-checkbox">
-            <input type="checkbox" 
-            checked={isICD11Selected} 
-            onChange={(e) => setIsICD11Selected(e.target.checked)}/>
-            <span className="checkbox-label">ICD 11</span>
-          </label>
-        </section>
-
-        <section className="populate">
-          {isPopulationLoading && (
-          <div className="populate-overlay">
-            <div className="spinner"></div>
-            <span>{t('sides.populateLoader')}</span>
-          </div>
-          )}
-
-          <button type="button" 
-          className="populate-btn" 
-          onClick={handlePopulateClick}
-          disabled={isPopulationLoading}>
-            {t('sides.populateButton')}
-          </button>
-        </section>
-
-        <h3 className="populate-loading-label">{progress}</h3>
-
-        <section className="drugbankKey">
-          <h3 className="key-label">{t('sides.keyLabel')}</h3>
-
-          <label className="drugbankAPIKey-row">
-            <input
-              id="drugbankAPIKey"
-              placeholder={t('sides.drugbankAPIKey')}
-              value={drugbankAPIKey}
-              onChange={(e) => setDrugbankAPIKey(e.target.value)}
-            />
-          </label>
-        </section>
-
-        <section className="icd11Keys">
-          <label className="icdID-row">
-            <input
-              id="icdID"
-              placeholder={t('sides.icdID')}
-              value={icdID}
-              onChange={(e) => setIcdID(e.target.value)}
-            />
-          </label>
-          <label className="icdSecret-row">
-            <input
-              id="icdSecret"
-              placeholder={t('sides.icdSecret')}
-              value={icdSecret}
-              onChange={(e) => setIcdSecret(e.target.value)}
-            />
-          </label>
-        </section>
-      </main>
-
-      <main className="content">
-        <section className="hero-row">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+        {/* Hero Section */}
+        <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
           <div>
-            <h1>{t('home.pageTitle')}</h1>
-            <p>{t('home.pageDescription')}</p>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-[#1e4840] tracking-tight">
+              {t('home.pageTitle') || 'Grey Box Pharma-Cross'}
+            </h1>
+            <p className="text-sm md:text-base text-slate-600 mt-1 max-w-2xl">
+              {t('home.pageDescription') ||
+                'Multilingual medical normalization and cross-border drug intelligence powered by RxNorm and Neo4j knowledge graph.'}
+            </p>
           </div>
-          <button type="button" className="help-btn">
-            {t('common.help')}
+          <button
+            type="button"
+            className="self-start sm:self-auto px-3.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-xs transition-colors cursor-pointer"
+          >
+            {t('common.help') || 'Documentation'}
           </button>
         </section>
 
-        <section className="tool-panel">
-          <h2>{t('home.searchTitle')}</h2>
-          <div className="search-surface">
-            <div className="search-grid">
-              <div className="field-stack">
-                <label htmlFor="search-language">Search language</label>
-                <select
-                  id="search-language"
-                  value={searchLanguage}
-                  onChange={(event) => setSearchLanguage(event.target.value)}
-                >
-                  <option value="all">All languages</option>
-                  {languages.map((lang) => (
-                    <option key={`search-${lang.code}`} value={lang.code}>
-                      {lang.label} ({lang.code.toUpperCase()})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="search-row" style={{ gridColumn: '1 / -1' }}>
-                <input
-                  id="drug-search"
-                  placeholder={t('home.sourcePlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                />
-                <button type="button" onClick={handleSearch} disabled={isLoading}>
-                  {isLoading ? 'Searching...' : t('common.search')}
-                </button>
-              </div>
+        {/* Active Language Filter Notice (if filtered) */}
+        {availableLanguages.length < loadedLanguages.length && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span>
+                Active filter: Showing results for <strong>{availableLanguages.map(l => l.toUpperCase()).join(', ')}</strong> only.
+              </span>
             </div>
-
-            <div className="results-block">
-              <h3>{t('home.resultsTitle')}</h3>
-              {searchError && <div className="message message--error">{searchError}</div>}
-              {translateError && <div className="message message--error">{translateError}</div>}
-              {isTranslating && <div className="message message--info">Translating selected result...</div>}
-              {searchResults.length > 0 ? (
-                <div className="results-table-wrap">
-                  <table className="results-table">
-                    <thead>
-                      <tr>
-                        {hasBrand && <th>Drug/Brand Name</th>}
-                        {!hasBrand && <th>Drug Name</th>}
-
-                        {hasBrand && <th>Brand</th>}
-
-                        <th>Type</th>
-
-                        {hasBrand && <th>Language for Brand</th>}
-                        {!hasBrand && <th>Language</th>}
-
-                        {hasBrand && <th>Countries for Brand</th>}
-                        {!hasBrand && <th>Countries</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {searchResults.map((row, index) => (
-                        <tr
-                          key={`${row.name}-${row.brand}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
-                          className={
-                            selectedResult &&
-                            selectedResult.name === row.name &&
-                            selectedResult.brand === row.brand &&
-                            selectedResult.language === row.language &&
-                            selectedResult.country === row.country &&
-                            selectedResult.source_id === row.source_id
-                              ? 'row-selected'
-                              : ''
-                          }
-                          onClick={() => {
-                            setSelectedResult(row)
-                            setTranslatedName('')
-                            setTranslateError('')
-                            setTranslatedBrand('')
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <td>{row.name}</td>
-                          {hasBrand && <td>{row.brand}</td>}
-                          {hasBrand && <td>{row.type}</td>}
-                          {!hasBrand && <td>{row.type}</td>}
-                          <td>{row.language}</td>
-                          <td>{row.country ?? '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <button type="button" className="results-select">
-                  <span>{t('home.sampleMedicine')}</span>
-                  <span aria-hidden="true">▾</span>
-                </button>
-              )}
-
-              {selectedResult && (
-                <div style={{ marginTop: '14px' }}>
-                  <div className="search-grid">
-                    <div className="field-stack">
-                      <label htmlFor="target-language">Translate selected into</label>
-                      <select
-                        id="target-language"
-                        value={targetLanguage}
-                        onChange={handleLanguageChange}
-                      >
-                        {languages.map((lang) => (
-                          <option key={lang.code} value={lang.code}>
-                            {lang.label} ({lang.code.toUpperCase()})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="field-stack">
-                      <label htmlFor="target-country">Country</label>
-                      <select
-                        id="target-country"
-                        value={targetCountry}
-                        onChange={(e) => setTargetCountry(e.target.value)}
-                        disabled={availableCountries.length === 0}
-                      >
-                        {availableCountries.length > 0 ? (
-                          availableCountries.map((country) => (
-                            <option key={country.code} value={country.code}>
-                              {country.label} ({country.code.toUpperCase()})
-                            </option>
-                          ))
-                        ) : (
-                          <option value="">No countries available</option>
-                        )}
-                      </select>
-                    </div>
-                    <div className="search-row">
-                      <button type="button" onClick={() => handleTranslateSelected(targetLanguage, targetCountry)} disabled={isTranslating}>
-                        {isTranslating ? 'Translating...' : 'Translate Selected'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="results-table-wrap" style={{ marginTop: '10px' }}>
-                    <table className="results-table">
-                      <thead>
-                        <tr>
-                          <th>Original Drug Name (Languages)</th>
-                          <th>Drug Name in {targetLanguage.toUpperCase()}</th>
-                          <th>Drug Brand Name in {targetCountry.toUpperCase()}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>{selectedResult.name} ({selectedResult.language})</td>
-                          <td>{translatedName || '-'}</td>
-                          <td>{translatedBrand || '-'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              className="font-semibold underline hover:text-emerald-950 cursor-pointer"
+            >
+              Reset to All ({loadedLanguages.length})
+            </button>
           </div>
-        </section>
+        )}
 
-        <section className="tool-panel">
-          <div className="search-surface">
-            <h1>{t('home.importTitle')}</h1>
-              <form onSubmit={handleImportLanguageLocal}>
-                <input type="file" onChange={handleImportLanguageChange} />
-                <button type="submit" disabled={!importLanguage}>Upload</button>
-                <div className="field-stack" style={{ alignSelf: 'end' }}></div>
-              </form>
-              <div style={{ marginTop: 10 }}>
-                {isImporting && <div className="message message--info">Importing language...</div>}
-                {importError && <div className="message message--error">{importError}</div>}
-                {importMessage && <div className="message message--success">{importMessage}</div>}
-              </div>
-            </div>
-        </section>
+        {/* Search & Results Panel */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 space-y-6">
+          <SearchBar
+            searchLanguage={searchLanguage}
+            onSearchLanguageChange={setSearchLanguage}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            onSearch={handleSearch}
+            isLoading={isLoading}
+            languages={languages}
+          />
 
+          <ResultsTable
+            results={searchResults}
+            selectedResult={selectedResult}
+            onSelectResult={(result) => {
+              setSelectedResult(result)
+              setTranslatedName('')
+              setTranslatedBrand('')
+              setTranslateError('')
+            }}
+            hasBrand={hasBrand}
+            searchError={searchError}
+          />
+
+          {selectedResult && (
+            <TranslationPanel
+              selectedResult={selectedResult}
+              targetLanguage={targetLanguage}
+              targetCountry={targetCountry}
+              onTargetLanguageChange={handleLanguageChange}
+              onTargetCountryChange={setTargetCountry}
+              onTranslate={handleTranslateSelected}
+              isTranslating={isTranslating}
+              languages={languages}
+              availableCountries={availableCountries}
+              translatedName={translatedName}
+              translatedBrand={translatedBrand}
+              translateError={translateError}
+            />
+          )}
+        </section>
       </main>
     </div>
   )
