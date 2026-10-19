@@ -20,7 +20,7 @@ export const Input: React.FC<InputProps> = ({
       {label && (
         <label
           htmlFor={id}
-          className="text-xs font-semibold text-slate-700 tracking-wide uppercase"
+          className="text-sm font-semibold text-slate-700"
         >
           {label}
         </label>
@@ -34,7 +34,7 @@ export const Input: React.FC<InputProps> = ({
         <input
           id={id}
           disabled={disabled}
-          className={`w-full py-2.5 bg-white border rounded-xl text-sm text-slate-900 placeholder:text-slate-400 shadow-xs transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
+          className={`w-full py-2.5 bg-white border rounded-lg text-sm text-slate-900 placeholder:text-slate-400 shadow-xs transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
             icon ? 'pl-10 pr-4' : 'px-3.5'
           } ${
             error

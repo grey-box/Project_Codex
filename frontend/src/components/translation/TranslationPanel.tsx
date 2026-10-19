@@ -48,99 +48,34 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
       : [{ value: '', label: t('home.noCountries') || 'No countries available' }]
 
   return (
-    <div className="w-full mt-6 pt-6 border-t border-slate-200 space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-base">🌐</span>
-        <div>
-          <h4 className="text-sm font-bold text-slate-800">
-            {t('home.localizeTitle') || 'Translate & Cross-Reference Drug'}
-          </h4>
-          <p className="text-xs text-slate-500">
-            {t('home.selectedDrug') || 'Selected drug:'} <strong className="text-slate-700">{selectedResult.name}</strong> ({selectedResult.language.toUpperCase()})
-          </p>
-        </div>
+    <div className="space-y-5">
+      <h2 className="text-xl font-semibold">{t('workspace.translateTitle')}</h2>
+      <div className="workspace-selected">
+        <p className="workspace-eyebrow">{t('home.selectedDrug')}</p>
+        <h3>{selectedResult.name}</h3>
+        {selectedResult.brand && <p>{selectedResult.brand}</p>}
+        <p className="text-sm text-slate-500">{selectedResult.language.toUpperCase()} · {selectedResult.country || '—'}</p>
       </div>
-
-      {/* Target Language & Country selectors */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 items-end">
-        {/* Target Language */}
-        <div className="w-full">
-          <Select
-            id="target-language"
-            label={t('home.targetLanguage') || 'Target Language'}
-            value={targetLanguage}
-            options={languageOptions}
-            onChange={(e) => onTargetLanguageChange(e.target.value)}
-          />
-        </div>
-
-        {/* Target Country */}
-        <div className="w-full">
-          <Select
-            id="target-country"
-            label={t('home.targetCountry') || 'Target Country'}
-            value={targetCountry}
-            options={countryOptions}
-            disabled={availableCountries.length === 0}
-            onChange={(e) => onTargetCountryChange(e.target.value)}
-          />
-        </div>
-
-        {/* Translate Action */}
-        <div className="sm:col-span-1 md:col-span-2">
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={onTranslate}
-            isLoading={isTranslating}
-            className="w-full sm:w-auto px-6 h-10.5"
-          >
-            {t('common.translate') || 'Translate Selected'}
-          </Button>
-        </div>
+      <div className="space-y-4">
+        <Select id="target-language" label={t('home.targetLanguage')} value={targetLanguage}
+          options={languageOptions} disabled={isTranslating} onChange={(event) => onTargetLanguageChange(event.target.value)} />
+        <Select id="target-country" label={t('home.targetCountry')} value={targetCountry}
+          options={countryOptions} disabled={isTranslating || availableCountries.length === 0}
+          onChange={(event) => onTargetCountryChange(event.target.value)} />
+        <Button type="button" onClick={onTranslate} isLoading={isTranslating} fullWidth className="min-h-12">
+          {t('common.translate')}
+        </Button>
       </div>
-
-      {/* Error / Info State */}
-      {translateError && <Alert type="error" message={translateError} />}
-
-      {/* Translation Result Card */}
-      {(translatedName || isTranslating) && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 md:p-5">
-          <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-3">
-            {t('home.crossReferencedMatch') || 'Cross-Referenced Match'}
-          </h5>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                {t('home.original') || 'Original'} ({selectedResult.language.toUpperCase()})
-              </div>
-              <div className="text-sm font-bold text-slate-900 mt-1">
-                {selectedResult.name}
-              </div>
-            </div>
-
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                {t('home.translation') || 'Translation'} ({targetLanguage.toUpperCase()})
-              </div>
-              <div className="text-sm font-bold text-emerald-700 mt-1">
-                {translatedName || (isTranslating ? '...' : '-')}
-              </div>
-            </div>
-
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                {t('home.brandInCountry') || 'Brand in'} {targetCountry.toUpperCase()}
-              </div>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {translatedBrand || (isTranslating ? '...' : '-')}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {translateError && <div><Alert type="error" message={translateError} /></div>}
+      <div aria-live="polite" aria-busy={isTranslating}>
+        {isTranslating ? <p className="text-sm text-slate-500">{t('workspace.translating')}</p> : translatedName && !translateError ? (
+          <dl className="workspace-translation-output">
+            <div><dt>{t('home.original')} ({selectedResult.language.toUpperCase()})</dt><dd>{selectedResult.name}</dd></div>
+            <div><dt>{t('home.translation')} ({targetLanguage.toUpperCase()})</dt><dd className="text-emerald-800">{translatedName}</dd></div>
+            <div><dt>{t('home.brandInCountry')} {targetCountry.toUpperCase()}</dt><dd>{translatedBrand || '—'}</dd></div>
+          </dl>
+        ) : !translateError && <p className="text-sm text-slate-500">{t('workspace.destinationHint')}</p>}
+      </div>
     </div>
   )
 }

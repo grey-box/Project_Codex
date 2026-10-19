@@ -26,7 +26,7 @@ export const Select: React.FC<SelectProps> = ({
       {label && (
         <label
           htmlFor={id}
-          className="text-xs font-semibold text-slate-700 tracking-wide uppercase"
+          className="text-sm font-semibold text-slate-700"
         >
           {label}
         </label>
@@ -35,7 +35,7 @@ export const Select: React.FC<SelectProps> = ({
         <select
           id={id}
           disabled={disabled}
-          className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-800 shadow-xs appearance-none pr-9 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
+          className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm font-medium text-slate-800 shadow-xs appearance-none pr-9 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
             error
               ? 'border-rose-300 focus:ring-rose-400 focus:border-rose-400'
               : 'border-slate-300 hover:border-slate-400'

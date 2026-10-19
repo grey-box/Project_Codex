@@ -1,4 +1,4 @@
-import React, { type KeyboardEvent } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Select, Input } from '../ui'
 import type { LanguageOption } from '../../types/codex'
@@ -24,14 +24,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const { t } = useTranslation()
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      onSearch()
-    }
-  }
-
   const languageOptions = [
-    { value: 'all', label: 'All languages' },
+    { value: 'all', label: t('workspace.allLanguages') },
     ...languages.map((lang) => ({
       value: lang.code,
       label: `${lang.label} (${lang.code.toUpperCase()})`,
@@ -39,53 +33,21 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   ]
 
   return (
-    <div className="w-full space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 items-end">
-        {/* Language Filter */}
-        <div className="w-full">
-          <Select
-            id="search-language"
-            label="Search Language"
-            value={searchLanguage}
-            options={languageOptions}
-            onChange={(e) => onSearchLanguageChange(e.target.value)}
-          />
-        </div>
-
-        {/* Drug Input & Search Button */}
-        <div className="sm:col-span-2 md:col-span-3 flex flex-col sm:flex-row gap-2 items-end">
-          <div className="flex-1 w-full">
-            <Input
-              id="drug-search"
-              label={t('home.searchTitle') || 'Drug Search'}
-              value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('home.sourcePlaceholder') || 'Search RxNorm drug, brand or synonym...'}
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              }
-            />
-          </div>
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={onSearch}
-            isLoading={isLoading}
-            className="sm:w-auto w-full px-6 h-10.5 shrink-0"
-          >
-            {t('common.search') || 'Search'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <form className="workspace-search" onSubmit={(event) => {
+      event.preventDefault()
+      if (!isLoading) onSearch()
+    }}>
+      <Input id="drug-search" label={t('workspace.medicationName')} value={searchQuery}
+        onChange={(event) => onSearchQueryChange(event.target.value)}
+        placeholder={t('home.sourcePlaceholder')} autoComplete="off"
+        icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" strokeWidth="1.5" /><path d="m16 16 5 5" strokeWidth="1.5" />
+        </svg>} />
+      <Select id="search-language" label={t('workspace.searchLanguage')} value={searchLanguage}
+        options={languageOptions} onChange={(event) => onSearchLanguageChange(event.target.value)} />
+      <Button type="submit" isLoading={isLoading} className="workspace-search-button">
+        {isLoading ? t('workspace.searching') : t('common.search')}
+      </Button>
+    </form>
   )
 }
