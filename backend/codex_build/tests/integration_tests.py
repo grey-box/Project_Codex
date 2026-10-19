@@ -19,8 +19,8 @@ sys.path.append(parent_dir)
 from api import app, create_access_token
 from codex.neo4j_driver import driver, create_user, get_user_by_email, delete_user
 
-TEST_ADMIN_EMAIL = "admin@email.com"
-TEST_ADMIN_PASS = "AdminTestPassword123!"
+TEST_ADMIN_EMAIL = "admin@grey-box.ca"
+TEST_ADMIN_PASS = "ChangeMeNow123!"
 
 
 @pytest.fixture(scope="session")
@@ -549,6 +549,7 @@ def test_administrator_cannot_delete_own_account(client, admin_headers):
 
 
 def test_last_administrator_cannot_be_demoted_by_role_endpoint(client, admin_headers):
+    
     response = client.put(
         f"/users/{TEST_ADMIN_EMAIL}/role",
         headers=admin_headers,
@@ -569,6 +570,7 @@ def test_last_administrator_cannot_be_demoted_by_role_endpoint(client, admin_hea
 
 
 def test_last_administrator_cannot_be_demoted_by_patch(client, admin_headers):
+    
     response = client.patch(
         f"/users/{TEST_ADMIN_EMAIL}",
         headers=admin_headers,
