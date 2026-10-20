@@ -38,11 +38,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   return (
     <section className="workspace-surface workspace-results" aria-busy={isLoading} aria-labelledby="results-title">
       <div className="workspace-results-heading">
-        <div><h2 id="results-title" className="text-xl font-semibold">
+        <div><h2 id="results-title" className="text-sm font-medium">
           {t('home.resultsTitle') || 'Search Results'}
-        </h2><p className="text-sm text-slate-500 mt-1">{t('workspace.resultsHint')}</p></div>
+        </h2></div>
         {results.length > 0 && (
-          <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+          <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
             {t('workspace.matchCount', { count: results.length })}
           </span>
         )}
@@ -84,7 +84,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             : 'hover:bg-slate-50/80 text-slate-700'
                         }`}
                       >
-                        <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
+                        <td className="py-4 px-5 font-medium text-slate-900 flex items-center gap-2">
                           {selected && (
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
                           )}
@@ -95,7 +95,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         </td>
                         {hasBrand && <td className="py-3 px-4">{row.brand || '-'}</td>}
                         <td className="py-3 px-4">
-                          <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
+                          <span className="text-slate-500">
                             {row.type || (hasBrand ? 'brand name drug' : 'ingredient')}
                           </span>
                         </td>

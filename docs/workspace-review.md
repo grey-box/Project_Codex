@@ -2,20 +2,35 @@
 
 ## Design and behavior
 
-The workspace keeps Grey-box evergreen and Source Sans 3. Search has the primary
-position, utility tools share a wrapping toolbar, and results sit beside a
-translation panel on wide screens. Below 960px the panel follows the results;
-phones use medication cards with native selection buttons. Empty, loading,
+The workspace uses Geist throughout, with quiet gray navigation, fine dividers,
+black primary actions and evergreen selection states. The persistent sidebar
+contains the existing OCR, population and import controls, while breadcrumbs and
+the interface language switcher sit above the workspace. Search and language
+filters stay above the results. Results sit beside the translation panel at
+1200px and above; the panel follows the results on smaller screens. Below 768px
+the sidebar becomes wrapping navigation. Phones use medication cards with native
+selection buttons. Empty, loading,
 no-match, request-error and selected states each explain the next action.
 Language filters preserve the fetched records so resetting restores matches
 without another request. Translation responses are ignored after the selection
 or destination changes. Import, OCR and population retain their existing APIs.
 
 Design exploration: [Purist workspace](https://purist.design/file/SprEvCZwabzDFdcZ).
-References: [Sprig search and filter hierarchy](https://mobbin.com/screens/561a3aac-ed83-4114-91ee-b0034a366892)
-and [Unify results workspace](https://mobbin.com/screens/dde5403f-7fd6-4f4d-9d6f-8bf8c0810e69).
+References: [Linear navigation](https://mobbin.com/screens/0ac97560-1aef-4907-a356-8c18c749437b),
+[Vercel hierarchy](https://mobbin.com/screens/b313e291-3869-43a6-9125-d98cf9f3ccb8),
+[Attio tables](https://mobbin.com/screens/2f854791-b0f6-475a-97c3-65e65d5f7581), and
+[Vercel sign-in](https://mobbin.com/screens/e839e5dd-ca34-4876-863e-f816ff2757d8).
 These informed the hierarchy and split layout; no screenshots or third-party
 artwork are shipped in the application. Mock medication records remain in tests.
+
+Geist variable 5.3.0 is self-hosted from Fontsource under the SIL Open Font
+License (included in `frontend/src/assets/fonts/OFL-Geist.txt`). Five WOFF2
+subsets total about 76 KB and load only for the character ranges used. The
+Latin subset is about 29 KB. No runtime dependencies or image assets were added.
+The account popup contains sign-in, embedded usage documentation and explicit
+Light/Dark choices. The app follows the OS preference initially and stores only
+the chosen appearance in local storage. The sidebar uses a simple Codex wordmark;
+it is a typographic treatment, not an official supplied logo.
 
 ## Repository review
 
@@ -47,16 +62,24 @@ Integration follow-ups identified during the review:
   quarantine path. Generate a server-owned filename and preserve scan rejection
   status codes before enabling uploads outside a trusted development setup.
 
-Authentication remains a separate integration task with the team's existing
-auth work. This refresh adds no authentication implementation or connected-state
-claims.
+The sign-in form uses the `/api/login` email/password and `access_token` contract
+from the team's `arshit-frontend-auth` / `acl-branch` work. A missing or rejected
+response remains an error; the client requires a nonempty server token before
+showing the signed-in email. Tokens stay in memory, attach to existing API calls
+and clear on sign-out or refresh. No backend authentication or authorization
+rules changed. The current base backend does not include this login endpoint;
+live sign-in requires integration with the team's ACL backend. Role management,
+server-side session revocation and backend integration are outside this refresh.
 
 ## Validation
 
 `npm test` covers population streams. `npm run test:ui` uses intercepted local API
 responses to cover keyboard selection, translation, country changes, reversible
 language filters, loading/empty/error/retry states, stale responses, translated
-workspace copy, and utility dialogs/dropdowns at 390/768/1024/1440px.
+workspace copy, loaded Geist faces, and utility dialogs/dropdowns at
+390/768/1024/1440px. Additional checks cover persisted appearance, embedded help
+and focus restoration, rejected sign-in responses, server-issued token use and
+authorization removal on sign-out.
 `npm run lint` and `npm run build` are also required. Browser checks exercise
 fixtures, not Neo4j, PaddleOCR or external medical-source services.
 

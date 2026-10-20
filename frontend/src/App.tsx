@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Header, WorkspaceTools } from './components/layout/Header'
+import { Header, Sidebar, WorkspaceTools } from './components/layout/Header'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'
 import { TranslationPanel } from './components/translation/TranslationPanel'
@@ -254,72 +254,67 @@ function App() {
   return (
     <div className="workspace-shell">
       <a className="skip-link" href="#main-content">{t('workspace.skipToSearch')}</a>
-      <Header />
-      <main id="main-content" className="workspace-main">
-        <section className="workspace-intro" aria-labelledby="workspace-title">
-          <div>
-            <p className="workspace-eyebrow">{t('workspace.eyebrow')}</p>
-            <h1 id="workspace-title">{t('workspace.title')}</h1>
-            <p className="workspace-description">{t('workspace.description')}</p>
-          </div>
-          <p className="workspace-steps">{t('workspace.steps')}</p>
-        </section>
-        <section className="workspace-surface workspace-search-surface" aria-label={t('home.searchTitle')}>
-          <SearchBar searchLanguage={searchLanguage} onSearchLanguageChange={(language) => {
-            setSearchLanguage(language)
-            setSelectedResult(null)
-            clearTranslation()
-          }} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery}
-            onSearch={handleSearch} isLoading={isLoading} languages={languages} />
-          <WorkspaceTools
-            languages={languages}
-            onImportSuccess={() => loadLanguages(() => true)}
-            onSelectTerm={(term) => {
-              setSearchQuery(term)
-            }}
-            currentSearchLanguage={searchLanguage}
-            allLoadedLanguages={allLoadedLanguages}
-            selectedLanguages={selectedLanguages}
-            onToggleLanguage={handleCheckboxToggle}
-            onSelectAllLanguages={handleSelectAll}
-            onDeselectAllLanguages={handleDeselectAll}
-            onApplyLanguageFilter={handleApplyLanguageFilter}
-          />
-          {availableLanguages.length < loadedLanguages.length && (
-            <div className="workspace-filter-notice">
-              <span>{t('workspace.activeLanguages', { languages: availableLanguages.map(l => l.toUpperCase()).join(', ') || '—' })}</span>
-              <button type="button" onClick={handleResetLanguages}>{t('workspace.resetLanguages')}</button>
+      <Sidebar onImportSuccess={() => loadLanguages(() => true)}
+        onSelectTerm={setSearchQuery} currentSearchLanguage={searchLanguage} />
+      <div className="workspace-content">
+        <Header languages={allLoadedLanguages} />
+        <main id="main-content" className="workspace-main">
+          <section className="workspace-intro" aria-labelledby="workspace-title">
+            <div>
+              <h1 id="workspace-title">{t('workspace.medications')}</h1>
             </div>
-          )}
-        </section>
-        <div className="workspace-results-layout">
-          <ResultsTable results={searchResults} selectedResult={selectedResult}
-            onSelectResult={(result) => {
-              setSelectedResult(result)
+          </section>
+          <section className="workspace-surface workspace-search-surface" aria-label={t('home.searchTitle')}>
+            <SearchBar searchLanguage={searchLanguage} onSearchLanguageChange={(language) => {
+              setSearchLanguage(language)
+              setSelectedResult(null)
               clearTranslation()
-            }} hasBrand={hasBrand} searchError={searchError} isLoading={isLoading} hasSearched={hasSearched} />
-          <aside className="workspace-surface workspace-translation" aria-label={t('workspace.translateTitle')}>
-            {selectedResult ? (
-              <TranslationPanel selectedResult={selectedResult} targetLanguage={targetLanguage}
-                targetCountry={targetCountry} onTargetLanguageChange={handleLanguageChange}
-                onTargetCountryChange={(country) => {
-                  setTargetCountry(country)
-                  clearTranslation()
-                }} onTranslate={handleTranslateSelected} isTranslating={isTranslating}
-                languages={languages} availableCountries={availableCountries}
-                translatedName={translatedName} translatedBrand={translatedBrand} translateError={translateError} />
-            ) : (
-              <div className="workspace-translation-empty">
-                <p className="workspace-eyebrow">{t('workspace.stepThree')}</p>
-                <h2>{t('workspace.translateTitle')}</h2>
-                <div className="workspace-empty-icon" aria-hidden="true">Aa <span>↔</span> 文</div>
-                <h3>{t('workspace.selectTitle')}</h3>
-                <p>{t('workspace.selectDescription')}</p>
+            }} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery}
+              onSearch={handleSearch} isLoading={isLoading} languages={languages} />
+            <WorkspaceTools
+              allLoadedLanguages={allLoadedLanguages}
+              selectedLanguages={selectedLanguages}
+              onToggleLanguage={handleCheckboxToggle}
+              onSelectAllLanguages={handleSelectAll}
+              onDeselectAllLanguages={handleDeselectAll}
+              onApplyLanguageFilter={handleApplyLanguageFilter}
+            />
+            {availableLanguages.length < loadedLanguages.length && (
+              <div className="workspace-filter-notice">
+                <span>{t('workspace.activeLanguages', { languages: availableLanguages.map(l => l.toUpperCase()).join(', ') || '—' })}</span>
+                <button type="button" onClick={handleResetLanguages}>{t('workspace.resetLanguages')}</button>
               </div>
             )}
-          </aside>
-        </div>
-      </main>
+          </section>
+          <div className="workspace-results-layout">
+            <ResultsTable results={searchResults} selectedResult={selectedResult}
+              onSelectResult={(result) => {
+                setSelectedResult(result)
+                clearTranslation()
+              }} hasBrand={hasBrand} searchError={searchError} isLoading={isLoading} hasSearched={hasSearched} />
+            <aside className="workspace-surface workspace-translation" aria-label={t('workspace.translateTitle')}>
+              {selectedResult ? (
+                <TranslationPanel selectedResult={selectedResult} targetLanguage={targetLanguage}
+                  targetCountry={targetCountry} onTargetLanguageChange={handleLanguageChange}
+                  onTargetCountryChange={(country) => {
+                    setTargetCountry(country)
+                    clearTranslation()
+                  }} onTranslate={handleTranslateSelected} isTranslating={isTranslating}
+                  languages={languages} availableCountries={availableCountries}
+                  translatedName={translatedName} translatedBrand={translatedBrand} translateError={translateError} />
+              ) : (
+                <div className="workspace-translation-empty">
+                  <p className="workspace-eyebrow">{t('workspace.stepThree')}</p>
+                  <h2>{t('workspace.translateTitle')}</h2>
+                  <div className="workspace-empty-icon" aria-hidden="true">Aa <span>↔</span> 文</div>
+                  <h3>{t('workspace.selectTitle')}</h3>
+                  <p>{t('workspace.selectDescription')}</p>
+                </div>
+              )}
+            </aside>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

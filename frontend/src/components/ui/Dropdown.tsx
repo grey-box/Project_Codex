@@ -97,7 +97,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape' && isOpen && !dropdownRef.current?.querySelector('[role="dialog"]')) {
         setIsOpen(false)
       }
     }

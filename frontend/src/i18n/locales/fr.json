@@ -67,6 +67,41 @@
     "translating": "Traduction…",
     "destinationHint": "Choisissez une destination pour consulter les noms disponibles.",
     "matchCount_one": "{{count}} résultat",
-    "matchCount_other": "{{count}} résultats"
+    "matchCount_other": "{{count}} résultats",
+    "medications": "Médicaments",
+    "manageData": "Gérer les données",
+    "breadcrumb": "Fil d’Ariane",
+    "account": "Compte",
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter",
+    "appearance": "Apparence",
+    "light": "Clair",
+    "dark": "Sombre",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "accountHelp": "Besoin d’un compte ? Votre administrateur peut vous aider.",
+    "signInFailed": "Connexion impossible.",
+    "help": {
+      "search": {
+        "title": "Rechercher des médicaments",
+        "body": "Saisissez un médicament ou une marque, choisissez une langue et lancez la recherche. Sélectionnez un résultat pour voir les options de traduction."
+      },
+      "translate": {
+        "title": "Traduire un résultat",
+        "body": "Choisissez la langue et le pays de destination, puis lancez la traduction. Un changement de sélection ou de destination efface la traduction précédente."
+      },
+      "scan": {
+        "title": "Scanner un médicament",
+        "body": "Ouvrez le scanner OCR, choisissez une image et lancez l’analyse. Copiez ensuite un terme reconnu dans le champ de recherche."
+      },
+      "import": {
+        "title": "Importer des langues",
+        "body": "Choisissez un fichier JSON contenant un code de langue et une liste de termes. Une importation réussie actualise les langues disponibles."
+      },
+      "populate": {
+        "title": "Charger les sources",
+        "body": "Sélectionnez les sources et fournissez les identifiants API nécessaires. Le panneau affiche la progression et les erreurs."
+      }
+    }
   }
 }

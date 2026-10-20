@@ -6,9 +6,9 @@ import { LanguageSelector } from '../language/LanguageSelector'
 import { LanguageFilterModal } from '../language/LanguageFilterModal'
 import { OcrModal } from '../ocr/OcrModal'
 import type { LanguageOption } from '../../types/codex'
+import { AccountMenu } from './AccountMenu'
 
 export interface WorkspaceToolsProps {
-  languages: LanguageOption[]
   onImportSuccess?: () => void
   onSelectTerm?: (term: string) => void
   currentSearchLanguage?: string
@@ -20,23 +20,48 @@ export interface WorkspaceToolsProps {
   onApplyLanguageFilter?: () => void
 }
 
-export const Header: React.FC = () => {
+export const Header: React.FC<{ languages: LanguageOption[] }> = ({ languages }) => {
   const { t } = useTranslation()
   return (
     <header className="workspace-header">
       <div className="workspace-header-inner">
-        <a href="#main-content" className="workspace-brand">GREY-BOX</a>
-        <span className="workspace-product">Medical Codex</span>
-        <a className="workspace-docs" href="https://github.com/grey-box/Project_Codex#readme" target="_blank" rel="noreferrer">
-          {t('workspace.documentation')} <span aria-hidden="true">↗</span>
-        </a>
+        <nav aria-label={t('workspace.breadcrumb')} className="workspace-breadcrumb">
+          <a href="#main-content">Medical Codex</a>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{t('workspace.medications')}</span>
+        </nav>
+        <LanguageSelector languages={languages} />
       </div>
     </header>
   )
 }
 
+export const Sidebar: React.FC<WorkspaceToolsProps> = ({ onImportSuccess, onSelectTerm, currentSearchLanguage }) => {
+  const { t } = useTranslation()
+  return (
+    <nav className="workspace-sidebar" aria-label={t('workspace.tools')}>
+      <a href="#main-content" className="workspace-brand" aria-label="Medical Codex">
+        <span className="workspace-wordmark" aria-hidden="true">codex</span>
+      </a>
+      <div className="workspace-sidebar-group">
+        <p className="workspace-nav-label">{t('workspace.eyebrow')}</p>
+        <a className="workspace-nav-active" href="#main-content" aria-current="page">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7" /><path d="m16 16 5 5" /></svg>
+          {t('workspace.medications')}
+        </a>
+        {onSelectTerm && <OcrModal onSelectTerm={onSelectTerm} currentLanguage={currentSearchLanguage} />}
+      </div>
+      <div className="workspace-sidebar-group">
+        <p className="workspace-nav-label">{t('workspace.manageData')}</p>
+        <PopulateDropdown />
+        <ImportLanguageModal onImportSuccess={onImportSuccess} />
+      </div>
+      <AccountMenu />
+    </nav>
+  )
+}
+
 export const WorkspaceTools: React.FC<WorkspaceToolsProps> = ({
-  languages, onImportSuccess, onSelectTerm, currentSearchLanguage,
   allLoadedLanguages, selectedLanguages, onToggleLanguage,
   onSelectAllLanguages, onDeselectAllLanguages, onApplyLanguageFilter,
 }) => {
@@ -44,17 +69,11 @@ export const WorkspaceTools: React.FC<WorkspaceToolsProps> = ({
   return (
     <div className="workspace-tools" role="group" aria-label={t('workspace.tools')}>
       <div className="workspace-tool-group">
-        <PopulateDropdown />
-        <ImportLanguageModal onImportSuccess={onImportSuccess} />
-        {onSelectTerm && <OcrModal onSelectTerm={onSelectTerm} currentLanguage={currentSearchLanguage} />}
-      </div>
-      <div className="workspace-tool-group">
         {allLoadedLanguages && selectedLanguages && onToggleLanguage && onSelectAllLanguages && onDeselectAllLanguages && onApplyLanguageFilter && (
           <LanguageFilterModal allLanguages={allLoadedLanguages} selectedLanguages={selectedLanguages}
             onToggleLanguage={onToggleLanguage} onSelectAll={onSelectAllLanguages}
             onDeselectAll={onDeselectAllLanguages} onApply={onApplyLanguageFilter} />
         )}
-        <LanguageSelector languages={allLoadedLanguages ?? languages} />
       </div>
     </div>
   )

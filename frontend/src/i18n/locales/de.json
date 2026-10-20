@@ -67,6 +67,41 @@
     "translating": "Übersetzung läuft…",
     "destinationHint": "Wählen Sie ein Ziel, um verfügbare Namen nachzuschlagen.",
     "matchCount_one": "{{count}} Treffer",
-    "matchCount_other": "{{count}} Treffer"
+    "matchCount_other": "{{count}} Treffer",
+    "medications": "Medikamente",
+    "manageData": "Daten verwalten",
+    "breadcrumb": "Brotkrümelnavigation",
+    "account": "Konto",
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "appearance": "Darstellung",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "accountHelp": "Sie benötigen ein Konto? Ihre Administration hilft Ihnen weiter.",
+    "signInFailed": "Anmeldung fehlgeschlagen.",
+    "help": {
+      "search": {
+        "title": "Medikamente suchen",
+        "body": "Geben Sie ein Medikament oder eine Marke ein, wählen Sie eine Sprache und starten Sie die Suche. Wählen Sie ein Ergebnis für die Übersetzung aus."
+      },
+      "translate": {
+        "title": "Ein Ergebnis übersetzen",
+        "body": "Wählen Sie Zielsprache und Zielland und starten Sie die Übersetzung. Eine Änderung der Auswahl oder des Ziels löscht die vorherige Übersetzung."
+      },
+      "scan": {
+        "title": "Ein Medikament scannen",
+        "body": "Öffnen Sie den OCR-Scanner, wählen Sie ein Bild und starten Sie den Scan. Übernehmen Sie einen erkannten Begriff in das Suchfeld."
+      },
+      "import": {
+        "title": "Sprachen importieren",
+        "body": "Wählen Sie eine JSON-Datei mit Sprachcode und Begriffsliste. Ein erfolgreicher Import aktualisiert die verfügbaren Sprachen."
+      },
+      "populate": {
+        "title": "Quellen laden",
+        "body": "Wählen Sie die Quellen aus und geben Sie bei Bedarf die API-Zugangsdaten ein. Fortschritt und Fehler erscheinen im Ladebereich."
+      }
+    }
   }
 }

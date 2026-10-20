@@ -71,6 +71,41 @@
     "translating": "Translating…",
     "destinationHint": "Choose a destination to look up available names.",
     "matchCount_one": "{{count}} match",
-    "matchCount_other": "{{count}} matches"
+    "matchCount_other": "{{count}} matches",
+    "medications": "Medications",
+    "manageData": "Manage data",
+    "breadcrumb": "Breadcrumb",
+    "account": "Account",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "appearance": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "email": "Email address",
+    "password": "Password",
+    "accountHelp": "Need an account? Your administrator can help.",
+    "signInFailed": "Unable to sign in.",
+    "help": {
+      "search": {
+        "title": "Search medications",
+        "body": "Enter a medication or brand name, choose a language, and select Search. Pick a result to view translation options."
+      },
+      "translate": {
+        "title": "Translate a selected result",
+        "body": "Choose the target language and country, then select Translate. Changing the selection or destination clears the previous translation."
+      },
+      "scan": {
+        "title": "Scan a medication",
+        "body": "Open OCR Scan, choose an image and run the scan. Select Use in Search to copy a recognized term into the search field."
+      },
+      "import": {
+        "title": "Import language files",
+        "body": "Choose a JSON file with a language code and terms array. A successful import refreshes the available languages."
+      },
+      "populate": {
+        "title": "Populate sources",
+        "body": "Select the sources to load and supply API credentials when required. Progress and errors appear in the population panel."
+      }
+    }
   }
 }

@@ -49,7 +49,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-semibold">{t('workspace.translateTitle')}</h2>
+      <h2 className="text-sm font-medium">{t('workspace.translateTitle')}</h2>
       <div className="workspace-selected">
         <p className="workspace-eyebrow">{t('home.selectedDrug')}</p>
         <h3>{selectedResult.name}</h3>
@@ -62,7 +62,7 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
         <Select id="target-country" label={t('home.targetCountry')} value={targetCountry}
           options={countryOptions} disabled={isTranslating || availableCountries.length === 0}
           onChange={(event) => onTargetCountryChange(event.target.value)} />
-        <Button type="button" onClick={onTranslate} isLoading={isTranslating} fullWidth className="min-h-12">
+        <Button type="button" onClick={onTranslate} isLoading={isTranslating} fullWidth className="min-h-10">
           {t('common.translate')}
         </Button>
       </div>

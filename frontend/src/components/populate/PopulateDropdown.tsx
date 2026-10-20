@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Dropdown } from '../ui'
 import { API_BASE_URL } from '../../services/api'
 import { readPopulationResponse } from '../../services/population'
+import { getAuthHeaders } from '../../services/session'
 
 interface SourceOption {
   id: string
@@ -56,7 +57,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
     try {
       const response = await fetch(`${API_BASE_URL}/api/populate-sources`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           selectedSources: sourcesToPopulate,
           DBAPIKey: drugbankAPIKey,

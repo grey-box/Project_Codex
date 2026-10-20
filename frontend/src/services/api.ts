@@ -4,15 +4,28 @@ import type {
   TranslateResponse,
 } from '../types/codex'
 import { FALLBACK_LANGUAGES } from '../types/codex'
+import { getAuthHeaders, setAccessToken } from './session'
 
 export const API_BASE_URL = 'http://localhost:8000'
+
+// Matches the team's ACL branch contract; the backend must expose /api/login.
+export async function loginUser(email: string, password: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : 'Sign-in is unavailable on this backend.')
+  if (typeof data?.access_token !== 'string' || !data.access_token.trim()) throw new Error('The server did not return an access token.')
+  setAccessToken(data.access_token)
+}
 
 /**
  * Fetches available language codes that have data in Neo4j.
  */
 export async function getLanguages(): Promise<string[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/languages`)
+    const response = await fetch(`${API_BASE_URL}/languages`, { headers: getAuthHeaders() })
     if (!response.ok) {
       throw new Error('Failed to load languages')
     }
@@ -36,6 +49,7 @@ export async function searchDrug(query: string): Promise<SearchResponse[]> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         query: query,
@@ -68,6 +82,7 @@ export async function translateDrug(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       term,
@@ -96,6 +111,7 @@ export async function scanOcrImage(file: File, sourceLanguage?: string): Promise
 
   const response = await fetch(`${API_BASE_URL}/ocrmatching/`, {
     method: 'POST',
+    headers: getAuthHeaders(),
     body: formData,
   })
 

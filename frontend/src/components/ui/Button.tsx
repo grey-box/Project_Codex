@@ -20,11 +20,11 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center justify-center font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed cursor-pointer'
+    'inline-flex items-center justify-center font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed cursor-pointer'
 
   const variantStyles = {
     primary:
-      'bg-[#1e4840] hover:bg-[#285b50] active:scale-[0.98] text-white shadow-sm disabled:bg-slate-300 disabled:text-slate-500',
+      'bg-[#171717] hover:bg-[#333333] text-white disabled:bg-slate-200 disabled:text-slate-500',
     nav:
       'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 disabled:opacity-60',
     secondary:
