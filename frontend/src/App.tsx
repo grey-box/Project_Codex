@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { useEffect, useState } from 'react'
-import { Header } from './components/layout/Header'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Header, Sidebar, WorkspaceTools } from './components/layout/Header'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'
 import { TranslationPanel } from './components/translation/TranslationPanel'
@@ -11,7 +11,7 @@ import { getLanguages, searchDrug, translateDrug } from './services/api'
 function App() {
   const { t, i18n } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
+  const [unfilteredResults, setSearchResults] = useState<SearchResultRow[]>([])
   const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
   const [loadedLanguages, setLoadedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
@@ -25,7 +25,16 @@ function App() {
   const [searchError, setSearchError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
-  const [hasBrand, setHasBrand] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const translationRequest = useRef(0)
+
+  const clearTranslation = () => {
+    translationRequest.current += 1
+    setIsTranslating(false)
+    setTranslatedName('')
+    setTranslatedBrand('')
+    setTranslateError('')
+  }
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -54,35 +63,33 @@ function App() {
     const newCountry = getFirstCountryForLanguage(newLang)
     setTargetLanguage(newLang)
     setTargetCountry(newCountry)
-    setTranslatedName('')
-    setTranslatedBrand('')
-    setTranslateError('')
+    clearTranslation()
   }
 
-  const loadLanguages = async (isActive: boolean) => {
+  const loadLanguages = useCallback(async (isActive: () => boolean) => {
     try {
       const nextLanguages = await getLanguages()
-      if (!isActive) return
+      if (!isActive()) return
       setLoadedLanguages(nextLanguages)
       setAvailableLanguages(nextLanguages)
       setSelectedLanguages(nextLanguages)
       setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
     } catch {
-      if (!isActive) return
+      if (!isActive()) return
       setLoadedLanguages(FALLBACK_LANGUAGES)
       setAvailableLanguages(FALLBACK_LANGUAGES)
       setSelectedLanguages(FALLBACK_LANGUAGES)
       setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
     }
-  }
+  }, [])
 
   useEffect(() => {
     let isActive = true
-    loadLanguages(isActive)
+    loadLanguages(() => isActive)
     return () => {
       isActive = false
     }
-  }, [])
+  }, [loadLanguages])
 
   const hasActiveLanguageMatch = (
     itemLanguageString: string | null | undefined,
@@ -132,24 +139,25 @@ function App() {
     const filtered = loadedLanguages.filter((code) => selectedLanguages.includes(code))
     setAvailableLanguages(filtered)
     if (!filtered.includes(targetLanguage) && filtered.length > 0) {
-      setTargetLanguage(filtered[0])
-      setTargetCountry(getFirstCountryForLanguage(filtered[0]))
+      handleLanguageChange(filtered[0])
     }
 
-    if (searchResults.length > 0) {
-      const updatedResults = searchResults.filter((item) =>
-        hasActiveLanguageMatch(item.language, filtered, searchLanguage)
-      )
-
-      setSearchResults(updatedResults)
-
-      if (selectedResult && !hasActiveLanguageMatch(selectedResult.language, filtered, searchLanguage)) {
-        setSelectedResult(null)
-        setTranslatedName('')
-        setTranslatedBrand('')
-      }
+    if (selectedResult && !hasActiveLanguageMatch(selectedResult.language, filtered, searchLanguage)) {
+      setSelectedResult(null)
+      clearTranslation()
     }
   }
+
+  const handleResetLanguages = () => {
+    setSelectedLanguages([...loadedLanguages])
+    setAvailableLanguages([...loadedLanguages])
+    setSearchLanguage('all')
+  }
+
+  const searchResults = unfilteredResults.filter((item) =>
+    hasActiveLanguageMatch(item.language, availableLanguages, searchLanguage)
+  )
+  const hasBrand = searchResults.some((item) => Boolean(item.brand))
 
   const extractTranslatedName = (rows: TranslateResultRow[]) => {
     const names = rows
@@ -175,6 +183,8 @@ function App() {
       return
     }
 
+    clearTranslation()
+    setHasSearched(true)
     setIsLoading(true)
     setSearchError('')
     setTranslateError('')
@@ -185,19 +195,7 @@ function App() {
 
     try {
       const data = await searchDrug(searchQuery)
-      const filteredData = data.filter((item) =>
-        hasActiveLanguageMatch(item.language, availableLanguages, searchLanguage)
-      )
-
-      if (filteredData.length === 0) {
-        setSearchResults([])
-        setSearchError('No results found for selected languages')
-      } else {
-        const hasAnyBrand = filteredData.some((item) => Boolean(item.brand))
-        setHasBrand(hasAnyBrand)
-        setSearchResults(filteredData)
-        setSearchError('')
-      }
+      setSearchResults(data)
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'An error occurred during search')
       setSearchResults([])
@@ -217,6 +215,7 @@ function App() {
       ? targetCountry
       : getFirstCountryForLanguage(targetLanguage)
 
+    const requestId = ++translationRequest.current
     setIsTranslating(true)
     setTranslateError('')
     setTranslatedName('')
@@ -224,6 +223,7 @@ function App() {
 
     try {
       const payload = await translateDrug(selectedResult.name, targetLanguage, finalCountry)
+      if (requestId !== translationRequest.current) return
       const results = payload.results ?? []
       const name = results.length > 0 ? extractTranslatedName(results) : '-'
       const brand = results.length > 0 ? extractTranslatedBrand(results) : '-'
@@ -233,9 +233,11 @@ function App() {
         setTranslateError('No translation found for the selected language')
       }
     } catch (err) {
-      setTranslateError(err instanceof Error ? err.message : 'Translation failed')
+      if (requestId === translationRequest.current) {
+        setTranslateError(err instanceof Error ? err.message : 'Translation failed')
+      }
     } finally {
-      setIsTranslating(false)
+      if (requestId === translationRequest.current) setIsTranslating(false)
     }
   }
 
@@ -250,108 +252,69 @@ function App() {
   }))
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
-      {/* Top Navigation */}
-      <Header
-        languages={languages}
-        onImportSuccess={() => loadLanguages(true)}
-        onSelectTerm={(term) => {
-          setSearchQuery(term)
-        }}
-        currentSearchLanguage={searchLanguage}
-        allLoadedLanguages={allLoadedLanguages}
-        selectedLanguages={selectedLanguages}
-        onToggleLanguage={handleCheckboxToggle}
-        onSelectAllLanguages={handleSelectAll}
-        onDeselectAllLanguages={handleDeselectAll}
-        onApplyLanguageFilter={handleApplyLanguageFilter}
-      />
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        {/* Hero Section */}
-        <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-[#1e4840] tracking-tight">
-              {t('home.pageTitle') || 'Grey Box Pharma-Cross'}
-            </h1>
-            <p className="text-sm md:text-base text-slate-600 mt-1 max-w-2xl">
-              {t('home.pageDescription') ||
-                'Multilingual medical normalization and cross-border drug intelligence powered by RxNorm and Neo4j knowledge graph.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="self-start sm:self-auto px-3.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            {t('common.help') || 'Documentation'}
-          </button>
-        </section>
-
-        {/* Active Language Filter Notice (if filtered) */}
-        {availableLanguages.length < loadedLanguages.length && (
-          <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              <span>
-                Active filter: Showing results for <strong>{availableLanguages.map(l => l.toUpperCase()).join(', ')}</strong> only.
-              </span>
+    <div className="workspace-shell">
+      <a className="skip-link" href="#main-content">{t('workspace.skipToSearch')}</a>
+      <Sidebar onImportSuccess={() => loadLanguages(() => true)}
+        onSelectTerm={setSearchQuery} currentSearchLanguage={searchLanguage} />
+      <div className="workspace-content">
+        <Header languages={allLoadedLanguages} />
+        <main id="main-content" className="workspace-main">
+          <section className="workspace-intro" aria-labelledby="workspace-title">
+            <div>
+              <h1 id="workspace-title">{t('workspace.medications')}</h1>
             </div>
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              className="font-semibold underline hover:text-emerald-950 cursor-pointer"
-            >
-              Reset to All ({loadedLanguages.length})
-            </button>
-          </div>
-        )}
-
-        {/* Search & Results Panel */}
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 space-y-6">
-          <SearchBar
-            searchLanguage={searchLanguage}
-            onSearchLanguageChange={setSearchLanguage}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            onSearch={handleSearch}
-            isLoading={isLoading}
-            languages={languages}
-          />
-
-          <ResultsTable
-            results={searchResults}
-            selectedResult={selectedResult}
-            onSelectResult={(result) => {
-              setSelectedResult(result)
-              setTranslatedName('')
-              setTranslatedBrand('')
-              setTranslateError('')
-            }}
-            hasBrand={hasBrand}
-            searchError={searchError}
-          />
-
-          {selectedResult && (
-            <TranslationPanel
-              selectedResult={selectedResult}
-              targetLanguage={targetLanguage}
-              targetCountry={targetCountry}
-              onTargetLanguageChange={handleLanguageChange}
-              onTargetCountryChange={setTargetCountry}
-              onTranslate={handleTranslateSelected}
-              isTranslating={isTranslating}
-              languages={languages}
-              availableCountries={availableCountries}
-              translatedName={translatedName}
-              translatedBrand={translatedBrand}
-              translateError={translateError}
+          </section>
+          <section className="workspace-surface workspace-search-surface" aria-label={t('home.searchTitle')}>
+            <SearchBar searchLanguage={searchLanguage} onSearchLanguageChange={(language) => {
+              setSearchLanguage(language)
+              setSelectedResult(null)
+              clearTranslation()
+            }} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery}
+              onSearch={handleSearch} isLoading={isLoading} languages={languages} />
+            <WorkspaceTools
+              allLoadedLanguages={allLoadedLanguages}
+              selectedLanguages={selectedLanguages}
+              onToggleLanguage={handleCheckboxToggle}
+              onSelectAllLanguages={handleSelectAll}
+              onDeselectAllLanguages={handleDeselectAll}
+              onApplyLanguageFilter={handleApplyLanguageFilter}
             />
-          )}
-        </section>
-      </main>
+            {availableLanguages.length < loadedLanguages.length && (
+              <div className="workspace-filter-notice">
+                <span>{t('workspace.activeLanguages', { languages: availableLanguages.map(l => l.toUpperCase()).join(', ') || '—' })}</span>
+                <button type="button" onClick={handleResetLanguages}>{t('workspace.resetLanguages')}</button>
+              </div>
+            )}
+          </section>
+          <div className="workspace-results-layout">
+            <ResultsTable results={searchResults} selectedResult={selectedResult}
+              onSelectResult={(result) => {
+                setSelectedResult(result)
+                clearTranslation()
+              }} hasBrand={hasBrand} searchError={searchError} isLoading={isLoading} hasSearched={hasSearched} />
+            <aside className="workspace-surface workspace-translation" aria-label={t('workspace.translateTitle')}>
+              {selectedResult ? (
+                <TranslationPanel selectedResult={selectedResult} targetLanguage={targetLanguage}
+                  targetCountry={targetCountry} onTargetLanguageChange={handleLanguageChange}
+                  onTargetCountryChange={(country) => {
+                    setTargetCountry(country)
+                    clearTranslation()
+                  }} onTranslate={handleTranslateSelected} isTranslating={isTranslating}
+                  languages={languages} availableCountries={availableCountries}
+                  translatedName={translatedName} translatedBrand={translatedBrand} translateError={translateError} />
+              ) : (
+                <div className="workspace-translation-empty">
+                  <p className="workspace-eyebrow">{t('workspace.stepThree')}</p>
+                  <h2>{t('workspace.translateTitle')}</h2>
+                  <div className="workspace-empty-icon" aria-hidden="true">Aa <span>↔</span> 文</div>
+                  <h3>{t('workspace.selectTitle')}</h3>
+                  <p>{t('workspace.selectDescription')}</p>
+                </div>
+              )}
+            </aside>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

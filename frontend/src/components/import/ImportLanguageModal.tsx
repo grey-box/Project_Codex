@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal, Button, Alert } from '../ui'
 
-const API_BASE_URL = 'http://localhost:8000'
+import { API_BASE_URL } from '../../services/api'
+import { getAuthHeaders } from '../../services/session'
 
 interface ImportLanguageModalProps {
   onImportSuccess?: () => void
@@ -95,6 +96,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
     try {
       const response = await fetch(`${API_BASE_URL}/packs/load`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData,
       })
 

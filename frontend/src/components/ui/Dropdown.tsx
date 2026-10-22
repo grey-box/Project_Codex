@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 export interface DropdownProps {
   trigger: (isOpen: boolean) => React.ReactNode
@@ -24,7 +24,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Smart viewport auto-positioning
-  const calculatePosition = () => {
+  const calculatePosition = useCallback(() => {
     if (!dropdownRef.current) return
 
     const rect = dropdownRef.current.getBoundingClientRect()
@@ -60,13 +60,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         }
       }
     }
-  }
-
-  useLayoutEffect(() => {
-    if (isOpen) {
-      calculatePosition()
-    }
-  }, [isOpen])
+  }, [align])
 
   // Recalculate on window resize or scroll
   useEffect(() => {
@@ -83,7 +77,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       window.removeEventListener('resize', handleResizeOrScroll)
       window.removeEventListener('scroll', handleResizeOrScroll, true)
     }
-  }, [isOpen])
+  }, [isOpen, calculatePosition])
 
   // Close when clicking outside
   useEffect(() => {
@@ -103,7 +97,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape' && isOpen && !dropdownRef.current?.querySelector('[role="dialog"]')) {
         setIsOpen(false)
       }
     }
@@ -137,7 +131,10 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   return (
     <div className={`relative inline-block text-left ${className}`} ref={dropdownRef}>
-      <div onClick={() => setIsOpen(!isOpen)}>{trigger(isOpen)}</div>
+      <div onClick={() => {
+        if (!isOpen) calculatePosition()
+        setIsOpen(!isOpen)
+      }}>{trigger(isOpen)}</div>
 
       {isOpen && (
         <div

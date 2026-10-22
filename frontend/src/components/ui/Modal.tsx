@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useId, useRef } from 'react'
 
 export interface ModalProps {
   isOpen: boolean
@@ -19,6 +19,36 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidthClass = 'max-w-lg',
 }) => {
+  const titleId = useId()
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const previousFocus = document.activeElement as HTMLElement | null
+    const getControls = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]'
+    ) ?? []).filter(element => element.getClientRects().length > 0)
+    getControls()[0]?.focus()
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const controls = getControls()
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
+      }
+    }
+    document.addEventListener('keydown', trapFocus)
+    return () => {
+      document.removeEventListener('keydown', trapFocus)
+      previousFocus?.focus()
+    }
+  }, [isOpen])
+
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -42,8 +72,10 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={onClose}
     >
       <div
-        className={`relative w-full ${maxWidthClass} bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 overflow-hidden animate-in zoom-in-95 duration-150 cursor-default`}
+        className={`relative w-full ${maxWidthClass} bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 max-h-[90dvh] overflow-y-auto animate-in zoom-in-95 duration-150 cursor-default`}
+        ref={dialogRef}
         role="dialog"
+        aria-labelledby={titleId}
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
@@ -56,13 +88,14 @@ export const Modal: React.FC<ModalProps> = ({
               </span>
             )}
             <div>
-              <h3 className="text-base font-bold text-slate-800">{title}</h3>
+              <h3 id={titleId} className="text-base font-bold text-slate-800">{title}</h3>
               {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

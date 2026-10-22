@@ -33,5 +33,75 @@
     "original": "Original",
     "translation": "Übersetzung",
     "brandInCountry": "Marke in"
+  },
+  "workspace": {
+    "documentation": "Projektdokumentation",
+    "tools": "Werkzeuge",
+    "medicationName": "Medikamentenname",
+    "searchLanguage": "Suchsprache",
+    "allLanguages": "Alle Sprachen",
+    "searching": "Suche läuft…",
+    "skipToSearch": "Zur Suche springen",
+    "eyebrow": "Medikamentenübersicht",
+    "title": "Ein Medikament. Viele Sprachen.",
+    "description": "Suchen Sie ein Medikament und erkunden Sie seine Namen nach Sprache und Land.",
+    "steps": "01 Suchen / 02 Wählen / 03 Übersetzen",
+    "activeLanguages": "Aktive Sprachen: {{languages}}",
+    "resetLanguages": "Alle Sprachen zurücksetzen",
+    "translateTitle": "Medikament übersetzen",
+    "stepThree": "03 / Übersetzen",
+    "selectTitle": "Medikament auswählen",
+    "selectDescription": "Wählen Sie ein Suchergebnis, um Namen in einer anderen Sprache und einem anderen Land zu erkunden.",
+    "resultsHint": "Wählen Sie ein Medikament zum Übersetzen.",
+    "type": "Typ",
+    "brand": "Marke",
+    "language": "Sprache",
+    "countries": "Länder",
+    "searchFailed": "Suche nicht verfügbar",
+    "retrySearch": "Prüfen Sie die Meldung oben und versuchen Sie es erneut.",
+    "noMatches": "Keine passenden Medikamente",
+    "noMatchesDescription": "Versuchen Sie einen anderen Namen oder erweitern Sie die Sprachfilter.",
+    "emptyTitle": "Beginnen Sie mit einem Medikamentennamen",
+    "emptyDescription": "Suchen Sie nach Medikamenten- oder Markennamen. Die Ergebnisse erscheinen hier.",
+    "searchingDescription": "Passende Medikamentennamen werden gesucht.",
+    "translating": "Übersetzung läuft…",
+    "destinationHint": "Wählen Sie ein Ziel, um verfügbare Namen nachzuschlagen.",
+    "matchCount_one": "{{count}} Treffer",
+    "matchCount_other": "{{count}} Treffer",
+    "medications": "Medikamente",
+    "manageData": "Daten verwalten",
+    "breadcrumb": "Brotkrümelnavigation",
+    "account": "Konto",
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "appearance": "Darstellung",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "accountHelp": "Sie benötigen ein Konto? Ihre Administration hilft Ihnen weiter.",
+    "signInFailed": "Anmeldung fehlgeschlagen.",
+    "help": {
+      "search": {
+        "title": "Medikamente suchen",
+        "body": "Geben Sie ein Medikament oder eine Marke ein, wählen Sie eine Sprache und starten Sie die Suche. Wählen Sie ein Ergebnis für die Übersetzung aus."
+      },
+      "translate": {
+        "title": "Ein Ergebnis übersetzen",
+        "body": "Wählen Sie Zielsprache und Zielland und starten Sie die Übersetzung. Eine Änderung der Auswahl oder des Ziels löscht die vorherige Übersetzung."
+      },
+      "scan": {
+        "title": "Ein Medikament scannen",
+        "body": "Öffnen Sie den OCR-Scanner, wählen Sie ein Bild und starten Sie den Scan. Übernehmen Sie einen erkannten Begriff in das Suchfeld."
+      },
+      "import": {
+        "title": "Sprachen importieren",
+        "body": "Wählen Sie eine JSON-Datei mit Sprachcode und Begriffsliste. Ein erfolgreicher Import aktualisiert die verfügbaren Sprachen."
+      },
+      "populate": {
+        "title": "Quellen laden",
+        "body": "Wählen Sie die Quellen aus und geben Sie bei Bedarf die API-Zugangsdaten ein. Fortschritt und Fehler erscheinen im Ladebereich."
+      }
+    }
   }
 }
