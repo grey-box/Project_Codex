@@ -102,7 +102,7 @@ export async function translateDrug(
 /**
  * Scans an image file using OCR and extracts medical terms with fuzzy matching.
  */
-export async function scanOcrImage(file: File, sourceLanguage?: string): Promise<import('../types/codex').OcrResultItem[]> {
+export async function scanOcrImage(file: File, sourceLanguage?: string, signal?: AbortSignal): Promise<import('../types/codex').OcrResultItem[]> {
   const formData = new FormData()
   formData.append('file', file)
   if (sourceLanguage && sourceLanguage !== 'all') {
@@ -113,6 +113,7 @@ export async function scanOcrImage(file: File, sourceLanguage?: string): Promise
     method: 'POST',
     headers: getAuthHeaders(),
     body: formData,
+    signal,
   })
 
   if (!response.ok) {

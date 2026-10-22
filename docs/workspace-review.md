@@ -83,5 +83,18 @@ authorization removal on sign-out.
 `npm run lint` and `npm run build` are also required. Browser checks exercise
 fixtures, not Neo4j, PaddleOCR or external medical-source services.
 
+## OCR upload lifecycle
+
+The scanner accepts nonempty PNG, JPEG and WEBP files up to 10 MB. The chooser
+also works with Enter or Space. Replacing an image or closing the dialog aborts
+the client request and prevents its results or errors appearing in a later scan.
+Preview object URLs are released on replacement, close and component unmount.
+Failed requests remain retryable, and a recognized term can still be copied into
+the medication search field. Four OCR browser fixtures exercise invalid files,
+replacement during a scan, close/reopen, keyboard upload and error recovery.
+These checks do not verify live OCR accuracy. Cancellation stops the client
+request; a backend job that has already started may continue processing. The
+10 MB limit and MIME checks are client controls, not server upload validation.
+
 Implementation and review were assisted by Codex. Team review and live backend
 integration remain separate from these automated checks.

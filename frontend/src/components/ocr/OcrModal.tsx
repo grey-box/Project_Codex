@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Modal, Button, Alert } from '../ui'
 import { scanOcrImage } from '../../services/api'
 import type { OcrResultItem } from '../../types/codex'
@@ -25,20 +25,49 @@ export const OcrModal: React.FC<OcrModalProps> = ({
   const [isDragging, setIsDragging] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const activeScan = useRef<AbortController | null>(null)
+  const previewRef = useRef<string | null>(null)
+
+  useEffect(() => () => {
+    activeScan.current?.abort()
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+  }, [])
+
+  const cancelScan = () => {
+    activeScan.current?.abort()
+    activeScan.current = null
+    setIsScanning(false)
+  }
+
+  const clearPreview = () => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+    previewRef.current = null
+    setPreviewUrl(null)
+  }
 
   const handleFile = (file: File) => {
+    cancelScan()
+    clearPreview()
+    setSelectedFile(null)
     setOcrError('')
     setOcrResults([])
 
-    if (!file.type.startsWith('image/')) {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
       setOcrError('Please upload a valid image file (PNG, JPG, JPEG, WEBP).')
-      setSelectedFile(null)
-      setPreviewUrl(null)
+      return
+    }
+    if (file.size === 0) {
+      setOcrError('This image is empty. Please choose another file.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setOcrError('Please choose an image no larger than 10 MB.')
       return
     }
 
     setSelectedFile(file)
     const url = URL.createObjectURL(file)
+    previewRef.current = url
     setPreviewUrl(url)
   }
 
@@ -46,6 +75,8 @@ export const OcrModal: React.FC<OcrModalProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       handleFile(e.target.files[0])
     }
+    // Allow selecting the same file again after a validation error or retry.
+    e.target.value = ''
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -68,6 +99,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (activeScan.current) return
     setOcrError('')
     setOcrResults([])
 
@@ -76,17 +108,24 @@ export const OcrModal: React.FC<OcrModalProps> = ({
       return
     }
 
+    const controller = new AbortController()
+    activeScan.current = controller
     setIsScanning(true)
     try {
-      const results = await scanOcrImage(selectedFile, currentLanguage)
+      const results = await scanOcrImage(selectedFile, currentLanguage, controller.signal)
+      if (activeScan.current !== controller || controller.signal.aborted) return
       setOcrResults(results)
       if (results.length === 0) {
         setOcrError('No drug names or text recognized in this image.')
       }
     } catch (err) {
+      if (activeScan.current !== controller || controller.signal.aborted) return
       setOcrError(err instanceof Error ? err.message : 'Failed to scan image')
     } finally {
-      setIsScanning(false)
+      if (activeScan.current === controller) {
+        activeScan.current = null
+        setIsScanning(false)
+      }
     }
   }
 
@@ -96,12 +135,11 @@ export const OcrModal: React.FC<OcrModalProps> = ({
   }
 
   const resetAndClose = () => {
+    cancelScan()
     setIsOpen(false)
     setSelectedFile(null)
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
+    clearPreview()
+    setIsDragging(false)
     setOcrError('')
     setOcrResults([])
     if (fileInputRef.current) {
@@ -156,6 +194,15 @@ export const OcrModal: React.FC<OcrModalProps> = ({
           <form onSubmit={handleScan} className="space-y-4">
             {/* Upload & Drag Zone */}
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Choose an image"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  fileInputRef.current?.click()
+                }
+              }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -171,7 +218,8 @@ export const OcrModal: React.FC<OcrModalProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
+                aria-label="Image file"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -209,7 +257,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                     <span className="text-sm font-semibold text-emerald-700">Click to upload image</span>
                     <span className="text-sm text-slate-600"> or drag and drop</span>
                   </div>
-                  <p className="text-xs text-slate-400">Supported formats: PNG, JPG, JPEG, WEBP</p>
+                  <p className="text-xs text-slate-400">PNG, JPG, JPEG or WEBP, up to 10 MB</p>
                 </div>
               )}
             </div>
