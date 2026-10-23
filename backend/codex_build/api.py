@@ -48,6 +48,7 @@ try:
     from codex.services.translation_service import (
         translate,
         load_language_pack,
+        load_demo_data,
     )
     from codex.neo4j_driver import (
         driver,
@@ -71,29 +72,20 @@ except Exception as exc:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 log = logging.getLogger("codex.api")
 
-TARGET_FOLDER_PATH = Path("./codex/language_packs")
+BASE_DIR = Path(__file__).resolve().parent
+DEMO_PACKS_DIR = BASE_DIR / "demo_language_packs"
+LOAD_DEMO_DATA = os.getenv("LOAD_DEMO_DATA", "true").lower() in ("true", "1", "yes")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
-    
-    if TARGET_FOLDER_PATH.exists() and TARGET_FOLDER_PATH.is_dir():
-        # Iterate over every file in the target folder
-        for file_path in TARGET_FOLDER_PATH.iterdir():
-            if file_path.is_file():
-                print(f"Found file: {file_path.name}")
-                
-                # Open the local file from disk
-                with open(file_path, "rb") as f:
-                    # Construct a FastAPI UploadFile object dynamically
-                    upload_file = UploadFile(
-                        filename=file_path.name,
-                        file=f
-                    )
-                    
-                    # Call your load_pack function for each file
-                    await load_pack(upload_file)
+    if LOAD_DEMO_DATA:
+        log.info("Scanning demo language packs directory: %s", DEMO_PACKS_DIR)
+        if DEMO_PACKS_DIR.exists() and DEMO_PACKS_DIR.is_dir():
+            load_demo_data(str(DEMO_PACKS_DIR))
+        else:
+            log.warning("Demo language packs directory '%s' does not exist.", DEMO_PACKS_DIR)
     else:
-        print(f"Warning: Directory '{TARGET_FOLDER_PATH}' does not exist.")
+        log.info("LOAD_DEMO_DATA is false; skipping automatic demo pack loading.")
 
     yield 
 

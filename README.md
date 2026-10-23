@@ -1,12 +1,14 @@
-# Codex — Setup Guide
+Codex — Setup Guide
 
-## Prerequisites
+Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Python | 3.10+ | API and CLI |
+
+| Tool                    | Version    | Purpose                           |
+| ----------------------- | ---------- | --------------------------------- |
+| Python                  | 3.10+      | API and CLI                       |
 | Docker + Docker Compose | any recent | Full stack (Neo4j, API, Frontend) |
-| pip | any | Python dependencies |
+| pip                     | any        | Python dependencies               |
+
 
 ---
 
@@ -15,10 +17,12 @@
 ```bash
 docker compose up --build
 ```
+
 Wait ~30 seconds for Neo4j, API, and Frontend to be ready.
-- **Frontend UI:** http://localhost:9000 (or ports 9000-9010)
-- **API Docs (Swagger):** http://localhost:8000/docs
-- **Neo4j Browser:** http://localhost:7474 (login: `neo4j` / `changeme`)
+
+- **Frontend UI:** [http://localhost:9000](http://localhost:9000) (or ports 9000-9010)
+- **API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) (login: `neo4j` / `changeme`)
 
 ---
 
@@ -32,12 +36,15 @@ docker compose up -d neo4j
 
 This starts Neo4j 5.18 with the APOC plugin (required for fuzzy matching) and exposes two ports:
 
-| Port | Use |
-|------|-----|
-| 7474 | Neo4j Browser — http://localhost:7474 (login: `neo4j` / `changeme`) |
-| 7687 | Bolt — used by the API |
+
+| Port | Use                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------- |
+| 7474 | Neo4j Browser — [http://localhost:7474](http://localhost:7474) (login: `neo4j` / `changeme`) |
+| 7687 | Bolt — used by the API                                                                       |
+
 
 Wait ~30 seconds for Neo4j to finish initialising before starting the API. Watch progress with:
+
 ```bash
 docker compose logs -f neo4j
 ```
@@ -51,6 +58,10 @@ cp .env.example .env
 ```
 
 The defaults match `docker-compose.yml` exactly. Edit `.env` only if you have changed credentials or API keys (DrugBank, ICD-11).
+
+#### Demo Language Packs
+
+By default, the API automatically preloads sample language packs from `backend/codex_build/demo_language_packs/` on startup (`LOAD_DEMO_DATA=true`). To start with an empty database (for testing clean manual pack ingestion via UI or CLI), set `LOAD_DEMO_DATA=false` in `.env`.
 
 ---
 
@@ -70,11 +81,12 @@ python api.py
 ```
 
 Or with auto-reload during development:
+
 ```bash
 uvicorn api:app --reload
 ```
 
-Swagger UI is available at **http://localhost:8000/docs**
+Swagger UI is available at [**http://localhost:8000/docs**](http://localhost:8000/docs)
 
 ---
 
@@ -87,6 +99,7 @@ codex> health
 ```
 
 Expected output:
+
 ```
   API   : ✓ running  (v2.0.0)
   Neo4j : ✓ connected
@@ -104,6 +117,7 @@ codex> csv upload sample_data/drugs_es_MX.csv
 ```
 
 Verify what was loaded:
+
 ```bash
 codex> languages          # shows: en, es
 codex> countries          # shows: MX (Spanish), US (English)
@@ -123,6 +137,7 @@ codex> translate
 ```
 
 Returns all matching brand names in the target language, sorted alphabetically:
+
 ```
   Brand Name      Generic Name    Original Language   Translated Language
   ──────────────────────────────────────────────────────────────────────
@@ -137,6 +152,7 @@ Returns all matching brand names in the target language, sorted alphabetically:
 All drug data is managed via CSV files. **One row per (drug, brand, country).**
 
 **Example — English (US):**
+
 ```csv
 DrugBank ID,Generic Name,Brand Name,Country,Source Language,Language Code
 DB00001,Ibuprofen,Advil,US,English,en
@@ -145,6 +161,7 @@ DB00002,Acetaminophen,Tylenol,US,English,en
 ```
 
 **Example — Spanish (MX):**
+
 ```csv
 DrugBank ID,Generic Name,Brand Name,Country,Source Language,Language Code
 DB00001,Ibuprofeno,Advil,MX,Spanish,es
@@ -176,16 +193,18 @@ All API responses returning tabular data use this envelope:
 
 ## API reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Liveness check — API + Neo4j |
-| POST | `/translate` | Translate a drug name between languages |
-| GET | `/audit/{term}` | Quality audit (missing translations / brands) |
-| GET | `/languages` | List language codes loaded in Neo4j |
-| GET | `/countries` | List supported countries and their languages |
-| POST | `/csv/upload` | Upload a Codex CSV → Neo4j |
-| GET | `/csv` | Export full drug catalogue (sorted) |
-| POST | `/ocrmatching/` | Extract text from image via OCR and fuzzy match drug terms |
+
+| Method | Path            | Description                                                |
+| ------ | --------------- | ---------------------------------------------------------- |
+| GET    | `/health`       | Liveness check — API + Neo4j                               |
+| POST   | `/translate`    | Translate a drug name between languages                    |
+| GET    | `/audit/{term}` | Quality audit (missing translations / brands)              |
+| GET    | `/languages`    | List language codes loaded in Neo4j                        |
+| GET    | `/countries`    | List supported countries and their languages               |
+| POST   | `/csv/upload`   | Upload a Codex CSV → Neo4j                                 |
+| GET    | `/csv`          | Export full drug catalogue (sorted)                        |
+| POST   | `/ocrmatching/` | Extract text from image via OCR and fuzzy match drug terms |
+
 
 ### POST /translate — request body
 
@@ -200,23 +219,25 @@ All API responses returning tabular data use this envelope:
 
 ---
 
-## Database Management & Maintenance
+## Database Management &amp; Maintenance
 
 ### Changing the Neo4j password
+
 1. Edit `.env`:
    ```
-   NEO4J_PASSWORD=your_new_password
+    NEO4J_PASSWORD=your_new_password
    ```
 2. Update `docker-compose.yml`:
    ```yaml
-   NEO4J_AUTH: "neo4j/your_new_password"
+    NEO4J_AUTH: "neo4j/your_new_password"
    ```
 3. Restart:
    ```bash
-   docker compose down && docker compose up -d
+    docker compose down && docker compose up -d
    ```
 
 ### Stopping or Resetting Neo4j
+
 - **Stop containers (preserve data):**
   ```bash
   docker compose down
