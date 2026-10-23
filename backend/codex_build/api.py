@@ -198,8 +198,31 @@ class AuditResponse(BaseModel):
     equivalent_brands: list[BrandEntry]
 
 
+COUNTRY_NAMES = {
+    "US": "United States",
+    "GB": "United Kingdom",
+    "CA": "Canada",
+    "FR": "France",
+    "BE": "Belgium",
+    "ES": "Spain",
+    "MX": "Mexico",
+    "RU": "Russia",
+    "UA": "Ukraine",
+    "PL": "Poland",
+    "IN": "India",
+    "NG": "Nigeria",
+    "BR": "Brazil",
+    "DE": "Germany",
+    "IT": "Italy",
+}
+
+class CountryOption(BaseModel):
+    code: str
+    label: str
+
 class LanguagesResponse(BaseModel):
     languages: list[str]
+    countries: dict[str, list[CountryOption]] = {}
 
 
 class MessageResponse(BaseModel):
@@ -449,18 +472,34 @@ async def load_pack(file: UploadFile = File(...)):
 @app.get(
     "/languages",
     response_model=LanguagesResponse,
-    summary="List languages with data in Neo4j",
+    summary="List languages and their available countries with data in Neo4j",
     tags=["meta"],
 )
 def list_languages():
-    """Returns every language code that has at least one translation node in Neo4j."""
+    """Returns every language code and its associated countries currently loaded in Neo4j."""
     try:
         with driver.session() as session:
-            records = session.run(
-                "MATCH (l:Language) RETURN l.code AS code ORDER BY code"
-            )
-            codes = [r["code"] for r in records if r["code"]]
-        return LanguagesResponse(languages=codes)
+            records = session.run("""
+                MATCH (l:Language)
+                OPTIONAL MATCH (tr:Translation)-[:IN_LANGUAGE]->(l)
+                OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
+                WITH l.code AS lang, collect(DISTINCT c.iso2) AS country_codes
+                RETURN lang, [code IN country_codes WHERE code IS NOT NULL] AS countries
+                ORDER BY lang
+            """)
+            languages = []
+            countries_map = {}
+            for r in records:
+                lang = r["lang"]
+                if not lang:
+                    continue
+                languages.append(lang)
+                codes = sorted(r["countries"])
+                countries_map[lang] = [
+                    CountryOption(code=c, label=COUNTRY_NAMES.get(c.upper(), c.upper()))
+                    for c in codes if c
+                ]
+        return LanguagesResponse(languages=languages, countries=countries_map)
     except Exception as exc:
         log.exception("list_languages failed")
         raise HTTPException(status_code=500, detail=str(exc))

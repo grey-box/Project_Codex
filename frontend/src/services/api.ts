@@ -1,28 +1,40 @@
 import type {
+  CountryOption,
   LanguagesResponse,
   SearchResponse,
   TranslateResponse,
 } from '../types/codex'
-import { FALLBACK_LANGUAGES } from '../types/codex'
 
 export const API_BASE_URL = 'http://localhost:8000'
 
 /**
  * Fetches available language codes that have data in Neo4j.
  */
-export async function getLanguages(): Promise<string[]> {
+export interface LanguagesData {
+  languages: string[]
+  countries: Record<string, CountryOption[]>
+}
+
+/**
+ * Fetches available language codes and their associated countries from Neo4j.
+ */
+export async function getLanguages(): Promise<LanguagesData> {
   try {
     const response = await fetch(`${API_BASE_URL}/languages`)
     if (!response.ok) {
       throw new Error('Failed to load languages')
     }
     const data = (await response.json()) as LanguagesResponse
-    return Array.isArray(data.languages) && data.languages.length > 0
-      ? data.languages
-      : FALLBACK_LANGUAGES
+    return {
+      languages: Array.isArray(data.languages) ? data.languages : [],
+      countries: data.countries ?? {},
+    }
   } catch (error) {
-    console.warn('Using fallback languages due to error:', error)
-    return FALLBACK_LANGUAGES
+    console.warn('Failed to fetch languages from Neo4j:', error)
+    return {
+      languages: [],
+      countries: {},
+    }
   }
 }
 
