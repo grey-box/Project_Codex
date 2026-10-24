@@ -49,7 +49,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell -u neo4j -p changeme 'RETURN 1' > /dev/null 2>&1"]
       interval: 10s
-      timeout: 5s
+      timeout: 15s
       retries: 15
       start_period: 30s
     
