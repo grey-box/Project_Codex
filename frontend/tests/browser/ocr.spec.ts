@@ -9,7 +9,7 @@ const image = {
 async function openScanner(page: Page) {
   await page.route('**/languages', route => route.fulfill({ json: { languages: ['en', 'es'] } }))
   await page.goto('/')
-  await page.getByRole('button', { name: 'OCR Scan', exact: true }).click()
+  await page.getByRole('button', { name: 'Scan medication', exact: true }).click()
 }
 
 test('rejects unsupported, empty and oversized files without uploading', async ({ page }) => {
@@ -77,7 +77,7 @@ test('closing during a scan aborts the request and reopening starts clean', asyn
   expect((await cancelled).failure()?.errorText).toContain('ERR_ABORTED')
   release()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.getByRole('button', { name: 'OCR Scan', exact: true }).click()
+  await page.getByRole('button', { name: 'Scan medication', exact: true }).click()
   await expect(page.getByAltText('Uploaded preview')).toHaveCount(0)
   await expect(page.getByText('Closed scan result', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)

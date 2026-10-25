@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ languages, navigationOpen, onTog
         </button>
         <nav aria-label={t('workspace.breadcrumb')} className="workspace-breadcrumb">
           <a href="#main-content">Medical Codex</a>
-          <span aria-hidden="true">/</span>
+          <svg className="workspace-breadcrumb-separator" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
           <span aria-current="page">{t('workspace.medications')}</span>
         </nav>
         <LanguageSelector languages={languages} />
@@ -68,16 +68,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ onImportSuccess, onSelectTerm,
       </div>
       <nav className="workspace-sidebar-navigation" aria-label={t('workspace.tools')}>
         <div className="workspace-sidebar-group">
-          <p className="workspace-nav-label">{t('workspace.eyebrow')}</p>
+          <p className="workspace-nav-label">{t('workspace.navigationSection')}</p>
           <a className="workspace-nav-active" href="#drug-search" aria-current="page" onClick={onNavigate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7" /><path d="m16 16 5 5" /></svg>
-            {t('workspace.medications')}
+            {t('workspace.medicationSearch')}
           </a>
-          {onSelectTerm && <OcrModal onSelectTerm={onSelectTerm} currentLanguage={currentSearchLanguage} />}
+          {onSelectTerm && <OcrModal onSelectTerm={onSelectTerm} currentLanguage={currentSearchLanguage} triggerLabel={t('workspace.scanMedication')} />}
         </div>
         <div className="workspace-sidebar-group">
           <p className="workspace-nav-label">{t('workspace.manageData')}</p>
-          <PopulateDropdown />
+          <PopulateDropdown triggerLabel={t('workspace.populateSources')} />
           <ImportLanguageModal onImportSuccess={onImportSuccess} />
         </div>
       </nav>

@@ -33,9 +33,9 @@ test('search, keyboard selection, translation and destination changes', async ({
   await page.keyboard.press('Enter')
   await expect(medication).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'Translate', exact: true }).click()
-  await expect(page.locator('dd').filter({ hasText: 'Fixture translation' })).toBeVisible()
+  await expect(page.locator('.workspace-translation-output dd').filter({ hasText: 'Fixture translation' })).toBeVisible()
   await page.getByLabel('Target Country', { exact: true }).selectOption('ES')
-  await expect(page.locator('dd')).toHaveCount(0)
+  await expect(page.locator('.workspace-translation-output dd')).toHaveCount(0)
 })
 
 test('language filters hide records and reset restores them without another search', async ({ page }) => {
@@ -90,11 +90,11 @@ test('late translation cannot appear under a different selected medication', asy
   await (await response).finished()
   await page.evaluate(() => new Promise(requestAnimationFrame))
   await expect(page.getByRole('complementary', { name: 'Translate medication' })).toContainText('Ibuprofène')
-  await expect(page.locator('dd')).toHaveCount(0)
+  await expect(page.locator('.workspace-translation-output dd')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Translate', exact: true })).toBeEnabled()
 })
 
-for (const width of [390, 768, 1024, 1440]) {
+for (const width of [320, 390, 768, 1024, 1440]) {
   test(`workspace and utility controls fit at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     const errors: string[] = []
@@ -110,12 +110,12 @@ for (const width of [390, 768, 1024, 1440]) {
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(page.getByRole('button', { name: /Filter Languages/ })).toBeFocused()
     if (width < 768) await page.getByRole('button', { name: 'Open navigation' }).click()
-    await page.getByRole('button', { name: 'Populate', exact: true }).click()
+    await page.getByRole('button', { name: 'Populate sources', exact: true }).click()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.keyboard.press('Escape')
-    for (const name of ['Import Language File', 'OCR Scan']) {
+    for (const name of ['Import Language File', 'Scan medication']) {
       await page.getByRole('button', { name, exact: true }).click()
-      await expect(page.getByRole('dialog', { name: name === 'OCR Scan' ? 'Scan Image for Drug Names (OCR)' : 'Import Language File', exact: true })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: name === 'Scan medication' ? 'Scan Image for Drug Names (OCR)' : 'Import Language File', exact: true })).toBeVisible()
       await page.keyboard.press('Escape')
       await expect(page.getByRole('dialog', { name: 'Workspace tools', exact: true })).toHaveCount(width < 768 ? 1 : 0)
     }
@@ -129,6 +129,45 @@ test('workspace copy follows the selected interface language', async ({ page }) 
   await page.getByRole('button', { name: 'Spanish es', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Medicamentos', exact: true })).toBeVisible()
   await expect(page.getByLabel('Nombre del medicamento', { exact: true })).toBeVisible()
+})
+
+test('desktop workspace follows the Purist split layout and results toolbar', async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await fixture(page)
+  await search(page)
+  await page.getByRole('button', { name: 'Ibuprofen', exact: true }).click()
+  await page.getByRole('button', { name: 'Translate', exact: true }).click()
+  await expect(page.locator('.workspace-translation-output')).toContainText('Fixture translation')
+  const sidebar = await page.locator('.workspace-sidebar').boundingBox()
+  const details = await page.getByRole('complementary', { name: 'Translate medication' }).boundingBox()
+  const primary = await page.locator('.workspace-primary').boundingBox()
+  expect(sidebar?.width).toBe(232)
+  expect(details?.width).toBe(304)
+  expect(details?.y).toBe(60)
+  expect(details?.y).toBe(primary?.y)
+  await expect(page.locator('.workspace-results-heading').getByRole('button', { name: /Filter Languages/ })).toBeVisible()
+  await expect(page.locator('.workspace-result-query')).toHaveText('for “ibuprofen”')
+  await expect(page.locator('.workspace-medication-facts')).toContainText('ingredient')
+  await page.screenshot({ path: testInfo.outputPath('desktop-workspace.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const medication = page.getByRole('button', { name: /^Ibuprofen(?: |$)/ })
+  await expect(medication).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('mobile-workspace.png'), fullPage: true })
+})
+
+test('long medication and brand names fit narrow and tablet layouts', async ({ page }) => {
+  await fixture(page)
+  const longName = 'SyntheticMedicationName'.repeat(8)
+  await page.route('**/search?*', route => route.fulfill({ json: [{ ...medications[0], name: longName, brand: 'SyntheticBrand'.repeat(8) }] }))
+  for (const width of [320, 768]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.getByLabel('Medication name', { exact: true }).fill('synthetic')
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await page.getByRole('button', { name: new RegExp(`^${longName}`) }).click()
+    await expect(page.locator('.workspace-selected')).toContainText(longName)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
 })
 
 test('mobile navigation traps focus, dismisses and keeps search state', async ({ page }, testInfo) => {
@@ -153,7 +192,7 @@ test('mobile navigation traps focus, dismisses and keeps search state', async ({
   await expect(page.getByLabel('Medication name', { exact: true })).toHaveValue('ibuprofen')
   await expect(page.getByRole('button', { name: /^Ibuprofen(?: |$)/ })).toBeVisible()
   await toggle.click()
-  await drawer.getByRole('link', { name: 'Medications', exact: true }).click()
+  await drawer.getByRole('link', { name: 'Medication search', exact: true }).click()
   await expect(drawer).toHaveCount(0)
   await expect(page.getByLabel('Medication name', { exact: true })).toBeFocused()
 })
@@ -163,13 +202,13 @@ test('mobile utility overlays handle Escape before navigation', async ({ page })
   await fixture(page)
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
   const drawer = page.getByRole('dialog', { name: 'Workspace tools', exact: true })
-  await drawer.getByRole('button', { name: 'OCR Scan', exact: true }).click()
+  await drawer.getByRole('button', { name: 'Scan medication', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Scan Image for Drug Names (OCR)', exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Scan Image for Drug Names (OCR)', exact: true })).toHaveCount(0)
   await expect(drawer).toBeVisible()
-  await expect(drawer.getByRole('button', { name: 'OCR Scan', exact: true })).toBeFocused()
-  await drawer.getByRole('button', { name: 'Populate', exact: true }).click()
+  await expect(drawer.getByRole('button', { name: 'Scan medication', exact: true })).toBeFocused()
+  await drawer.getByRole('button', { name: 'Populate sources', exact: true }).click()
   await expect(drawer.locator('[data-dropdown-panel]')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(drawer.locator('[data-dropdown-panel]')).toHaveCount(0)

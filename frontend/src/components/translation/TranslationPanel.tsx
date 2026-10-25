@@ -48,15 +48,19 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
       : [{ value: '', label: t('home.noCountries') || 'No countries available' }]
 
   return (
-    <div className="space-y-5">
-      <h2 className="text-sm font-medium">{t('workspace.translateTitle')}</h2>
+    <div className="workspace-details">
+      <h2 className="workspace-eyebrow">{t('workspace.medicationDetails')}</h2>
       <div className="workspace-selected">
-        <p className="workspace-eyebrow">{t('home.selectedDrug')}</p>
         <h3>{selectedResult.name}</h3>
         {selectedResult.brand && <p>{selectedResult.brand}</p>}
-        <p className="text-sm text-slate-500">{selectedResult.language.toUpperCase()} · {selectedResult.country || '—'}</p>
       </div>
-      <div className="space-y-4">
+      <dl className="workspace-medication-facts">
+        <div><dt>{t('workspace.type')}</dt><dd>{selectedResult.type || '—'}</dd></div>
+        <div><dt>{t('workspace.language')}</dt><dd>{languages.find(language => language.code.toLowerCase() === selectedResult.language.toLowerCase())?.label || selectedResult.language.toUpperCase()}</dd></div>
+        <div><dt>{t('workspace.countries')}</dt><dd>{selectedResult.country || '—'}</dd></div>
+      </dl>
+      <div className="workspace-translate-controls">
+        <h2>{t('workspace.translateTitle')}</h2>
         <Select id="target-language" label={t('home.targetLanguage')} value={targetLanguage}
           options={languageOptions} disabled={isTranslating} onChange={(event) => onTargetLanguageChange(event.target.value)} />
         <Select id="target-country" label={t('home.targetCountry')} value={targetCountry}
@@ -70,9 +74,9 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
       <div aria-live="polite" aria-busy={isTranslating}>
         {isTranslating ? <p className="text-sm text-slate-500">{t('workspace.translating')}</p> : translatedName && !translateError ? (
           <dl className="workspace-translation-output">
-            <div><dt>{t('home.original')} ({selectedResult.language.toUpperCase()})</dt><dd>{selectedResult.name}</dd></div>
-            <div><dt>{t('home.translation')} ({targetLanguage.toUpperCase()})</dt><dd className="text-emerald-800">{translatedName}</dd></div>
-            <div><dt>{t('home.brandInCountry')} {targetCountry.toUpperCase()}</dt><dd>{translatedBrand || '—'}</dd></div>
+            <div className="workspace-translation-caption"><dt>{t('home.translation')}</dt><dd>{targetLanguage.toUpperCase()} · {targetCountry.toUpperCase()}</dd></div>
+            <div className="workspace-translated-term"><dt className="sr-only">{t('home.translation')}</dt><dd>{translatedName}</dd></div>
+            <div className="workspace-translated-brand"><dt>{t('workspace.regionalBrand')}</dt><dd>{translatedBrand || '—'}</dd></div>
           </dl>
         ) : !translateError && <p className="text-sm text-slate-500">{t('workspace.destinationHint')}</p>}
       </div>

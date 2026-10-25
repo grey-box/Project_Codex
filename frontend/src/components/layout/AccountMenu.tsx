@@ -25,7 +25,7 @@ export function AccountMenu() {
   }, [theme])
   return (
     <div className="workspace-account">
-      <Dropdown align="left" widthClass="w-56" className="w-full" trigger={open => (
+      <Dropdown align="left" widthClass="w-[200px]" className="w-full" trigger={open => (
         <button type="button" className="workspace-account-trigger" aria-expanded={open} aria-label={t('workspace.account')}>
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true"><circle cx="14" cy="14" r="13" /><circle cx="14" cy="11" r="3" /><path d="M8 22v-2a6 6 0 0 1 12 0v2" /></svg>
           <span>{email || t('workspace.account')}</span><span aria-hidden="true">⌃</span>

@@ -102,6 +102,14 @@ cover these behaviors and the existing utility controls at 390/768/1024/1440px.
 Sponsor tasks: [working sidebar](https://app.notion.com/p/402815ddf30b80cc987fc7e09563cf5f)
 and [responsive sidebar](https://app.notion.com/p/402815ddf30b80098d72c170ed554fc4).
 
+The workspace split also follows the Purist export: the 304px details panel starts
+immediately below the 60px header, beside the heading and search controls. The
+results header holds the count, submitted query and language filter. Selected
+rows use the design's green edge and quiet background; mobile results use the
+same flat treatment. Medication facts and the translation card follow the
+reference hierarchy. Tests check these dimensions, utility controls from 320px
+to 1440px, and unbroken medication and brand names on narrow and tablet screens.
+
 ## OCR upload lifecycle
 
 The scanner accepts nonempty PNG, JPEG and WEBP files up to 10 MB. The chooser

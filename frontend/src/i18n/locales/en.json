@@ -39,6 +39,13 @@
     "brandInCountry": "Brand in"
   },
   "workspace": {
+    "regionalBrand": "Regional brand",
+    "navigationSection": "Workspace",
+    "medicationSearch": "Medication search",
+    "scanMedication": "Scan medication",
+    "populateSources": "Populate sources",
+    "resultQuery": "for “{{query}}”",
+    "medicationDetails": "Medication details",
     "openNavigation": "Open navigation",
     "closeNavigation": "Close navigation",
     "documentation": "Project documentation",
@@ -98,7 +105,7 @@
       },
       "scan": {
         "title": "Scan a medication",
-        "body": "Open OCR Scan, choose an image and run the scan. Select Use in Search to copy a recognized term into the search field."
+        "body": "Choose Scan medication, select an image and run the scan. Select Use in Search to copy a recognized term into the search field."
       },
       "import": {
         "title": "Import language files",

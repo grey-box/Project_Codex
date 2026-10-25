@@ -10,6 +10,8 @@ interface ResultsTableProps {
   hasBrand: boolean
   isLoading: boolean
   hasSearched: boolean
+  query: string
+  tools: React.ReactNode
   searchError?: string
 }
 
@@ -21,6 +23,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   searchError,
   isLoading,
   hasSearched,
+  query,
+  tools,
 }) => {
   const { t } = useTranslation()
 
@@ -38,14 +42,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   return (
     <section className="workspace-surface workspace-results" aria-busy={isLoading} aria-labelledby="results-title">
       <div className="workspace-results-heading">
-        <div><h2 id="results-title" className="text-sm font-medium">
+        <div className="workspace-results-summary"><h2 id="results-title">
           {t('home.resultsTitle') || 'Search Results'}
-        </h2></div>
+        </h2>
         {results.length > 0 && (
-          <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-            {t('workspace.matchCount', { count: results.length })}
-          </span>
+          <>
+            <span className="workspace-result-count" aria-label={t('workspace.matchCount', { count: results.length })}>{results.length}</span>
+            <span className="workspace-result-query">{t('workspace.resultQuery', { query })}</span>
+          </>
         )}
+        </div>
+        {tools}
       </div>
 
       {searchError && <div className="px-6 pb-4"><Alert type="error" message={searchError} /></div>}
@@ -53,7 +60,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       {results.length > 0 ? (
         <>
           {/* Desktop & Tablet Table View */}
-          <div className="hidden sm:block overflow-hidden border-t border-slate-200 bg-white">
+          <div className="hidden sm:block overflow-hidden bg-white">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs md:text-sm">
                 <thead>
@@ -78,16 +85,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       <tr
                         key={`${row.name}-${row.brand}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
                         onClick={() => onSelectResult(row)}
-                        className={`cursor-pointer transition-colors ${
-                          selected
-                            ? 'bg-emerald-50/80 font-medium text-emerald-950 hover:bg-emerald-100/60'
-                            : 'hover:bg-slate-50/80 text-slate-700'
-                        }`}
+                        className={`workspace-result-row ${selected ? 'is-selected' : ''}`}
                       >
-                        <td className="py-4 px-5 font-medium text-slate-900 flex items-center gap-2">
-                          {selected && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
-                          )}
+                        <td className="workspace-result-name">
                           <button type="button" aria-pressed={selected} onClick={(event) => {
                             event.stopPropagation()
                             onSelectResult(row)
@@ -110,7 +110,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           </div>
 
           {/* Mobile Card View */}
-          <div className="sm:hidden space-y-2.5 p-4">
+          <div className="workspace-result-cards sm:hidden">
             {results.map((row, index) => {
               const selected = isRowSelected(row)
               return (
@@ -119,15 +119,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   aria-pressed={selected}
                   key={`card-${row.name}-${row.brand}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
                   onClick={() => onSelectResult(row)}
-                  className={`w-full text-left p-4 rounded-xl border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-emerald-700 ${
-                    selected
-                      ? 'border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
+                  className={`workspace-result-card ${selected ? 'is-selected' : ''}`}
                 >
                   <span className="flex items-start justify-between gap-2">
-                    <span className="block font-bold text-slate-900 text-sm">{row.name}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <span className="workspace-result-card-name">{row.name}</span>
+                    <span className="workspace-result-language">
                       {row.language}
                     </span>
                   </span>

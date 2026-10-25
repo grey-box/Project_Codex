@@ -20,9 +20,10 @@ const SOURCES: SourceOption[] = [
 
 interface PopulateDropdownProps {
   fullWidth?: boolean
+  triggerLabel?: string
 }
 
-export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = false }) => {
+export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = false, triggerLabel }) => {
   const { t } = useTranslation()
   const [selectedSources, setSelectedSources] = useState<Record<string, boolean>>({
     drugbank: false,
@@ -89,16 +90,12 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
           fullWidth={fullWidth}
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              />
+              <ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="1.5" />
+              <path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0" strokeWidth="1.5" />
             </svg>
           }
         >
-          <span>{t('sides.populateButton') || 'Populate'}</span>
+          <span>{triggerLabel || t('sides.populateButton') || 'Populate'}</span>
           {selectedCount > 0 && (
             <span className="bg-emerald-400 text-slate-900 text-xs font-bold px-1.5 py-0.5 rounded-full">
               {selectedCount}

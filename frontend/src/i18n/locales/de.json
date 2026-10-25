@@ -35,6 +35,13 @@
     "brandInCountry": "Marke in"
   },
   "workspace": {
+    "regionalBrand": "Regionale Marke",
+    "navigationSection": "Arbeitsbereich",
+    "medicationSearch": "Medikamentensuche",
+    "scanMedication": "Medikament scannen",
+    "populateSources": "Quellen laden",
+    "resultQuery": "für „{{query}}“",
+    "medicationDetails": "Medikamentendetails",
     "openNavigation": "Navigation öffnen",
     "closeNavigation": "Navigation schließen",
     "documentation": "Projektdokumentation",
