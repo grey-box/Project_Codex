@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Header, Sidebar, WorkspaceTools } from './components/layout/Header'
+import { WorkspaceTools } from './components/layout/Header'
+import { WorkspaceLayout } from './components/layout/WorkspaceLayout'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'
 import { TranslationPanel } from './components/translation/TranslationPanel'
@@ -252,12 +253,8 @@ function App() {
   }))
 
   return (
-    <div className="workspace-shell">
-      <a className="skip-link" href="#main-content">{t('workspace.skipToSearch')}</a>
-      <Sidebar onImportSuccess={() => loadLanguages(() => true)}
-        onSelectTerm={setSearchQuery} currentSearchLanguage={searchLanguage} />
-      <div className="workspace-content">
-        <Header languages={allLoadedLanguages} />
+    <WorkspaceLayout languages={allLoadedLanguages} onImportSuccess={() => loadLanguages(() => true)}
+      onSelectTerm={setSearchQuery} currentSearchLanguage={searchLanguage}>
         <main id="main-content" className="workspace-main">
           <section className="workspace-intro" aria-labelledby="workspace-title">
             <div>
@@ -314,8 +311,7 @@ function App() {
             </aside>
           </div>
         </main>
-      </div>
-    </div>
+    </WorkspaceLayout>
   )
 }
 

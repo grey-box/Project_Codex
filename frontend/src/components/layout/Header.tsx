@@ -20,11 +20,23 @@ export interface WorkspaceToolsProps {
   onApplyLanguageFilter?: () => void
 }
 
-export const Header: React.FC<{ languages: LanguageOption[] }> = ({ languages }) => {
+interface HeaderProps {
+  languages: LanguageOption[]
+  navigationOpen: boolean
+  onToggleNavigation: () => void
+  toggleRef: React.RefObject<HTMLButtonElement | null>
+}
+
+export const Header: React.FC<HeaderProps> = ({ languages, navigationOpen, onToggleNavigation, toggleRef }) => {
   const { t } = useTranslation()
   return (
     <header className="workspace-header">
       <div className="workspace-header-inner">
+        <button type="button" ref={toggleRef} className="workspace-navigation-toggle"
+          aria-label={t('workspace.openNavigation')} aria-controls="workspace-navigation"
+          aria-expanded={navigationOpen} onClick={onToggleNavigation}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
         <nav aria-label={t('workspace.breadcrumb')} className="workspace-breadcrumb">
           <a href="#main-content">Medical Codex</a>
           <span aria-hidden="true">/</span>
@@ -36,28 +48,41 @@ export const Header: React.FC<{ languages: LanguageOption[] }> = ({ languages })
   )
 }
 
-export const Sidebar: React.FC<WorkspaceToolsProps> = ({ onImportSuccess, onSelectTerm, currentSearchLanguage }) => {
+interface SidebarProps extends WorkspaceToolsProps {
+  onNavigate: () => void
+  onCloseNavigation: () => void
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onImportSuccess, onSelectTerm, currentSearchLanguage, onNavigate, onCloseNavigation }) => {
   const { t } = useTranslation()
   return (
-    <nav className="workspace-sidebar" aria-label={t('workspace.tools')}>
-      <a href="#main-content" className="workspace-brand" aria-label="Medical Codex">
-        <span className="workspace-wordmark" aria-hidden="true">codex</span>
-      </a>
-      <div className="workspace-sidebar-group">
-        <p className="workspace-nav-label">{t('workspace.eyebrow')}</p>
-        <a className="workspace-nav-active" href="#main-content" aria-current="page">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7" /><path d="m16 16 5 5" /></svg>
-          {t('workspace.medications')}
+    <>
+      <div className="workspace-sidebar-heading">
+        <a href="#drug-search" className="workspace-brand" aria-label="Medical Codex" onClick={onNavigate}>
+          <span className="workspace-wordmark" aria-hidden="true">codex</span>
         </a>
-        {onSelectTerm && <OcrModal onSelectTerm={onSelectTerm} currentLanguage={currentSearchLanguage} />}
+        <button type="button" className="workspace-navigation-close" onClick={onCloseNavigation}
+          aria-label={t('workspace.closeNavigation')}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+        </button>
       </div>
-      <div className="workspace-sidebar-group">
-        <p className="workspace-nav-label">{t('workspace.manageData')}</p>
-        <PopulateDropdown />
-        <ImportLanguageModal onImportSuccess={onImportSuccess} />
-      </div>
+      <nav className="workspace-sidebar-navigation" aria-label={t('workspace.tools')}>
+        <div className="workspace-sidebar-group">
+          <p className="workspace-nav-label">{t('workspace.eyebrow')}</p>
+          <a className="workspace-nav-active" href="#drug-search" aria-current="page" onClick={onNavigate}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7" /><path d="m16 16 5 5" /></svg>
+            {t('workspace.medications')}
+          </a>
+          {onSelectTerm && <OcrModal onSelectTerm={onSelectTerm} currentLanguage={currentSearchLanguage} />}
+        </div>
+        <div className="workspace-sidebar-group">
+          <p className="workspace-nav-label">{t('workspace.manageData')}</p>
+          <PopulateDropdown />
+          <ImportLanguageModal onImportSuccess={onImportSuccess} />
+        </div>
+      </nav>
       <AccountMenu />
-    </nav>
+    </>
   )
 }
 

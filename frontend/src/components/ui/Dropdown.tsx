@@ -139,6 +139,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       {isOpen && (
         <div
           ref={panelRef}
+          data-dropdown-panel
           style={{ maxHeight: maxHeightStyle }}
           className={`absolute ${verticalClass} ${horizontalClass} ${widthClass} ${originClass} max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain bg-white rounded-xl shadow-2xl border border-slate-200 z-50 p-4 animate-in fade-in zoom-in-95 duration-150`}
         >

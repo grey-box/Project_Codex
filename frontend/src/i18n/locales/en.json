@@ -39,6 +39,8 @@
     "brandInCountry": "Brand in"
   },
   "workspace": {
+    "openNavigation": "Open navigation",
+    "closeNavigation": "Close navigation",
     "documentation": "Project documentation",
     "tools": "Workspace tools",
     "medicationName": "Medication name",

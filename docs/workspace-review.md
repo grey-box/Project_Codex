@@ -8,7 +8,7 @@ contains the existing OCR, population and import controls, while breadcrumbs and
 the interface language switcher sit above the workspace. Search and language
 filters stay above the results. Results sit beside the translation panel at
 1200px and above; the panel follows the results on smaller screens. Below 768px
-the sidebar becomes wrapping navigation. Phones use medication cards with native
+the header opens the sidebar as a navigation drawer. Phones use medication cards with native
 selection buttons. Empty, loading,
 no-match, request-error and selected states each explain the next action.
 Language filters preserve the fetched records so resetting restores matches
@@ -82,6 +82,25 @@ and focus restoration, rejected sign-in responses, server-issued token use and
 authorization removal on sign-out.
 `npm run lint` and `npm run build` are also required. Browser checks exercise
 fixtures, not Neo4j, PaddleOCR or external medical-source services.
+
+## Responsive sidebar implementation
+
+The sidebar uses the current Purist workspace export's 232px desktop width,
+28px/16px padding, 36px wordmark row and 6px navigation corners. The header uses
+the design's 60px height and 24px horizontal padding. Existing self-hosted Geist
+and light/dark tokens remain in use, with no new runtime dependency.
+
+At widths below 768px, the header opens the same sidebar in a drawer. Opening it
+locks page scrolling, makes the background inert and keeps keyboard focus inside
+navigation. Escape closes an active utility or dropdown before navigation;
+closing navigation restores the menu button's focus. Medication navigation
+returns focus to the search input, preserving the query and fetched results.
+Backdrop dismissal and breakpoint changes restore scrolling. An open utility
+dialog remains usable when switching between mobile and desktop. Browser tests
+cover these behaviors and the existing utility controls at 390/768/1024/1440px.
+
+Sponsor tasks: [working sidebar](https://app.notion.com/p/402815ddf30b80cc987fc7e09563cf5f)
+and [responsive sidebar](https://app.notion.com/p/402815ddf30b80098d72c170ed554fc4).
 
 ## OCR upload lifecycle
 

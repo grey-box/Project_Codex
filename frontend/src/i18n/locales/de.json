@@ -35,6 +35,8 @@
     "brandInCountry": "Marke in"
   },
   "workspace": {
+    "openNavigation": "Navigation öffnen",
+    "closeNavigation": "Navigation schließen",
     "documentation": "Projektdokumentation",
     "tools": "Werkzeuge",
     "medicationName": "Medikamentenname",
