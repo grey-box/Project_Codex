@@ -52,6 +52,7 @@ try:
     )
     from codex.neo4j_driver import (
         driver,
+        get_drugs_table,  # Retrieves the full medication catalogue from Neo4j
         language_exists,
         find_missing_translations,
         find_missing_brands,
@@ -117,6 +118,22 @@ app.add_middleware(
 )
 
 app.include_router(ocr_router)
+
+
+# Defines the information returned for each medication
+class DrugRow(BaseModel):
+    generic_name: str
+    brand_name: Optional[str] = None
+    country: Optional[str] = None
+    original_language: str
+    translated_language: str
+
+
+# Defines the response containing the drug catalogue and total number of rows
+class CsvExportResponse(BaseModel):
+    csv: List[DrugRow]
+    row_count: int
+
 
 class SourceSelection(BaseModel):
     selectedSources: List[str]
@@ -236,6 +253,40 @@ class HealthResponse(BaseModel):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
+
+# Retrieve the full medication catalogue for the spreadsheet feature
+@app.get(
+    "/csv",
+    response_model=CsvExportResponse,
+    tags=["data"],
+    summary="Retrieve the full medication catalogue"
+)
+def export_csv():
+    """
+    Gets all medications from Neo4j and returns them as JSON.
+    The frontend can use these records to generate a CSV file.
+    """
+
+    try:
+        # Retrieve all medication records from the database
+        with driver.session() as session:
+            rows = get_drugs_table(session)
+
+        # Format the records and include the total number of rows
+        return CsvExportResponse(
+            csv=[DrugRow(**row) for row in rows],
+            row_count=len(rows)
+        )
+
+    except Exception:
+        # Return an error if the database query fails
+        log.exception("Failed to retrieve medication catalogue")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve medication catalogue"
+        )
+
 
 @app.get(
     "/health",

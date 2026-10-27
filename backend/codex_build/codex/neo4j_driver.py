@@ -337,3 +337,37 @@ def get_languages_for_brand(session, term):
     languages = result.single().value() if result.peek() else []
     languages = ', '.join(languages)
     return languages
+
+
+
+
+# Retrieve all medications and their related information from Neo4j
+def get_drugs_table(session) -> list:
+    """
+    Returns the drug catalogue sorted alphabetically by generic name.
+    Includes brand name, country, and language information.
+    """
+
+    query = """
+    MATCH (t:Term)
+    WHERE t.type = 'medication'
+    MATCH (tr:Translation)-[:OF_TERM]->(t)
+    MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    MATCH (tr)-[:USED_IN]->(c:Country)
+    OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+
+    RETURN DISTINCT
+        t.canonical AS generic_name,
+        b.name AS brand_name,
+        c.iso2 AS country,
+        coalesce(t.source_language, 'English') AS original_language,
+        l.name AS translated_language
+
+    ORDER BY toLower(generic_name),
+             country,
+             toLower(coalesce(brand_name, ''))
+    """
+
+    # Run the query and return the medication records as dictionaries
+    return [dict(record) for record in session.run(query)]
+
