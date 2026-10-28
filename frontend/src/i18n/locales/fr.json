@@ -22,9 +22,96 @@
     "resultsTitle": "Résultats",
     "sampleMedicine": "Médicament 1",
     "localizeTitle": "Traduire/Localiser le nom du médicament...",
+    "selectedDrug": "Médicament sélectionné:",
     "targetLanguage": "Langue cible",
     "targetPlaceholder": "Langue cible",
+    "targetCountry": "Pays cible",
+    "noCountries": "Aucun pays disponible",
     "translationPlaceholder": "La traduction s'affichera ici",
-    "importTitle": "Importer un fichier de langue"
+    "importTitle": "Importer un fichier de langue",
+    "crossReferencedMatch": "Correspondance Croisée",
+    "original": "Original",
+    "translation": "Traduction",
+    "brandInCountry": "Marque en"
+  },
+  "workspace": {
+    "regionalBrand": "Marque régionale",
+    "navigationSection": "Espace de travail",
+    "medicationSearch": "Recherche de médicaments",
+    "scanMedication": "Scanner un médicament",
+    "populateSources": "Charger les sources",
+    "resultQuery": "pour « {{query}} »",
+    "medicationDetails": "Détails du médicament",
+    "viewDetails": "Voir les détails du médicament",
+    "openNavigation": "Ouvrir la navigation",
+    "closeNavigation": "Fermer la navigation",
+    "documentation": "Documentation du projet",
+    "tools": "Outils",
+    "medicationName": "Nom du médicament",
+    "searchLanguage": "Langue de recherche",
+    "allLanguages": "Toutes les langues",
+    "searching": "Recherche…",
+    "skipToSearch": "Aller à la recherche",
+    "eyebrow": "Espace médicaments",
+    "title": "Un médicament. Plusieurs langues.",
+    "description": "Recherchez un médicament, puis explorez ses noms par langue et pays.",
+    "steps": "01 Chercher / 02 Choisir / 03 Traduire",
+    "activeLanguages": "Langues actives : {{languages}}",
+    "resetLanguages": "Rétablir toutes les langues",
+    "translateTitle": "Traduire le médicament",
+    "stepThree": "03 / Traduire",
+    "selectTitle": "Sélectionnez un médicament",
+    "selectDescription": "Choisissez un résultat pour explorer ses noms dans une autre langue et un autre pays.",
+    "resultsHint": "Sélectionnez un médicament à traduire.",
+    "type": "Type",
+    "brand": "Marque",
+    "language": "Langue",
+    "countries": "Pays",
+    "searchFailed": "Recherche indisponible",
+    "retrySearch": "Consultez le message ci-dessus et réessayez.",
+    "noMatches": "Aucun médicament correspondant",
+    "noMatchesDescription": "Essayez un autre nom ou élargissez les filtres de langue.",
+    "emptyTitle": "Commencez par un nom de médicament",
+    "emptyDescription": "Recherchez un médicament ou une marque. Les résultats apparaîtront ici.",
+    "searchingDescription": "Recherche de noms de médicaments correspondants.",
+    "translating": "Traduction…",
+    "destinationHint": "Choisissez une destination pour consulter les noms disponibles.",
+    "matchCount_one": "{{count}} résultat",
+    "matchCount_other": "{{count}} résultats",
+    "medications": "Médicaments",
+    "manageData": "Gérer les données",
+    "breadcrumb": "Fil d’Ariane",
+    "account": "Compte",
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter",
+    "appearance": "Apparence",
+    "light": "Clair",
+    "dark": "Sombre",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "accountHelp": "Besoin d’un compte ? Votre administrateur peut vous aider.",
+    "signInFailed": "Connexion impossible.",
+    "help": {
+      "search": {
+        "title": "Rechercher des médicaments",
+        "body": "Saisissez un médicament ou une marque, choisissez une langue et lancez la recherche. Sélectionnez un résultat pour voir les options de traduction."
+      },
+      "translate": {
+        "title": "Traduire un résultat",
+        "body": "Choisissez la langue et le pays de destination, puis lancez la traduction. Un changement de sélection ou de destination efface la traduction précédente."
+      },
+      "scan": {
+        "title": "Scanner un médicament",
+        "body": "Ouvrez le scanner OCR, choisissez une image et lancez l’analyse. Copiez ensuite un terme reconnu dans le champ de recherche."
+      },
+      "import": {
+        "title": "Importer des langues",
+        "body": "Choisissez un fichier JSON contenant un code de langue et une liste de termes. Une importation réussie actualise les langues disponibles."
+      },
+      "populate": {
+        "title": "Charger les sources",
+        "body": "Sélectionnez les sources et fournissez les identifiants API nécessaires. Le panneau affiche la progression et les erreurs."
+      }
+    }
   }
 }

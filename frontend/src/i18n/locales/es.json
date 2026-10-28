@@ -11,7 +11,11 @@
   "sides": {
     "populateLabel": "Rellenar fuente(s) local(es):",
     "populateButton": "Rellenar",
-    "populateLoader": "Rellenando..."
+    "populateLoader": "Rellenando...",
+    "keyLabel": "Ingrese sus credenciales y claves de API:",
+    "drugbankAPIKey": "Clave API de DrugBank",
+    "icdID": "ID de cliente ICD-11",
+    "icdSecret": "Clave secreta ICD-11"
   },
   "home": {
     "pageTitle": "Proyecto Códice Médico",
@@ -22,9 +26,96 @@
     "resultsTitle": "Resultados",
     "sampleMedicine": "Medicina 1",
     "localizeTitle": "Traducir/Localizar nombre de medicamento...",
+    "selectedDrug": "Medicamento seleccionado:",
     "targetLanguage": "Idioma de destino",
     "targetPlaceholder": "Idioma de destino",
+    "targetCountry": "País de destino",
+    "noCountries": "No hay países disponibles",
     "translationPlaceholder": "La traducción aparecerá aquí",
-    "importTitle": "Importar archivo de idioma"
+    "importTitle": "Importar archivo de idioma",
+    "crossReferencedMatch": "Coincidencia Cruzada",
+    "original": "Original",
+    "translation": "Traducción",
+    "brandInCountry": "Marca en"
+  },
+  "workspace": {
+    "regionalBrand": "Marca regional",
+    "navigationSection": "Espacio de trabajo",
+    "medicationSearch": "Buscar medicamentos",
+    "scanMedication": "Escanear medicamento",
+    "populateSources": "Cargar fuentes",
+    "resultQuery": "para “{{query}}”",
+    "medicationDetails": "Detalles del medicamento",
+    "viewDetails": "Ver detalles del medicamento",
+    "openNavigation": "Abrir navegación",
+    "closeNavigation": "Cerrar navegación",
+    "documentation": "Documentación del proyecto",
+    "tools": "Herramientas",
+    "medicationName": "Nombre del medicamento",
+    "searchLanguage": "Idioma de búsqueda",
+    "allLanguages": "Todos los idiomas",
+    "searching": "Buscando…",
+    "skipToSearch": "Ir a la búsqueda",
+    "eyebrow": "Espacio de medicamentos",
+    "title": "Un medicamento. Varios idiomas.",
+    "description": "Busca un medicamento y explora sus nombres por idioma y país.",
+    "steps": "01 Buscar / 02 Elegir / 03 Traducir",
+    "activeLanguages": "Idiomas activos: {{languages}}",
+    "resetLanguages": "Restablecer todos los idiomas",
+    "translateTitle": "Traducir medicamento",
+    "stepThree": "03 / Traducir",
+    "selectTitle": "Selecciona un medicamento",
+    "selectDescription": "Elige un resultado para explorar sus nombres en otro idioma y país.",
+    "resultsHint": "Selecciona un medicamento para traducir.",
+    "type": "Tipo",
+    "brand": "Marca",
+    "language": "Idioma",
+    "countries": "Países",
+    "searchFailed": "Búsqueda no disponible",
+    "retrySearch": "Revisa el mensaje anterior e inténtalo de nuevo.",
+    "noMatches": "Sin medicamentos coincidentes",
+    "noMatchesDescription": "Prueba otro nombre o amplía los filtros de idioma.",
+    "emptyTitle": "Empieza con un nombre de medicamento",
+    "emptyDescription": "Busca por nombre de medicamento o marca. Los resultados aparecerán aquí.",
+    "searchingDescription": "Buscando nombres de medicamentos coincidentes.",
+    "translating": "Traduciendo…",
+    "destinationHint": "Elige un destino para consultar los nombres disponibles.",
+    "matchCount_one": "{{count}} coincidencia",
+    "matchCount_other": "{{count}} coincidencias",
+    "medications": "Medicamentos",
+    "manageData": "Gestionar datos",
+    "breadcrumb": "Ruta de navegación",
+    "account": "Cuenta",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "appearance": "Apariencia",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "accountHelp": "¿Necesitas una cuenta? Tu administrador puede ayudarte.",
+    "signInFailed": "No se pudo iniciar sesión.",
+    "help": {
+      "search": {
+        "title": "Buscar medicamentos",
+        "body": "Escribe un medicamento o una marca, elige un idioma y pulsa Buscar. Selecciona un resultado para ver las opciones de traducción."
+      },
+      "translate": {
+        "title": "Traducir un resultado",
+        "body": "Elige el idioma y el país de destino y pulsa Traducir. Al cambiar la selección o el destino se borra la traducción anterior."
+      },
+      "scan": {
+        "title": "Escanear un medicamento",
+        "body": "Abre el escáner OCR, selecciona una imagen e inicia el escaneo. Usa el término reconocido en el campo de búsqueda."
+      },
+      "import": {
+        "title": "Importar idiomas",
+        "body": "Selecciona un archivo JSON con un código de idioma y una lista de términos. Una importación correcta actualiza los idiomas disponibles."
+      },
+      "populate": {
+        "title": "Cargar fuentes",
+        "body": "Selecciona las fuentes y proporciona las credenciales API necesarias. El panel muestra el progreso y los errores."
+      }
+    }
   }
 }

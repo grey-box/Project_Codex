@@ -9,3 +9,11 @@ __pycache__/
 
 # Runtime logs
 *.log
+
+# Frontend build and browser-check outputs
+frontend/dist/
+frontend/.test-build/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.env.local
+frontend/.env.*.local

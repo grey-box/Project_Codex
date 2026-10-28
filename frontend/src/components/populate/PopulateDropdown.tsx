@@ -1,0 +1,225 @@
+import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Button, Dropdown } from '../ui'
+import { API_BASE_URL } from '../../services/api'
+import { readPopulationResponse } from '../../services/population'
+import { getAuthHeaders } from '../../services/session'
+
+interface SourceOption {
+  id: string
+  label: string
+  description: string
+}
+
+const SOURCES: SourceOption[] = [
+  { id: 'drugbank', label: 'DrugBank', description: 'Pharmaceutical & commercial brand database' },
+  { id: 'snomed', label: 'SNOMED CT', description: 'Global clinical terminology & diagnoses' },
+  { id: 'rxnorm', label: 'RxNorm', description: 'Standardized clinical drugs (US NLM)' },
+  { id: 'icd11', label: 'ICD-11', description: 'WHO International Classification of Diseases' },
+]
+
+interface PopulateDropdownProps {
+  fullWidth?: boolean
+  triggerLabel?: string
+}
+
+export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = false, triggerLabel }) => {
+  const { t } = useTranslation()
+  const [selectedSources, setSelectedSources] = useState<Record<string, boolean>>({
+    drugbank: false,
+    snomed: false,
+    rxnorm: false,
+    icd11: false,
+  })
+  const [drugbankAPIKey, setDrugbankAPIKey] = useState('')
+  const [icdID, setIcdID] = useState('')
+  const [icdSecret, setIcdSecret] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [progress, setProgress] = useState<string>('')
+  const [populationError, setPopulationError] = useState('')
+
+  const toggleSource = (id: string) => {
+    setSelectedSources((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const selectedCount = Object.values(selectedSources).filter(Boolean).length
+
+  const handlePopulateClick = async () => {
+    const sourcesToPopulate = Object.entries(selectedSources)
+      .filter(([, isSelected]) => isSelected)
+      .map(([id]) => id)
+
+    if (sourcesToPopulate.length === 0) return
+
+    setIsLoading(true)
+    setPopulationError('')
+    setProgress('Starting population...')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/populate-sources`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          selectedSources: sourcesToPopulate,
+          DBAPIKey: drugbankAPIKey,
+          ICDID: icdID,
+          ICDSecret: icdSecret,
+        }),
+      })
+
+      await readPopulationResponse(response, setProgress)
+      setProgress('Successfully populated Neo4j!')
+    } catch (error) {
+      setProgress('')
+      setPopulationError(error instanceof Error ? error.message : 'Error processing population request.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <Dropdown
+      widthClass="w-80 sm:w-96"
+      align="right"
+      className={fullWidth ? 'w-full' : ''}
+      trigger={(isOpen) => (
+        <Button
+          type="button"
+          variant="nav"
+          size="md"
+          fullWidth={fullWidth}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="1.5" />
+              <path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0" strokeWidth="1.5" />
+            </svg>
+          }
+        >
+          <span>{triggerLabel || t('sides.populateButton') || 'Populate'}</span>
+          {selectedCount > 0 && (
+            <span className="bg-emerald-400 text-slate-900 text-xs font-bold px-1.5 py-0.5 rounded-full">
+              {selectedCount}
+            </span>
+          )}
+          <svg
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </Button>
+      )}
+    >
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+          <span>🧬</span> {t('sides.populateLabel') || 'Populate local source(s):'}
+        </h4>
+        <span className="text-xs text-slate-400 font-medium">Neo4j</span>
+      </div>
+
+      {/* Sources Checkboxes */}
+      <div className="space-y-2 mb-4">
+        {SOURCES.map((source) => (
+          <label
+            key={source.id}
+            className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${
+              selectedSources[source.id]
+                ? 'bg-emerald-50 border-emerald-200'
+                : 'bg-slate-50 hover:bg-slate-100 border-transparent'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={selectedSources[source.id]}
+              onChange={() => toggleSource(source.id)}
+              className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+            />
+            <div className="flex-1 text-xs">
+              <div className="font-semibold text-slate-800">{source.label}</div>
+              <div className="text-slate-500">{source.description}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+
+      {/* API Keys Configuration Section */}
+      <div className="pt-3 border-t border-slate-100 mb-4 space-y-2.5">
+        <div className="text-xs font-semibold text-slate-700">
+          {t('sides.keyLabel') || 'API Keys & Credentials:'}
+        </div>
+
+        {/* DrugBank Key */}
+        <div>
+          <label htmlFor="drugbank-key" className="block text-[11px] font-medium text-slate-600 mb-1">
+            {t('sides.drugbankAPIKey') || 'DrugBank API Key'}
+          </label>
+          <input
+            id="drugbank-key"
+            type="password"
+            value={drugbankAPIKey}
+            onChange={(e) => setDrugbankAPIKey(e.target.value)}
+            placeholder={t('sides.drugbankAPIKey') || 'DrugBank API Key'}
+            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+          />
+        </div>
+
+        {/* ICD-11 Credentials */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label htmlFor="icd-id" className="block text-[11px] font-medium text-slate-600 mb-1">
+              {t('sides.icdID') || 'ICD-11 ID'}
+            </label>
+            <input
+              id="icd-id"
+              type="text"
+              value={icdID}
+              onChange={(e) => setIcdID(e.target.value)}
+              placeholder="Client ID"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+            />
+          </div>
+          <div>
+            <label htmlFor="icd-secret" className="block text-[11px] font-medium text-slate-600 mb-1">
+              {t('sides.icdSecret') || 'ICD-11 Secret'}
+            </label>
+            <input
+              id="icd-secret"
+              type="password"
+              value={icdSecret}
+              onChange={(e) => setIcdSecret(e.target.value)}
+              placeholder="Client Secret"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Progress / Status Message */}
+      {progress && (
+        <div role="status" aria-live="polite" className="mb-3 p-2 bg-slate-100 rounded-md text-xs text-slate-700 font-medium wrap-break-word text-center">
+          {progress}
+        </div>
+      )}
+      {populationError && (
+        <div role="alert" className="mb-3 p-2 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 font-medium wrap-break-word text-center">
+          {populationError}
+        </div>
+      )}
+
+      {/* Action Button */}
+      <Button
+        type="button"
+        variant="primary"
+        size="md"
+        className="w-full text-xs"
+        onClick={handlePopulateClick}
+        disabled={isLoading || selectedCount === 0}
+        isLoading={isLoading}
+      >
+        {t('sides.populateButton') || 'Populate'} ({selectedCount})
+      </Button>
+    </Dropdown>
+  )
+}

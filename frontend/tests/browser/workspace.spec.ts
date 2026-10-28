@@ -1,0 +1,301 @@
+import { test, expect, type Page } from '@playwright/test'
+
+// Deliberately synthetic records: these tests verify UI behavior, not clinical data.
+const medications = [
+  { name: 'Ibuprofen', language: 'EN', country: 'US' },
+  { name: 'Ibuprofène', language: 'FR', country: 'FR' },
+  { name: 'Ibuprofeno', language: 'ES', country: 'MX' },
+].map((row, index) => ({ ...row, source_id: String(index), source_name: 'Test fixture', brand: null, type: 'ingredient', uploaded_at: '' }))
+
+async function fixture(page: Page) {
+  await page.route('http://localhost:8000/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    const body = path === '/languages' ? { languages: ['en', 'es', 'fr'] }
+      : path === '/search' ? medications
+      : { canonical: 'ibuprofen', results: [{ translation: 'Fixture translation', language: 'Spanish', country: 'MX', brand: 'Fixture brand' }] }
+    await route.fulfill({ json: body })
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Start with a medication name' })).toBeVisible()
+}
+
+async function search(page: Page) {
+  await page.getByLabel('Medication name', { exact: true }).fill('ibuprofen')
+  await page.getByLabel('Medication name', { exact: true }).press('Enter')
+  await expect(page.getByRole('button', { name: /^Ibuprofen(?: |$)/ })).toBeVisible()
+}
+
+test('search, keyboard selection, translation and destination changes', async ({ page }) => {
+  await fixture(page)
+  await search(page)
+  const medication = page.getByRole('button', { name: 'Ibuprofen', exact: true })
+  await medication.focus()
+  await page.keyboard.press('Enter')
+  await expect(medication).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Translate', exact: true }).click()
+  await expect(page.locator('.workspace-translation-output dd').filter({ hasText: 'Fixture translation' })).toBeVisible()
+  await page.getByLabel('Target Country', { exact: true }).selectOption('ES')
+  await expect(page.locator('.workspace-translation-output dd')).toHaveCount(0)
+})
+
+test('language filters hide records and reset restores them without another search', async ({ page }) => {
+  await fixture(page)
+  await search(page)
+  let searches = 0
+  page.on('request', request => { if (new URL(request.url()).pathname === '/search') searches++ })
+  await page.getByRole('button', { name: /Filter Languages/ }).click()
+  await page.getByRole('checkbox', { name: /French/ }).uncheck()
+  await page.getByRole('button', { name: /Apply Filter/ }).click()
+  await expect(page.getByRole('button', { name: 'Ibuprofène', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Reset to all languages' }).click()
+  await expect(page.getByRole('button', { name: 'Ibuprofène', exact: true })).toBeVisible()
+  expect(searches).toBe(0)
+})
+
+test('loading, no matches, failed request and retry have distinct states', async ({ page }) => {
+  await fixture(page)
+  let release: () => void = () => {}
+  const pending = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/search?*', async route => { await pending; await route.fulfill({ json: [] }) })
+  await page.getByLabel('Medication name', { exact: true }).fill('missing')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Searching…' })).toBeVisible()
+  release()
+  await expect(page.getByRole('heading', { name: 'No matching medications' })).toBeVisible()
+  await page.route('**/search?*', route => route.fulfill({ status: 503, json: { detail: 'Fixture unavailable' } }))
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Fixture unavailable')
+  await expect(page.getByRole('heading', { name: 'Search unavailable' })).toBeVisible()
+  await page.route('**/search?*', route => route.fulfill({ json: medications }))
+  await search(page)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('late translation cannot appear under a different selected medication', async ({ page }) => {
+  await fixture(page)
+  await search(page)
+  let release: () => void = () => {}
+  const pending = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/translate', async route => {
+    await pending
+    await route.fulfill({ json: { results: [{ translation: 'Stale translation' }] } })
+  })
+  await page.getByRole('button', { name: 'Ibuprofen', exact: true }).click()
+  const request = page.waitForRequest('**/translate')
+  await page.getByRole('button', { name: 'Translate', exact: true }).click()
+  await request
+  await page.getByRole('button', { name: 'Ibuprofène', exact: true }).click()
+  const response = page.waitForResponse('**/translate')
+  release()
+  await (await response).finished()
+  await page.evaluate(() => new Promise(requestAnimationFrame))
+  await expect(page.getByRole('complementary', { name: 'Translate medication' })).toContainText('Ibuprofène')
+  await expect(page.locator('.workspace-translation-output dd')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Translate', exact: true })).toBeEnabled()
+})
+
+for (const width of [320, 390, 768, 1024, 1440]) {
+  test(`workspace and utility controls fit at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 })
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    await fixture(page)
+    await search(page)
+    await page.evaluate(() => document.fonts.ready)
+    expect(await page.evaluate(() => Array.from(document.fonts).some(font => font.family === 'Geist' && font.status === 'loaded'))).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.getByRole('button', { name: /Filter Languages/ }).click()
+    await expect(page.getByRole('dialog', { name: 'Filter Active Languages' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Filter Languages/ })).toBeFocused()
+    if (width < 768) await page.getByRole('button', { name: 'Open navigation' }).click()
+    await page.getByRole('button', { name: 'Populate sources', exact: true }).click()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.keyboard.press('Escape')
+    for (const name of ['Import Language File', 'Scan medication']) {
+      await page.getByRole('button', { name, exact: true }).click()
+      await expect(page.getByRole('dialog', { name: name === 'Scan medication' ? 'Scan Image for Drug Names (OCR)' : 'Import Language File', exact: true })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog', { name: 'Workspace tools', exact: true })).toHaveCount(width < 768 ? 1 : 0)
+    }
+    expect(errors).toEqual([])
+  })
+}
+
+test('workspace copy follows the selected interface language', async ({ page }) => {
+  await fixture(page)
+  await page.getByRole('button', { name: 'English', exact: true }).click()
+  await page.getByRole('button', { name: 'Spanish es', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Medicamentos', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Nombre del medicamento', { exact: true })).toBeVisible()
+})
+
+test('desktop workspace follows the Purist split layout and results toolbar', async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await fixture(page)
+  await search(page)
+  await page.getByRole('button', { name: 'Ibuprofen', exact: true }).click()
+  await page.getByRole('button', { name: 'Translate', exact: true }).click()
+  await expect(page.locator('.workspace-translation-output')).toContainText('Fixture translation')
+  const sidebar = await page.locator('.workspace-sidebar').boundingBox()
+  const details = await page.getByRole('complementary', { name: 'Translate medication' }).boundingBox()
+  const primary = await page.locator('.workspace-primary').boundingBox()
+  expect(sidebar?.width).toBe(232)
+  expect(details?.width).toBe(304)
+  expect(details?.y).toBe(60)
+  expect(details?.y).toBe(primary?.y)
+  await expect(page.locator('.workspace-results-heading').getByRole('button', { name: /Filter Languages/ })).toBeVisible()
+  await expect(page.locator('.workspace-result-query')).toHaveText('for “ibuprofen”')
+  await expect(page.locator('.workspace-medication-facts')).toContainText('ingredient')
+  await page.screenshot({ path: testInfo.outputPath('desktop-workspace.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const medication = page.getByRole('button', { name: /^Ibuprofen(?: |$)/ })
+  await expect(medication).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('mobile-workspace.png'), animations: 'disabled' })
+})
+
+test('long medication and brand names fit narrow and tablet layouts', async ({ page }) => {
+  await fixture(page)
+  const longName = 'SyntheticMedicationName'.repeat(8)
+  await page.route('**/search?*', route => route.fulfill({ json: [{ ...medications[0], name: longName, brand: 'SyntheticBrand'.repeat(8) }] }))
+  for (const width of [320, 768]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.getByLabel('Medication name', { exact: true }).fill('synthetic')
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await page.getByRole('button', { name: new RegExp(`^${longName}`) }).click()
+    await expect(page.locator('.workspace-selected')).toContainText(longName)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
+test('mobile navigation traps focus, dismisses and keeps search state', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await fixture(page)
+  await search(page)
+  const toggle = page.getByRole('button', { name: 'Open navigation', exact: true })
+  const drawer = page.getByRole('dialog', { name: 'Workspace tools', exact: true })
+  await expect(drawer).toHaveCount(0)
+  await toggle.click()
+  await expect(drawer.getByRole('button', { name: 'Close navigation', exact: true })).toBeFocused()
+  await expect(page.locator('.workspace-content')).toHaveAttribute('inert', '')
+  await page.screenshot({ path: testInfo.outputPath('mobile-navigation.png') })
+  await drawer.getByRole('link', { name: 'Medical Codex', exact: true }).focus()
+  await page.keyboard.press('Shift+Tab')
+  await expect(drawer.getByRole('button', { name: 'Account', exact: true })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(drawer.getByRole('link', { name: 'Medical Codex', exact: true })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await expect(toggle).toBeFocused()
+  await expect(page.getByLabel('Medication name', { exact: true })).toHaveValue('ibuprofen')
+  await expect(page.getByRole('button', { name: /^Ibuprofen(?: |$)/ })).toBeVisible()
+  await toggle.click()
+  await drawer.getByRole('link', { name: 'Medication search', exact: true }).click()
+  await expect(drawer).toHaveCount(0)
+  await expect(page.getByLabel('Medication name', { exact: true })).toBeFocused()
+})
+
+test('mobile utility overlays handle Escape before navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await fixture(page)
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'Workspace tools', exact: true })
+  await drawer.getByRole('button', { name: 'Scan medication', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Scan Image for Drug Names (OCR)', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Scan Image for Drug Names (OCR)', exact: true })).toHaveCount(0)
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByRole('button', { name: 'Scan medication', exact: true })).toBeFocused()
+  await drawer.getByRole('button', { name: 'Populate sources', exact: true }).click()
+  await expect(drawer.locator('[data-dropdown-panel]')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(drawer.locator('[data-dropdown-panel]')).toHaveCount(0)
+  await expect(drawer).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+})
+
+test('navigation restores page scrolling on backdrop dismissal and resize', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 568 })
+  await fixture(page)
+  const toggle = page.getByRole('button', { name: 'Open navigation', exact: true })
+  await toggle.click()
+  await expect(page.locator('body')).toHaveCSS('overflow', 'hidden')
+  await page.locator('.workspace-navigation-backdrop').click({ position: { x: 370, y: 300 } })
+  await expect(toggle).toBeFocused()
+  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden')
+  await toggle.click()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await expect(page.getByRole('dialog', { name: 'Workspace tools' })).toHaveCount(0)
+  await expect(page.getByRole('navigation', { name: 'Workspace tools', exact: true })).toBeVisible()
+  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden')
+  await expect(page.locator('.workspace-content')).not.toHaveAttribute('inert')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByRole('dialog', { name: 'Workspace tools' })).toHaveCount(0)
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('an open tool remains usable when resizing between desktop and mobile', async ({ page }) => {
+  await fixture(page)
+  await page.getByRole('button', { name: 'Import Language File', exact: true }).click()
+  const tool = page.getByRole('dialog', { name: 'Import Language File', exact: true })
+  await expect(tool.getByRole('button', { name: 'Close dialog', exact: true })).toBeFocused()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(tool).toBeVisible()
+  await expect(tool.getByRole('button', { name: 'Close dialog', exact: true })).toBeFocused()
+  await expect(page.locator('.workspace-content')).toHaveAttribute('inert', '')
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await expect(tool).toBeVisible()
+  await expect(tool.getByRole('button', { name: 'Close dialog', exact: true })).toBeFocused()
+  await expect(page.locator('.workspace-content')).not.toHaveAttribute('inert')
+  await page.keyboard.press('Escape')
+  await expect(tool).toHaveCount(0)
+})
+
+test('account menu remembers appearance and opens embedded help with focus restored', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await fixture(page)
+  await page.getByRole('button', { name: 'Account', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Dark', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  await page.getByRole('button', { name: 'Project documentation' }).click()
+  await expect(page.getByRole('dialog', { name: 'Project documentation' })).toContainText('Scan a medication')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Project documentation' })).toBeFocused()
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: 'Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Light', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+})
+
+test('sign-in requires a server token and sign-out clears authorization', async ({ page }) => {
+  await fixture(page)
+  await page.getByRole('button', { name: 'Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Email address').fill('fixture@example.test')
+  await page.getByLabel('Password', { exact: true }).fill('synthetic-test-password')
+  await page.getByRole('dialog').getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('did not return an access token')
+  await expect(page.getByLabel('Password', { exact: true })).toHaveValue('')
+  await page.route('**/api/login', route => route.fulfill({ json: { access_token: 'synthetic-fixture-token', role: 'user', token_type: 'bearer' } }))
+  await page.getByLabel('Password', { exact: true }).fill('synthetic-test-password')
+  await page.getByRole('dialog').getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Account', exact: true })).toContainText('fixture@example.test')
+  await page.getByRole('button', { name: 'Account', exact: true }).click()
+  const signedRequest = page.waitForRequest('**/search?*')
+  await search(page)
+  expect((await signedRequest).headers().authorization).toBe('Bearer synthetic-fixture-token')
+  await page.getByRole('button', { name: 'Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  const unsignedRequest = page.waitForRequest('**/search?*')
+  await page.getByLabel('Medication name', { exact: true }).press('Enter')
+  expect((await unsignedRequest).headers().authorization).toBeUndefined()
+})
