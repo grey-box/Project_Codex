@@ -21,7 +21,18 @@ interface LeftNavBarProps {
 }
 
 export const LeftNavBar: React.FC<LeftNavBarProps> = ({
-
+    /*
+    languages,
+    onImportSuccess,
+    onSelectTerm,
+    currentSearchLanguage,
+    allLoadedLanguages,
+    selectedLanguages,
+    onToggleLanguage,
+    onSelectAllLanguages,
+    onDeselectAllLanguages,
+    onApplyLanguageFilter,
+     */
 }) => {
     //const {t} = useTranslation()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
