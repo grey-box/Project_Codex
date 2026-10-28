@@ -4,6 +4,7 @@ fastapi==0.111.0
 uvicorn[standard]==0.30.1
 httpx==0.27.0
 python-multipart==0.0.9
+pytest==8.3.3
 sqlalchemy
 pydantic_settings
 scipy<1.11.0
