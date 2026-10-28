@@ -14,12 +14,15 @@ interface WorkspaceLayoutProps extends WorkspaceToolsProps {
 export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayoutProps) {
   const { t } = useTranslation()
   const [navigationOpen, setNavigationOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
   const subscribe = useCallback((onChange: () => void) => {
     const query = window.matchMedia(mobileQuery)
     const handleChange = () => {
-      setNavigationOpen(query.matches && Boolean(sidebarRef.current?.querySelector('[role="dialog"]')))
+      const toolOpen = Boolean(sidebarRef.current?.querySelector('[role="dialog"]'))
+      setNavigationOpen(query.matches && toolOpen)
+      if (!query.matches && toolOpen) setSidebarCollapsed(false)
       onChange()
     }
     query.addEventListener('change', handleChange)
@@ -27,7 +30,17 @@ export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayo
   }, [])
   const isMobile = useSyncExternalStore(subscribe, isMobileViewport, () => false)
   const drawerOpen = isMobile && navigationOpen
+  const navigationVisible = isMobile ? drawerOpen : !sidebarCollapsed
   const closeNavigation = useCallback(() => setNavigationOpen(false), [])
+
+  useEffect(() => {
+    if (!navigationVisible) return
+    const toolDialog = sidebarRef.current?.querySelector<HTMLElement>('[role="dialog"]')
+    // A breakpoint change can briefly hide a collapsed sidebar and blur its tool.
+    if (toolDialog && !toolDialog.contains(document.activeElement)) {
+      toolDialog.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')?.focus()
+    }
+  }, [navigationVisible, isMobile])
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -79,19 +92,22 @@ export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayo
   }
 
   return (
-    <div className="workspace-shell">
+    <div className="workspace-shell" data-sidebar-collapsed={sidebarCollapsed}>
       <a className="skip-link" href="#drug-search" inert={drawerOpen}>{t('workspace.skipToSearch')}</a>
       {drawerOpen && <button type="button" className="workspace-navigation-backdrop"
         tabIndex={-1} aria-label={t('workspace.closeNavigation')} onClick={closeNavigation} />}
       <aside id="workspace-navigation" className="workspace-sidebar" ref={sidebarRef}
         role={isMobile ? 'dialog' : undefined} aria-modal={drawerOpen || undefined}
-        aria-label={t('workspace.tools')} aria-hidden={isMobile && !drawerOpen ? true : undefined}
-        inert={isMobile && !drawerOpen} data-open={drawerOpen}>
+        aria-label={t('workspace.tools')} aria-hidden={!navigationVisible || undefined}
+        inert={!navigationVisible} data-open={drawerOpen}>
         <Sidebar {...tools} onNavigate={navigateToSearch} onCloseNavigation={closeNavigation} />
       </aside>
       <div className="workspace-content" inert={drawerOpen}>
-        <Header languages={languages} navigationOpen={drawerOpen} toggleRef={toggleRef}
-          onToggleNavigation={() => setNavigationOpen(open => !open)} />
+        <Header languages={languages} navigationOpen={navigationVisible} isMobile={isMobile} toggleRef={toggleRef}
+          onToggleNavigation={() => {
+            if (isMobile) setNavigationOpen(open => !open)
+            else setSidebarCollapsed(collapsed => !collapsed)
+          }} />
         {children}
       </div>
     </div>

@@ -45,6 +45,8 @@
     "viewDetails": "Medikamentendetails anzeigen",
     "openNavigation": "Navigation öffnen",
     "closeNavigation": "Navigation schließen",
+    "collapseSidebar": "Seitenleiste einklappen",
+    "expandSidebar": "Seitenleiste ausklappen",
     "documentation": "Projektdokumentation",
     "tools": "Werkzeuge",
     "medicationName": "Medikamentenname",

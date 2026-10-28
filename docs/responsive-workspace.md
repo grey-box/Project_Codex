@@ -1,6 +1,6 @@
 # Responsive Medical Codex workspace
 
-Updated October 27, 2026. Branch: `branden-branch`.
+Updated October 28, 2026. Branch: `branden-branch`.
 
 The workspace follows the [Purist design](https://purist.design/file/SprEvCZwabzDFdcZ).
 The desktop layout keeps its 232px sidebar, 304px medication details column,
@@ -39,7 +39,13 @@ interface languages.
 ## Navigation, touch and dialogs
 
 `WorkspaceLayout` uses the same sidebar component on desktop and mobile. Its
-JavaScript media query matches the CSS boundary at 767px. Opening the mobile
+top navigation button collapses or expands the desktop sidebar, allowing the
+workspace to fill the available width without resetting search or selection.
+On phones the same button opens the existing navigation drawer. Desktop collapse
+state stays separate from the mobile drawer, including when resizing with an
+open utility dialog.
+
+Its JavaScript media query matches the CSS boundary at 767px. Opening the mobile
 drawer locks page scrolling, makes the background inert and moves keyboard
 focus into navigation. Tab stays inside the drawer. Escape closes an open
 utility first, then navigation; closing navigation returns focus to its menu
@@ -77,8 +83,10 @@ with a separate copy of the search or account state.
 
 ## Verification
 
-The October 27 run passed 28 browser checks and 17 population-stream unit tests.
-Lint and the production TypeScript/Vite build also passed.
+The October 28 run passed 29 browser checks, including desktop sidebar collapse,
+search/selection preservation and focus during viewport changes. The unchanged
+population-stream suite passed its 17 unit tests on October 27. Lint and the
+production TypeScript/Vite build also passed.
 
 The browser suite checks 320, 360, 390, 479, 480, 639, 640, 767, 768, 1024,
 1199, 1200 and 1440px widths. It also checks a 667 by 320 landscape viewport,

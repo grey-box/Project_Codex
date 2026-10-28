@@ -49,6 +49,8 @@
     "viewDetails": "View medication details",
     "openNavigation": "Open navigation",
     "closeNavigation": "Close navigation",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
     "documentation": "Project documentation",
     "tools": "Workspace tools",
     "medicationName": "Medication name",

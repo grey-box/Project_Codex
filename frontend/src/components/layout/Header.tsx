@@ -23,19 +23,24 @@ export interface WorkspaceToolsProps {
 interface HeaderProps {
   languages: LanguageOption[]
   navigationOpen: boolean
+  isMobile: boolean
   onToggleNavigation: () => void
   toggleRef: React.RefObject<HTMLButtonElement | null>
 }
 
-export const Header: React.FC<HeaderProps> = ({ languages, navigationOpen, onToggleNavigation, toggleRef }) => {
+export const Header: React.FC<HeaderProps> = ({ languages, navigationOpen, isMobile, onToggleNavigation, toggleRef }) => {
   const { t } = useTranslation()
+  const toggleLabel = t(isMobile ? 'workspace.openNavigation' : navigationOpen ? 'workspace.collapseSidebar' : 'workspace.expandSidebar')
   return (
     <header className="workspace-header">
       <div className="workspace-header-inner">
         <button type="button" ref={toggleRef} className="workspace-navigation-toggle"
-          aria-label={t('workspace.openNavigation')} aria-controls="workspace-navigation"
+          aria-label={toggleLabel} title={toggleLabel} aria-controls="workspace-navigation"
           aria-expanded={navigationOpen} onClick={onToggleNavigation}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" />
+            <path d={navigationOpen ? 'm16 9-3 3 3 3' : 'm13 9 3 3-3 3'} />
+          </svg>
         </button>
         <nav aria-label={t('workspace.breadcrumb')} className="workspace-breadcrumb">
           <a href="#main-content">Medical Codex</a>

@@ -45,6 +45,8 @@
     "viewDetails": "Voir les détails du médicament",
     "openNavigation": "Ouvrir la navigation",
     "closeNavigation": "Fermer la navigation",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Développer la barre latérale",
     "documentation": "Documentation du projet",
     "tools": "Outils",
     "medicationName": "Nom du médicament",
