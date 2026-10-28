@@ -41,8 +41,11 @@ interface languages.
 `WorkspaceLayout` uses the same sidebar component on desktop and mobile. Its
 top navigation button collapses or expands the desktop sidebar, allowing the
 workspace to fill the available width without resetting search or selection.
-On phones the same button opens the existing navigation drawer. Desktop collapse
-state stays separate from the mobile drawer, including when resizing with an
+Below 768px the header instead shows a hamburger on the right, after the language
+selector, which opens the existing navigation drawer. Tailwind responsive utilities
+control the button's placement, sizing and appearance. The workspace combines
+Tailwind 4 utilities with custom CSS for its grid, themes and container queries.
+Desktop collapse state stays separate from the mobile drawer, including when resizing with an
 open utility dialog.
 
 Its JavaScript media query matches the CSS boundary at 767px. Opening the mobile
