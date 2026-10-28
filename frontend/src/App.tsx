@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
-import { Header } from './components/layout/Header'
+import { LeftNavBar } from './components/layout/LeftNavBar'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'
 import { TranslationPanel } from './components/translation/TranslationPanel'
@@ -256,9 +256,9 @@ function App() {
   }))
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
       {/* Top Navigation */}
-      <Header
+      <LeftNavBar
         languages={languages}
         onImportSuccess={() => loadLanguages(true)}
         onSelectTerm={(term) => {
@@ -274,90 +274,92 @@ function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        {/* Hero Section */}
-        <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-[#1e4840] tracking-tight">
-              {t('home.pageTitle') || 'Grey Box Pharma-Cross'}
-            </h1>
-            <p className="text-sm md:text-base text-slate-600 mt-1 max-w-2xl">
-              {t('home.pageDescription') ||
-                'Multilingual medical normalization and cross-border drug intelligence powered by RxNorm and Neo4j knowledge graph.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="self-start sm:self-auto px-3.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            {t('common.help') || 'Documentation'}
-          </button>
-        </section>
-
-        {/* Active Language Filter Notice (if filtered) */}
-        {availableLanguages.length < loadedLanguages.length && (
-          <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              <span>
-                Active filter: Showing results for <strong>{availableLanguages.map(l => l.toUpperCase()).join(', ')}</strong> only.
-              </span>
+      <div className="flex-1 md:pl-64 flex flex-col min-w-0">
+        <main className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+          {/* Hero Section */}
+          <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-[#1e4840] tracking-tight">
+                {t('home.pageTitle') || 'Grey Box Pharma-Cross'}
+              </h1>
+              <p className="text-sm md:text-base text-slate-600 mt-1 max-w-2xl">
+                {t('home.pageDescription') ||
+                  'Multilingual medical normalization and cross-border drug intelligence powered by RxNorm and Neo4j knowledge graph.'}
+              </p>
             </div>
             <button
               type="button"
-              onClick={handleSelectAll}
-              className="font-semibold underline hover:text-emerald-950 cursor-pointer"
+              className="self-start sm:self-auto px-3.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-xs transition-colors cursor-pointer"
             >
-              Reset to All ({loadedLanguages.length})
+              {t('common.help') || 'Documentation'}
             </button>
-          </div>
-        )}
+          </section>
 
-        {/* Search & Results Panel */}
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 space-y-6">
-          <SearchBar
-            searchLanguage={searchLanguage}
-            onSearchLanguageChange={setSearchLanguage}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            onSearch={handleSearch}
-            isLoading={isLoading}
-            languages={languages}
-          />
-
-          <ResultsTable
-            results={searchResults}
-            selectedResult={selectedResult}
-            onSelectResult={(result) => {
-              setSelectedResult(result)
-              setTranslatedName('')
-              setTranslatedBrand('')
-              setTranslateError('')
-            }}
-            hasBrand={hasBrand}
-            searchError={searchError}
-          />
-
-          {selectedResult && (
-            <TranslationPanel
-              selectedResult={selectedResult}
-              targetLanguage={targetLanguage}
-              targetCountry={targetCountry}
-              onTargetLanguageChange={handleLanguageChange}
-              onTargetCountryChange={setTargetCountry}
-              onTranslate={handleTranslateSelected}
-              isTranslating={isTranslating}
-              languages={languages}
-              availableCountries={availableCountries}
-              translatedName={translatedName}
-              translatedBrand={translatedBrand}
-              translateError={translateError}
-            />
+          {/* Active Language Filter Notice (if filtered) */}
+          {availableLanguages.length < loadedLanguages.length && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>
+                  Active filter: Showing results for <strong>{availableLanguages.map(l => l.toUpperCase()).join(', ')}</strong> only.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="font-semibold underline hover:text-emerald-950 cursor-pointer"
+              >
+                Reset to All ({loadedLanguages.length})
+              </button>
+            </div>
           )}
-        </section>
-      </main>
+
+          {/* Search & Results Panel */}
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 space-y-6">
+            <SearchBar
+              searchLanguage={searchLanguage}
+              onSearchLanguageChange={setSearchLanguage}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              onSearch={handleSearch}
+              isLoading={isLoading}
+              languages={languages}
+            />
+
+            <ResultsTable
+              results={searchResults}
+              selectedResult={selectedResult}
+              onSelectResult={(result) => {
+                setSelectedResult(result)
+                setTranslatedName('')
+                setTranslatedBrand('')
+                setTranslateError('')
+              }}
+              hasBrand={hasBrand}
+              searchError={searchError}
+            />
+
+            {selectedResult && (
+              <TranslationPanel
+                selectedResult={selectedResult}
+                targetLanguage={targetLanguage}
+                targetCountry={targetCountry}
+                onTargetLanguageChange={handleLanguageChange}
+                onTargetCountryChange={setTargetCountry}
+                onTranslate={handleTranslateSelected}
+                isTranslating={isTranslating}
+                languages={languages}
+                availableCountries={availableCountries}
+                translatedName={translatedName}
+                translatedBrand={translatedBrand}
+                translateError={translateError}
+              />
+            )}
+          </section>
+        </main>
+      </div>
     </div>
   )
 }
