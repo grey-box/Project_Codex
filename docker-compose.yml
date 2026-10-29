@@ -1,6 +1,7 @@
 services:
   # The Frontend Service
   frontend:
+    image: project_codex-frontend:latest
     build:
       context: ./frontend
     container_name: codex-frontend
@@ -16,6 +17,7 @@ services:
     
   # The API Service
   api:
+    image: project_codex-api:latest
     build:
       context: ./backend/codex_build
     container_name: codex-api
