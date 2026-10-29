@@ -6,6 +6,7 @@ import { LanguageSelector } from '../language/LanguageSelector'
 import { LanguageFilterModal } from '../language/LanguageFilterModal'
 import { OcrModal } from '../ocr/OcrModal'
 import type { LanguageOption } from '../../types/codex'
+import {LoginButton} from "../account/LoginModal.tsx";
 
 interface LeftNavBarProps {
     languages: LanguageOption[]
@@ -134,9 +135,15 @@ export const LeftNavBar: React.FC<LeftNavBarProps> = ({
                         </div>
                     )}
             </nav>
-
-            {/* Login */}
-            <div></div>
+            <div className="px-4 pb-4">
+                {/* Auth Section */}
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/60 px-2 block mb-2">
+                    Account
+                </span>
+                <div className="w-full">
+                    <LoginButton fullWidth />
+                </div>
+            </div>
 
             {/* Bottom Footer Section */}
             <div className="p-4 border-t center-items border-[#2d5850]/70 shrink-0 bg-[#193d36]">
