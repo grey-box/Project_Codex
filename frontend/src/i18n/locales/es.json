@@ -1,0 +1,41 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "about": "Acerca de"
+  },
+  "common": {
+    "help": "Ayuda",
+    "search": "Buscar",
+    "translate": "Traducir"
+  },
+  "sides": {
+    "populateLabel": "Rellenar fuente(s) local(es):",
+    "populateButton": "Rellenar",
+    "populateLoader": "Rellenando...",
+    "keyLabel": "Ingrese sus credenciales y claves de API:",
+    "drugbankAPIKey": "Clave API de DrugBank",
+    "icdID": "ID de cliente ICD-11",
+    "icdSecret": "Clave secreta ICD-11"
+  },
+  "home": {
+    "pageTitle": "Proyecto Códice Médico",
+    "pageDescription": "Una herramienta desarrollada para ayudar a coordinar equipos médicos entre países.",
+    "searchTitle": "Buscar nombre de medicamento...",
+    "sourceLanguage": "Idioma de origen",
+    "sourcePlaceholder": "Palabra a buscar",
+    "resultsTitle": "Resultados",
+    "sampleMedicine": "Medicina 1",
+    "localizeTitle": "Traducir/Localizar nombre de medicamento...",
+    "selectedDrug": "Medicamento seleccionado:",
+    "targetLanguage": "Idioma de destino",
+    "targetPlaceholder": "Idioma de destino",
+    "targetCountry": "País de destino",
+    "noCountries": "No hay países disponibles",
+    "translationPlaceholder": "La traducción aparecerá aquí",
+    "importTitle": "Importar archivo de idioma",
+    "crossReferencedMatch": "Coincidencia Cruzada",
+    "original": "Original",
+    "translation": "Traducción",
+    "brandInCountry": "Marca en"
+  }
+}
