@@ -319,7 +319,7 @@ class UserCreateRequest(BaseModel):
     model_config = {"json_schema_extra": {"example": {
         "real_name": "Jane Doe",
         "password": "SecurePassword123!",
-        "role": "Admin",
+        "role": "administrator",
         "affiliation": "Global Health Org",
         "email": "jane.doe@example.com"
     }}}
