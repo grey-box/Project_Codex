@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Documentation } from './Documentation'
-import { SignIn } from './SignIn'
+import { LoginButton } from '../account/LoginModal'
 import { Dropdown } from '../ui'
 import { setAccessToken } from '../../services/session'
 
@@ -31,7 +31,7 @@ export function AccountMenu() {
           <span>{email || t('workspace.account')}</span><span aria-hidden="true">⌃</span>
         </button>
       )}>
-        {email ? <button className="workspace-account-action" type="button" onClick={() => { setAccessToken(''); setEmail('') }}>{t('workspace.signOut')}</button> : <SignIn onSuccess={setEmail} />}
+        {email ? <button className="workspace-account-action" type="button" onClick={() => { setAccessToken(''); setEmail('') }}>{t('workspace.signOut')}</button> : <LoginButton onSuccess={setEmail} />}
         <Documentation />
         <div className="workspace-appearance">
           <p>{t('workspace.appearance')}</p>

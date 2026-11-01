@@ -1,6 +1,6 @@
 # Responsive Medical Codex workspace
 
-Updated October 28, 2026. Branch: `branden-branch`.
+Updated October 31, 2026. Integration branch: `codex/branden-stephen-integration`.
 
 The workspace follows the [Purist design](https://purist.design/file/SprEvCZwabzDFdcZ).
 The desktop layout keeps its 232px sidebar, 304px medication details column,
@@ -72,7 +72,10 @@ available.
 | File | Responsibility |
 | --- | --- |
 | `frontend/src/components/layout/WorkspaceLayout.tsx` | Drawer state, focus handling, inert background and scroll restoration. |
-| `frontend/src/components/layout/Header.tsx` | Header, breadcrumbs and reusable sidebar navigation. |
+| `frontend/src/components/layout/Header.tsx` | Header, breadcrumbs and responsive navigation toggle. |
+| `frontend/src/components/layout/LeftNavBar.tsx` | Shared sidebar content: search, OCR, source population, import and account controls. |
+| `frontend/src/components/layout/WorkspaceTools.tsx` | Shared tool callbacks and the results language-filter control. |
+| `frontend/src/components/account/LoginModal.tsx` | Sign-in trigger, validated credentials and the server-token login flow. |
 | `frontend/src/index.css` | Grid layout, media/container queries, touch sizing and safe areas. |
 | `frontend/src/components/results/ResultsTable.tsx` | Table/cards, selection and link to details. |
 | `frontend/src/components/ui/Modal.tsx` | Viewport-bounded dialogs, wrapping headings and close control. |
@@ -86,10 +89,11 @@ with a separate copy of the search or account state.
 
 ## Verification
 
-The October 28 run passed 29 browser checks, including desktop sidebar collapse,
-search/selection preservation and focus during viewport changes. The unchanged
-population-stream suite passed its 17 unit tests on October 27. Lint and the
-production TypeScript/Vite build also passed.
+The October 31 integration run passed 31 browser checks, including desktop
+sidebar collapse, search/selection preservation, focus during viewport changes,
+server-token sign-in and sign-out at desktop and phone widths, and language
+refresh after importing from the sidebar. The population-stream suite passed
+its 17 unit tests. Lint and the production TypeScript/Vite build also passed.
 
 The browser suite checks 320, 360, 390, 479, 480, 639, 640, 767, 768, 1024,
 1199, 1200 and 1440px widths. It also checks a 667 by 320 landscape viewport,
@@ -119,6 +123,25 @@ keyboard or a physical iPhone/Android device. Physical-device Safari testing
 is still useful for checking keyboard and safe-area behavior.
 
 ## Branch integration and testing on a phone
+
+The October 31 integration combines `branden-branch` at `fc81def` with the UI
+commits from Stephen's `stephen-nav-bar-ui-branch` at `4afd2de`. Five feature
+commits were cherry-picked with their original author information. Stephen's
+branch also includes other developers' backend changes; those were excluded
+from this frontend integration.
+
+The overlapping sidebars are reconciled in `LeftNavBar`. `WorkspaceLayout`
+owns its placement and drawer/collapse behavior. Tools use the existing search
+and import callbacks. The interface-language selector stays in the header and
+the results filter stays beside the results, so each has one control and one
+shared state. Geist, themes, embedded documentation and the right-hand phone
+hamburger remain available.
+
+Stephen's `LoginButton` now uses the existing `/api/login` request, requires a
+server access token, and updates the account menu through `onSuccess`. The
+separate `SignIn` component was consolidated into it. The source branch's
+region and social buttons had no destinations or handlers; they are omitted
+until those actions are defined.
 
 The frontend was brought over from
 [`9337574`](https://github.com/grey-box/Project_Codex/commit/9337574702907a1cb95c2a2120279d56e849da89)

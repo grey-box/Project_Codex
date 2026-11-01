@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { WorkspaceTools } from './components/layout/Header'
+import { WorkspaceTools } from './components/layout/WorkspaceTools'
 import { WorkspaceLayout } from './components/layout/WorkspaceLayout'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'

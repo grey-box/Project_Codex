@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Header, Sidebar, type WorkspaceToolsProps } from './Header'
+import { Header } from './Header'
+import { LeftNavBar } from './LeftNavBar'
+import type { WorkspaceToolsProps } from './WorkspaceTools'
 import type { LanguageOption } from '../../types/codex'
 
 const mobileQuery = '(max-width: 767px)'
@@ -100,7 +102,7 @@ export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayo
         role={isMobile ? 'dialog' : undefined} aria-modal={drawerOpen || undefined}
         aria-label={t('workspace.tools')} aria-hidden={!navigationVisible || undefined}
         inert={!navigationVisible} data-open={drawerOpen}>
-        <Sidebar {...tools} onNavigate={navigateToSearch} onCloseNavigation={closeNavigation} />
+        <LeftNavBar {...tools} onNavigate={navigateToSearch} onCloseNavigation={closeNavigation} />
       </aside>
       <div className="workspace-content" inert={drawerOpen}>
         <Header languages={languages} navigationOpen={navigationVisible} isMobile={isMobile} toggleRef={toggleRef}
