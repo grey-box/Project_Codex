@@ -156,7 +156,7 @@ hamburger remain available.
 Stephen's `LoginButton` now uses the existing `/api/login` request, requires a
 server access token, and updates the account menu through `onSuccess`. The
 separate `SignIn` component was consolidated into it. The source branch's
-region and social buttons had no destinations or handlers. The shared footer now
+region and social buttons had no destinations or handlers. The sign-in dialog footer now
 uses the website, X and Facebook destinations published by Grey-box's official
 website. Help includes a small themed SVG illustration, and the home breadcrumb
 shows only Medications.

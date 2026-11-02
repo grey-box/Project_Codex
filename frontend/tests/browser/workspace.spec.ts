@@ -209,7 +209,7 @@ test('mobile navigation traps focus, dismisses and keeps search state', async ({
   await page.screenshot({ path: testInfo.outputPath('mobile-navigation.png') })
   await drawer.getByRole('link', { name: 'Medical Codex', exact: true }).focus()
   await page.keyboard.press('Shift+Tab')
-  await expect(drawer.getByRole('link', { name: 'Grey-box on Facebook', exact: true })).toBeFocused()
+  await expect(drawer.getByRole('button', { name: 'Account', exact: true })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(drawer.getByRole('link', { name: 'Medical Codex', exact: true })).toBeFocused()
   await page.keyboard.press('Escape')

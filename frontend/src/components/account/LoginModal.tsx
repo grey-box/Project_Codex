@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Button, Input, Modal } from '../ui'
+import { SignInFooter } from './SignInFooter'
 import { loginUser } from '../../services/api'
 
 export interface LoginButtonProps {
@@ -38,6 +39,7 @@ export function LoginButton({ fullWidth = false, onSuccess }: LoginButtonProps) 
         <Button type="submit" isLoading={busy} fullWidth>{t('workspace.signIn')}</Button>
         <p>{t('workspace.accountHelp')}</p>
       </form>
+      <SignInFooter />
     </Modal>
   </>
 }

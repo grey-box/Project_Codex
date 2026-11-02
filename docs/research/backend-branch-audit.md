@@ -128,3 +128,15 @@ focus management and typeahead. This adds a UI dependency; motion still has no
 animation-library dependency. Footer destinations come from the
 [official Grey-box website](https://www.grey-box.ca/home/), since Stephen's
 branch supplied buttons without URLs.
+
+
+### Sign-in footer placement, November 2
+
+Grey-box website/social links and copyright now appear below the sign-in form,
+removed from the workspace sidebar. The
+[sweetgreen sign-in reference](https://mobbin.com/screens/9250a7ba-aaf5-4f6e-9c3e-e08690f9e4fa)
+places social/company links beneath its form;
+[Jira](https://mobbin.com/screens/f7cfad1f-3533-4e1d-bd66-cda5bb2ba682)
+places company information below authentication. These cross-domain references
+inform placement only. The exact compact modal arrangement is our adaptation.
+No authentication methods or destinations changed.
