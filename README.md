@@ -1,72 +1,83 @@
-# Codex — Setup Guide
+Codex — Setup Guide
 
-## Prerequisites
+Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Python | 3.10+ | API and CLI |
-| Docker + Docker Compose | any recent | Neo4j database |
-| pip | any | Python dependencies |
 
----
+| Tool                    | Version    | Purpose                           |
+| ----------------------- | ---------- | --------------------------------- |
+| Python                  | 3.10+      | API and CLI                       |
+| Docker + Docker Compose | any recent | Full stack (Neo4j, API, Frontend) |
+| pip                     | any        | Python dependencies               |
 
-## Quick start
-
-```
-1. docker-compose up -d          # start Neo4j
-2. cp .env.example .env          # configure credentials
-3. pip install -r requirements.txt
-4. python api.py                 # start the API
-5. python cli.py                 # open the CLI
-```
 
 ---
 
-## Step 1 — Start Neo4j
+## Quick start (Docker)
 
 ```bash
-docker-compose up -d
+docker compose up --build
 ```
 
-This starts Neo4j 5.18 with the APOC plugin (required for fuzzy matching)
-and exposes two ports:
+Wait ~30 seconds for Neo4j, API, and Frontend to be ready.
 
-| Port | Use |
-|------|-----|
-| 7474 | Neo4j Browser — http://localhost:7474 (login: `neo4j` / `changeme`) |
-| 7687 | Bolt — used by the API |
+- **Frontend UI:** [http://localhost:9000](http://localhost:9000) (or ports 9000-9010)
+- **API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) (login: `neo4j` / `changeme`)
 
-Wait ~30 seconds for Neo4j to finish initialising before starting the API.
-Watch progress with:
+---
+
+## Manual Setup (Step by Step)
+
+### Step 1 — Start Neo4j
 
 ```bash
-docker-compose logs -f neo4j
+docker buildx bake -f docker-compose.yml --allow=fs.read=frontend --allow=fs.read=backend/codex_build --load && docker compose up --no-build --pull always
+
+```
+
+This starts Neo4j 5.18 with the APOC plugin (required for fuzzy matching) and exposes two ports:
+
+
+| Port | Use                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------- |
+| 7474 | Neo4j Browser — [http://localhost:7474](http://localhost:7474) (login: `neo4j` / `changeme`) |
+| 7687 | Bolt — used by the API                                                                       |
+
+
+Wait ~30 seconds for Neo4j to finish initialising before starting the API. Watch progress with:
+
+```bash
+docker compose logs -f neo4j
 ```
 
 ---
 
-## Step 2 — Configure credentials
+### Step 2 — Configure credentials
 
 ```bash
 cp .env.example .env
 ```
 
-The defaults match `docker-compose.yml` exactly.  Edit `.env` only if you
-have changed the Neo4j credentials.
+The defaults match `docker-compose.yml` exactly. Edit `.env` only if you have changed credentials or API keys (DrugBank, ICD-11).
+
+#### Demo Language Packs
+
+By default, the API automatically preloads sample language packs from `backend/codex_build/demo_language_packs/` on startup (`LOAD_DEMO_DATA=true`). To start with an empty database (for testing clean manual pack ingestion via UI or CLI), set `LOAD_DEMO_DATA=false` in `.env`.
 
 ---
 
-## Step 3 — Install Python dependencies
+### Step 3 — Install Python dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r backend/codex_build/requirements.txt
 ```
 
 ---
 
-## Step 4 — Start the API
+### Step 4 — Start the API
 
 ```bash
+cd backend/codex_build
 python api.py
 ```
 
@@ -76,18 +87,20 @@ Or with auto-reload during development:
 uvicorn api:app --reload
 ```
 
-Swagger UI is available at **http://localhost:8000/docs**
+Swagger UI is available at [**http://localhost:8000/docs**](http://localhost:8000/docs)
 
 ---
 
-## Step 5 — Verify
+### Step 5 — Verify
 
-```
+```bash
+cd backend/codex_build
 python cli.py
 codex> health
 ```
 
 Expected output:
+
 ```
   API   : ✓ running  (v2.0.0)
   Neo4j : ✓ connected
@@ -95,18 +108,18 @@ Expected output:
 
 ---
 
-## Step 6 — Load drug data
+### Step 6 — Load drug data
 
-Upload one CSV file per language/country combination:
+Upload CSV files per language/country combination:
 
-```
+```bash
 codex> csv upload sample_data/drugs_en_US.csv
 codex> csv upload sample_data/drugs_es_MX.csv
 ```
 
 Verify what was loaded:
 
-```
+```bash
 codex> languages          # shows: en, es
 codex> countries          # shows: MX (Spanish), US (English)
 codex> csv list           # full catalogue sorted alphabetically
@@ -114,9 +127,9 @@ codex> csv list           # full catalogue sorted alphabetically
 
 ---
 
-## Step 7 — Translate a drug
+### Step 7 — Translate a drug
 
-```
+```bash
 codex> translate
   Drug name (generic or brand): Advil
   Source language code (e.g. en, es, fr): en
@@ -124,8 +137,7 @@ codex> translate
   Country code (e.g. US, MX) or Enter to search all: MX
 ```
 
-Returns all matching brand names in the target language, sorted
-alphabetically:
+Returns all matching brand names in the target language, sorted alphabetically:
 
 ```
   Brand Name      Generic Name    Original Language   Translated Language
@@ -134,23 +146,15 @@ alphabetically:
   Anadvil         Ibuprofeno      English             Spanish
 ```
 
-Both generic names and brand names are valid search inputs:
-
-```
-codex> translate → Ibuprofen / en → es   (same result as above)
-codex> translate → Ibuprofeno / es → en  (reverse lookup)
-```
-
 ---
 
 ## CSV format
 
-All drug data is managed via CSV files.  **One row per (drug, brand, country).**
-Multiple brands for the same drug in the same country = multiple rows.
-
+All drug data is managed via CSV files. **One row per (drug, brand, country).**
 
 **Example — English (US):**
-```
+
+```csv
 DrugBank ID,Generic Name,Brand Name,Country,Source Language,Language Code
 DB00001,Ibuprofen,Advil,US,English,en
 DB00001,Ibuprofen,Motrin,US,English,en
@@ -158,38 +162,21 @@ DB00002,Acetaminophen,Tylenol,US,English,en
 ```
 
 **Example — Spanish (MX):**
-```
+
+```csv
 DrugBank ID,Generic Name,Brand Name,Country,Source Language,Language Code
 DB00001,Ibuprofeno,Advil,MX,Spanish,es
 DB00001,Ibuprofeno,Anadvil,MX,Spanish,es
 DB00002,Paracetamol,Tempra,MX,Spanish,es
 ```
 
-The `DrugBank ID` column is the cross-language key: the API uses it to match
-`Ibuprofen` (English/US) with `Ibuprofeno` (Spanish/MX) when translating.
-Files without a DrugBank ID column still import correctly but cross-language
-translation will only work if the canonical names are identical.
-
----
-
-## Adding a new language / country
-
-1. Create a new CSV file following the format above.
-2. Upload it:
-   ```
-   codex> csv upload /path/to/drugs_fr_FR.csv
-   ```
-3. Verify:
-   ```
-   codex> countries    # FR should now appear
-   codex> languages    # fr should now appear
-   ```
+The `DrugBank ID` column is the cross-language key used by the API to match terms across languages.
 
 ---
 
 ## JSON envelope format
 
-All API responses that return tabular data use this envelope:
+All API responses returning tabular data use this envelope:
 
 ```json
 {
@@ -207,15 +194,18 @@ All API responses that return tabular data use this envelope:
 
 ## API reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Liveness check — API + Neo4j |
-| POST | `/translate` | Translate a drug name between languages |
-| GET | `/audit/{term}` | Quality audit (missing translations / brands) |
-| GET | `/languages` | List language codes loaded in Neo4j |
-| GET | `/countries` | List supported countries and their languages |
-| POST | `/csv/upload` | Upload a Codex CSV → Neo4j |
-| GET | `/csv` | Export full drug catalogue (sorted) |
+
+| Method | Path            | Description                                                |
+| ------ | --------------- | ---------------------------------------------------------- |
+| GET    | `/health`       | Liveness check — API + Neo4j                               |
+| POST   | `/translate`    | Translate a drug name between languages                    |
+| GET    | `/audit/{term}` | Quality audit (missing translations / brands)              |
+| GET    | `/languages`    | List language codes loaded in Neo4j                        |
+| GET    | `/countries`    | List supported countries and their languages               |
+| POST   | `/csv/upload`   | Upload a Codex CSV → Neo4j                                 |
+| GET    | `/csv`          | Export full drug catalogue (sorted)                        |
+| POST   | `/ocrmatching/` | Extract text from image via OCR and fuzzy match drug terms |
+
 
 ### POST /translate — request body
 
@@ -228,14 +218,33 @@ All API responses that return tabular data use this envelope:
 }
 ```
 
-`term` accepts both generic names (`Ibuprofen`) and brand names (`Advil`).
-`country` is optional — omit it to return results across all countries.
-
 ---
 
-## Stopping Neo4j
+## Database Management &amp; Maintenance
 
-```bash
-docker-compose down          # stop (data is preserved)
-docker-compose down -v       # stop and wipe all data
-```
+### Changing the Neo4j password
+
+1. Edit `.env`:
+   ```
+    NEO4J_PASSWORD=your_new_password
+   ```
+2. Update `docker-compose.yml`:
+   ```yaml
+    NEO4J_AUTH: "neo4j/your_new_password"
+   ```
+3. Restart:
+   ```bash
+    docker compose down && docker compose up -d
+   ```
+
+### Stopping or Resetting Neo4j
+
+- **Stop containers (preserve data):**
+  ```bash
+  docker compose down
+  ```
+- **Reset and wipe all data:**
+  ```bash
+  docker compose down -v
+  ```
+

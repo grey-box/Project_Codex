@@ -1,0 +1,15 @@
+neo4j==5.18.0
+python-dotenv==1.0.1
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+httpx==0.27.0
+python-multipart==0.0.9
+sqlalchemy
+pydantic_settings
+scipy<1.11.0
+paddlepaddle
+paddleocr
+opencv-python-headless==4.9.0.80
+clamd~=1.0.2
+pillow~=11.2.1
+
