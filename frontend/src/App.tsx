@@ -8,6 +8,7 @@ import { TranslationPanel } from './components/translation/TranslationPanel'
 import type { SearchResultRow, TranslateResultRow, LanguageOption, CountryOption } from './types/codex'
 import { LANGUAGE_COUNTRY_MAP, FALLBACK_LANGUAGES } from './types/codex'
 import { getLanguageCatalog, searchDrug, translateDrug } from './services/api'
+import { useToastError } from './services/toasts'
 
 function App() {
   const { t, i18n } = useTranslation()
@@ -25,6 +26,9 @@ function App() {
   const [translatedBrand, setTranslatedBrand] = useState('')
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
+  const [hasQueryError, setHasQueryError] = useState(false)
+  useToastError(searchError)
+  useToastError(hasQueryError ? t('tools.searchRequired') : undefined)
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
@@ -189,15 +193,17 @@ function App() {
     return Array.from(new Set(brands)).join(', ')
   }
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchError(t('tools.searchRequired'))
+  const handleSearch = async (query = searchQuery) => {
+    if (!query.trim()) {
+      setHasQueryError(true)
+      document.getElementById('drug-search')?.focus()
       return
     }
+    setHasQueryError(false)
 
     clearTranslation()
     setHasSearched(true)
-    setSearchedQuery(searchQuery.trim())
+    setSearchedQuery(query.trim())
     setIsLoading(true)
     setSearchError('')
     setTranslateError('')
@@ -207,7 +213,7 @@ function App() {
     setTranslatedBrand('')
 
     try {
-      const data = await searchDrug(searchQuery)
+      const data = await searchDrug(query)
       setSearchResults(data)
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : t('tools.searchFailed'))
@@ -280,7 +286,8 @@ function App() {
                 setSearchLanguage(language)
                 setSelectedResult(null)
                 clearTranslation()
-              }} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery}
+              }} searchQuery={searchQuery} onSearchQueryChange={query => { setSearchQuery(query); setHasQueryError(false) }}
+                queryError={hasQueryError ? t('tools.searchRequired') : undefined}
                 onSearch={handleSearch} isLoading={isLoading} languages={languages} />
               {availableLanguages.length < loadedLanguages.length && (
                 <div className="workspace-filter-notice">
@@ -298,7 +305,7 @@ function App() {
                 onDeselectAllLanguages={handleDeselectAll}
                 onApplyLanguageFilter={handleApplyLanguageFilter}
               />}
-              onSelectResult={(result) => {
+              onRetry={() => handleSearch(searchedQuery)} onSelectResult={(result) => {
                 setSelectedResult(result)
                 clearTranslation()
               }} hasBrand={hasBrand} searchError={searchError} isLoading={isLoading} hasSearched={hasSearched} />

@@ -26,7 +26,7 @@ export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayo
       '.workspace-breadcrumb, .workspace-intro, .workspace-search, .workspace-results-heading, .workspace-translation'
     )
     const animations = Array.from(regions ?? []).map(region => region.animate(
-      [{ opacity: .55, transform: 'translateY(2px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      [{ opacity: .55 }, { opacity: 1 }],
       { duration: 160, easing: 'cubic-bezier(.2,.8,.2,1)' }
     ))
     return () => animations.forEach(animation => animation.cancel())

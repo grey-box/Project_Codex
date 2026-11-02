@@ -42,9 +42,11 @@ export const Input: React.FC<InputProps> = ({
               : 'border-slate-300 hover:border-slate-400'
           } ${className}`}
           {...props}
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={[props['aria-describedby'], error && id ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined}
         />
       </div>
-      {error && <span className="text-xs text-rose-600 font-medium">{error}</span>}
+      {error && <span id={id ? `${id}-error` : undefined} className="workspace-field-error text-xs text-rose-600 font-medium">{error}</span>}
     </div>
   )
 }

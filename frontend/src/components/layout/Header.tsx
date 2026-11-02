@@ -29,8 +29,6 @@ export const Header: React.FC<HeaderProps> = ({ languages, navigationOpen, isMob
           </svg>
         </button>
         <nav aria-label={t('workspace.breadcrumb')} className="workspace-breadcrumb">
-          <a href="#main-content">Medical Codex</a>
-          <svg className="workspace-breadcrumb-separator" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
           <span aria-current="page">{t('workspace.medications')}</span>
         </nav>
         <LanguageSelector languages={languages} />

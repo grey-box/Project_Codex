@@ -181,6 +181,8 @@
     "searchFailed": "An error occurred during search",
     "selectResult": "Select a search result first",
     "noTranslation": "No translation found for the selected language",
-    "translationFailed": "Translation failed"
+    "translationFailed": "Translation failed",
+    "tryAgain": "Try again",
+    "dismissMessage": "Dismiss message"
   }
 }

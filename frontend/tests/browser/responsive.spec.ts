@@ -115,7 +115,7 @@ test('phone dialogs fit long filenames and allow all form actions', async ({ pag
   await inViewport(dialog.getByRole('button', { name: 'Upload Pack' }), page)
   await page.screenshot({ path: testInfo.outputPath('phone-import.png') })
   await dialog.getByRole('button', { name: 'Upload Pack' }).click()
-  await expect(dialog.getByRole('alert')).toContainText('Fixture language pack imported')
+  await expect(dialog.getByRole('status')).toContainText('Fixture language pack imported')
 })
 
 test('selected details can be reached directly from phone results', async ({ page }, testInfo) => {

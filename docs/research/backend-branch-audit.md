@@ -88,3 +88,43 @@ Language changes use the browser's Web Animations API for a brief fade without
 remounting application state. No animation dependency was added. Reduced motion
 bypasses those effects. Wrapped navigation labels share left alignment and a
 fixed icon column.
+
+## Search semantics and sample-data scope
+
+The term metadata queries compare each translation's text with its canonical
+spelling. Logan introduced this in commit `39cf2ef`. It could intentionally
+describe where that exact spelling is used, rather than every language into
+which a medicine can be translated. The commit message does not resolve that
+question. Existing query behavior is preserved pending an API-team decision.
+
+The [2026 project plan](https://app.notion.com/p/134815ddf30b809ea25fd02a48e2fdbc)
+describes ongoing ingestion and mapping across medical databases. The
+[UI epic](https://app.notion.com/p/3dd815ddf30b80dba962fd53ca90ffce) expects API
+integration, with backend functionality supplied by the backend team. Neither
+establishes a sample-only final product. Sebastian's README explicitly documents
+automatic demo packs for development and disabling them for clean ingestion tests.
+The October 10 local research note proposes temporary stubs while integration
+is pending; its attribution to an October 8 Slack suggestion was not independently
+verified in the focused Slack searches. It is not treated as a sponsor mandate.
+
+No provider population was started. Sample data in this preview is served by
+the real local Neo4j-backed API, not a frontend mock. Provider ingestion and
+successful account-backed administration remain unverified.
+
+## UI follow-up
+
+Language fades use opacity without moving bottom-edge panels, preventing
+temporary page overflow. Loading placeholders follow the list structure shown by
+[Grain](https://mobbin.com/screens/8755a9ed-34c8-4e4b-af8a-80a965bbc4a9) and
+[Navan](https://mobbin.com/screens/2c395ab1-c8d1-4753-b1d3-7a79935aa2c6).
+Recoverable search errors use the retry pattern shown by
+[Care.com](https://mobbin.com/screens/5bea7e07-ed66-498c-9862-a7e7110507f2).
+Validation stays associated with its field; failures also use shared dismissible
+toasts. Source checkboxes and counts are compact and neutral. The breadcrumb
+shows Medications without an invented parent. A native SVG illustrates help.
+
+Radix Select provides the custom language/country popup's keyboard navigation,
+focus management and typeahead. This adds a UI dependency; motion still has no
+animation-library dependency. Footer destinations come from the
+[official Grey-box website](https://www.grey-box.ca/home/), since Stephen's
+branch supplied buttons without URLs.

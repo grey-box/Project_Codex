@@ -1,6 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Alert } from '../ui'
+import { Button } from '../ui'
 import type { SearchResultRow } from '../../types/codex'
 
 interface ResultsTableProps {
@@ -13,6 +13,7 @@ interface ResultsTableProps {
   query: string
   tools: React.ReactNode
   searchError?: string
+  onRetry: () => void
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -25,6 +26,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   hasSearched,
   query,
   tools,
+  onRetry,
 }) => {
   const { t } = useTranslation()
 
@@ -56,9 +58,23 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         {tools}
       </div>
 
-      {searchError && <div className="px-6 pb-4"><Alert type="error" message={searchError} /></div>}
-
-      {results.length > 0 ? (
+      {isLoading ? (
+        <div className="workspace-results-loading" role="status">
+          <h3>{t('workspace.searching')}</h3>
+          <div aria-hidden="true" className="workspace-skeleton-list">
+            {[0, 1, 2, 3].map(row => <div className="workspace-skeleton-row" key={row}>
+              <span /><span /><span />
+            </div>)}
+          </div>
+        </div>
+      ) : searchError ? (
+        <div className="workspace-results-empty workspace-results-error">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v6m0 3h.01" /></svg>
+          <h3>{t('workspace.searchFailed')}</h3>
+          <p>{searchError}</p>
+          <Button type="button" variant="secondary" onClick={onRetry}>{t('tools.tryAgain')}</Button>
+        </div>
+      ) : results.length > 0 ? (
         <>
           {/* Desktop & Tablet Table View */}
           <div className="workspace-result-table overflow-hidden bg-white">

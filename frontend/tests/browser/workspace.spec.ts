@@ -19,6 +19,12 @@ async function fixture(page: Page) {
   await expect(page.getByRole('heading', { name: 'Start with a medication name' })).toBeVisible()
 }
 
+
+async function choose(page: Page, selector: string, value: string) {
+  await page.locator(selector).click()
+  await page.getByRole('option', { name: new RegExp(`\\(${value.toUpperCase()}\\)$`) }).click()
+}
+
 async function search(page: Page) {
   await page.getByLabel('Medication name', { exact: true }).fill('ibuprofen')
   await page.getByLabel('Medication name', { exact: true }).press('Enter')
@@ -34,7 +40,7 @@ test('search, keyboard selection, translation and destination changes', async ({
   await expect(medication).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'Translate', exact: true }).click()
   await expect(page.locator('.workspace-translation-output dd').filter({ hasText: 'Fixture translation' })).toBeVisible()
-  await page.getByLabel('Target Country', { exact: true }).selectOption('ES')
+  await choose(page, '#target-country', 'ES')
   await expect(page.locator('.workspace-translation-output dd')).toHaveCount(0)
 })
 
@@ -56,9 +62,11 @@ test('offline language options include the Russian and Ukrainian bundled packs',
   await fixture(page)
   await page.route('**/languages', route => route.fulfill({ status: 503, json: { detail: 'Fixture unavailable' } }))
   await page.reload()
-  await expect(page.getByLabel('Search language').locator('option')).toHaveText([
+  await page.getByLabel('Search language', { exact: true }).click()
+  await expect(page.getByRole('option')).toHaveText([
     'All languages', 'English (EN)', 'Spanish (ES)', 'French (FR)', 'Russian (RU)', 'Ukrainian (UK)',
   ])
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Filter Languages (5/5)', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: /Russian/ })).toBeChecked()
   await expect(page.getByRole('checkbox', { name: /Ukrainian/ })).toBeChecked()
@@ -72,6 +80,7 @@ test('loading, no matches, failed request and retry have distinct states', async
   await page.getByLabel('Medication name', { exact: true }).fill('missing')
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Searching…' })).toBeVisible()
+  await expect(page.locator('.workspace-skeleton-row')).toHaveCount(4)
   release()
   await expect(page.getByRole('heading', { name: 'No matching medications' })).toBeVisible()
   await page.route('**/search?*', route => route.fulfill({ status: 503, json: { detail: 'Fixture unavailable' } }))
@@ -200,7 +209,7 @@ test('mobile navigation traps focus, dismisses and keeps search state', async ({
   await page.screenshot({ path: testInfo.outputPath('mobile-navigation.png') })
   await drawer.getByRole('link', { name: 'Medical Codex', exact: true }).focus()
   await page.keyboard.press('Shift+Tab')
-  await expect(drawer.getByRole('button', { name: 'Account', exact: true })).toBeFocused()
+  await expect(drawer.getByRole('link', { name: 'Grey-box on Facebook', exact: true })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(drawer.getByRole('link', { name: 'Medical Codex', exact: true })).toBeFocused()
   await page.keyboard.press('Escape')
@@ -406,8 +415,10 @@ for (const locale of [
     await page.locator('#drug-search').fill('ibuprofen')
     await page.getByRole('button', { name: locale.search, exact: true }).click()
     await page.getByRole('button', { name: /^Ibuprofen(?: |$)/ }).click()
-    await page.locator('#target-language').selectOption(locale.code)
-    await expect(page.locator('#target-country option')).toHaveCount(1)
+    await choose(page, '#target-language', locale.code)
+    await page.locator('#target-country').click()
+    await expect(page.getByRole('option')).toHaveCount(1)
+    await page.keyboard.press('Escape')
     await expect(page.locator('#target-country')).toContainText(locale.country)
     await page.getByRole('button', { name: new RegExp(locale.filter) }).click()
     await expect(page.getByRole('dialog')).toContainText(locale.code === 'ru' ? 'Фильтр активных языков' : 'Фільтр активних мов')
@@ -427,10 +438,12 @@ test('server country mappings replace defaults for newly loaded packs', async ({
   await page.reload()
   await search(page)
   await page.getByRole('button', { name: 'Ibuprofen', exact: true }).click()
-  await expect(page.locator('#target-country')).toHaveValue('AR')
-  await page.locator('#target-language').selectOption('en')
-  await expect(page.locator('#target-country')).toHaveValue('NZ')
-  await expect(page.locator('#target-country option')).toHaveCount(1)
+  await expect(page.locator('#target-country')).toHaveAttribute('data-value', 'AR')
+  await choose(page, '#target-language', 'en')
+  await expect(page.locator('#target-country')).toHaveAttribute('data-value', 'NZ')
+  await page.locator('#target-country').click()
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await page.keyboard.press('Escape')
 })
 
 test('reduced motion disables new menu and dialog animations', async ({ page }) => {
@@ -452,7 +465,7 @@ test('long sidebar translations keep their text aligned after wrapping', async (
     await page.locator('header [data-dropdown-panel]').getByRole('button', { name: new RegExp(`${code}$`) }).click()
     await expect(page.locator('header [data-dropdown-panel]')).toHaveCount(0)
     const starts = await page.locator('.workspace-nav-active,.workspace-sidebar-group > button,.workspace-sidebar-group > div > div:first-child > button').evaluateAll(items => items.map(item => {
-      const label = item.querySelector(':scope > span:last-of-type')!
+      const label = item.querySelector(':scope > span:last-of-type') ?? Array.from(item.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())!
       const range = document.createRange()
       range.selectNodeContents(label)
       const firstLine = range.getClientRects()[0]
@@ -464,4 +477,77 @@ test('long sidebar translations keep their text aligned after wrapping', async (
     }
   }
   await page.screenshot({ path: testInfo.outputPath('ukrainian-sidebar.png'), animations: 'disabled' })
+})
+
+test('empty input keeps previous results and exposes a dismissible validation toast', async ({ page }) => {
+  await fixture(page)
+  await search(page)
+  await page.locator('#drug-search').fill('')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.locator('#drug-search')).toBeFocused()
+  await expect(page.locator('#drug-search')).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByRole('alert')).toHaveText('Please enter a search term')
+  await expect(page.getByRole('button', { name: 'Ibuprofen', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Dismiss message', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.locator('#drug-search').fill('ibuprofen')
+  await expect(page.locator('#drug-search')).not.toHaveAttribute('aria-invalid', 'true')
+})
+
+test('custom language picker supports keyboard selection and restores focus', async ({ page }) => {
+  await fixture(page)
+  const picker = page.getByRole('combobox', { name: 'Search language', exact: true })
+  await picker.focus()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('listbox')).toBeVisible()
+  await page.keyboard.press('End')
+  await expect(page.getByRole('option', { name: 'French (FR)', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(picker).toHaveText('French (FR)')
+  await expect(picker).toBeFocused()
+  await picker.click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('listbox')).toHaveCount(0)
+  await expect(picker).toBeFocused()
+})
+
+test('language fades do not temporarily add page overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 1000 })
+  await fixture(page)
+  await page.locator('header').getByRole('button', { name: 'English', exact: true }).click()
+  const [samples] = await Promise.all([
+    page.evaluate(async () => {
+      const frames: { h: number; w: number }[] = []
+      for (let i = 0; i < 30; i++) {
+        await new Promise(requestAnimationFrame)
+        frames.push({ h: document.documentElement.scrollHeight, w: document.documentElement.scrollWidth })
+      }
+      return frames
+    }),
+    page.getByRole('button', { name: 'French fr', exact: true }).click(),
+  ])
+  expect(Math.max(...samples.map(sample => sample.h))).toBeLessThanOrEqual(Math.max(samples[0].h, samples.at(-1)!.h))
+  expect(Math.max(...samples.map(sample => sample.w))).toBeLessThanOrEqual(1024)
+})
+
+test('failed searches offer retry and clear the error toast after success', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/search?*', route => route.fulfill({ status: 503, json: { detail: 'Fixture connection unavailable' } }))
+  await page.locator('#drug-search').fill('ibuprofen')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Fixture connection unavailable')
+  await page.route('**/search?*', route => route.fulfill({ json: medications }))
+  await page.getByRole('button', { name: 'Try again', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Ibuprofen', exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('population errors use the shared toast and retain selected sources', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/api/populate-sources', route => route.fulfill({ status: 401, json: { detail: 'Fixture sign in required' } }))
+  await page.getByRole('button', { name: 'Populate sources', exact: true }).click()
+  await page.getByRole('checkbox', { name: /DrugBank/ }).check()
+  await page.getByRole('button', { name: 'Populate (1)', exact: true }).click()
+  await expect(page.locator('.workspace-toast')).toContainText('Please sign in before populating data sources.')
+  await expect(page.getByRole('checkbox', { name: /DrugBank/ })).toBeChecked()
 })

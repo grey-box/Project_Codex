@@ -119,5 +119,9 @@
         "body": "Selecciona las fuentes y proporciona las credenciales API necesarias. El panel muestra el progreso y los errores."
       }
     }
+  },
+  "tools": {
+    "tryAgain": "Reintentar",
+    "dismissMessage": "Cerrar mensaje"
   }
 }

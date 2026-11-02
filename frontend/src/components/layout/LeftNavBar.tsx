@@ -4,6 +4,7 @@ import { PopulateDropdown } from '../populate/PopulateDropdown'
 import { ImportLanguageModal } from '../import/ImportLanguageModal'
 import { OcrModal } from '../ocr/OcrModal'
 import { AccountMenu } from './AccountMenu'
+import { WorkspaceFooter } from './WorkspaceFooter'
 import type { WorkspaceToolsProps } from './WorkspaceTools'
 
 interface LeftNavBarProps extends WorkspaceToolsProps {
@@ -40,6 +41,7 @@ export const LeftNavBar: React.FC<LeftNavBarProps> = ({ onImportSuccess, onSelec
         </div>
       </nav>
       <AccountMenu />
+      <WorkspaceFooter />
     </>
   )
 }

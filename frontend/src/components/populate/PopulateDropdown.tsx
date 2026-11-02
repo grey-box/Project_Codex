@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Dropdown } from '../ui'
+import { Alert, Button, Dropdown } from '../ui'
 import { API_BASE_URL } from '../../services/api'
 import { readPopulationResponse } from '../../services/population'
 import { getAuthHeaders } from '../../services/session'
@@ -97,7 +97,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
         >
           <span>{triggerLabel || t('sides.populateButton') || 'Populate'}</span>
           {selectedCount > 0 && (
-            <span className="bg-emerald-400 text-slate-900 text-xs font-bold px-1.5 py-0.5 rounded-full">
+            <span className="workspace-source-count">
               {selectedCount}
             </span>
           )}
@@ -114,7 +114,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
     >
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
         <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-          <span>🧬</span> {t('sides.populateLabel') || 'Populate local source(s):'}
+          {t('sides.populateLabel') || 'Populate local source(s):'}
         </h4>
         <span className="text-xs text-slate-400 font-medium">Neo4j</span>
       </div>
@@ -124,7 +124,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
         {SOURCES.map((source) => (
           <label
             key={source.id}
-            className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${
+            className={`workspace-source-option flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${
               selectedSources[source.id]
                 ? 'bg-emerald-50 border-emerald-200'
                 : 'bg-slate-50 hover:bg-slate-100 border-transparent'
@@ -203,9 +203,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
         </div>
       )}
       {populationError && (
-        <div role="alert" className="mb-3 p-2 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 font-medium wrap-break-word text-center">
-          {populationError}
-        </div>
+        <Alert type="error" message={populationError} />
       )}
 
       {/* Action Button */}

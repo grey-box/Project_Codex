@@ -115,5 +115,9 @@
         "body": "Sélectionnez les sources et fournissez les identifiants API nécessaires. Le panneau affiche la progression et les erreurs."
       }
     }
+  },
+  "tools": {
+    "tryAgain": "Réessayer",
+    "dismissMessage": "Fermer le message"
   }
 }
