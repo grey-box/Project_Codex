@@ -11,6 +11,7 @@ export default defineConfig({
       : undefined,
   },
   webServer: {
+    env: { VITE_API_BASE_URL: 'http://localhost:8000' },
     command: 'npm run dev -- --host 127.0.0.1 --port 9402',
     url: 'http://127.0.0.1:9402',
     reuseExistingServer: !process.env.CI,

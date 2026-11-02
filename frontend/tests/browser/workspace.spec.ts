@@ -52,6 +52,18 @@ test('language filters hide records and reset restores them without another sear
   expect(searches).toBe(0)
 })
 
+test('offline language options include the Russian and Ukrainian bundled packs', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/languages', route => route.fulfill({ status: 503, json: { detail: 'Fixture unavailable' } }))
+  await page.reload()
+  await expect(page.getByLabel('Search language').locator('option')).toHaveText([
+    'All languages', 'English (EN)', 'Spanish (ES)', 'French (FR)', 'Russian (RU)', 'Ukrainian (UK)',
+  ])
+  await page.getByRole('button', { name: 'Filter Languages (5/5)', exact: true }).click()
+  await expect(page.getByRole('checkbox', { name: /Russian/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: /Ukrainian/ })).toBeChecked()
+})
+
 test('loading, no matches, failed request and retry have distinct states', async ({ page }) => {
   await fixture(page)
   let release: () => void = () => {}
@@ -218,7 +230,7 @@ test('top navigation collapses the sidebar without clearing work and keeps resiz
   await expect(expand).toBeFocused()
   await expect(expand).toHaveAttribute('aria-expanded', 'false')
   await expect(page.getByRole('navigation', { name: 'Workspace tools', exact: true })).toHaveCount(0)
-  expect((await page.locator('.workspace-content').boundingBox())?.x).toBe(0)
+  await expect.poll(async () => (await page.locator('.workspace-content').boundingBox())?.x).toBe(0)
   await expect(page.getByLabel('Medication name', { exact: true })).toHaveValue('ibuprofen')
   await expect(page.getByRole('button', { name: 'Ibuprofen', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.workspace-translation-output')).toContainText('Fixture translation')
@@ -299,10 +311,12 @@ test('an open tool remains usable when resizing between desktop and mobile', asy
 test('account menu remembers appearance and opens embedded help with focus restored', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   await fixture(page)
+  const searchButton = page.getByRole('button', { name: 'Search', exact: true })
   await page.getByRole('button', { name: 'Account', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'Dark', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(searchButton).toHaveCSS('color', 'rgb(255, 255, 255)')
   await expect(page.getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'false')
   await page.getByRole('button', { name: 'Project documentation' }).click()
@@ -372,4 +386,82 @@ test('sidebar import refreshes the shared header languages and result filters', 
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /Filter Languages \(4\/4\)/ }).click()
   await expect(page.getByRole('checkbox', { name: /German/ })).toBeChecked()
+})
+
+for (const locale of [
+  { code: 'ru', option: 'Russian ru', title: 'Лекарства', search: 'Поиск', scan: 'Сканировать лекарство', filter: 'Фильтр языков', country: 'Россия', close: 'Закрыть окно' },
+  { code: 'uk', option: 'Ukrainian uk', title: 'Ліки', search: 'Пошук', scan: 'Сканувати ліки', filter: 'Фільтр мов', country: 'Україна', close: 'Закрити вікно' },
+]) {
+  test(`${locale.code} translates the workspace and tool dialogs on a phone`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await fixture(page)
+    await page.route('**/languages', route => route.fulfill({ json: {
+      languages: ['en', 'es', 'ru', 'uk'],
+      countries: { en: [{ code: 'US', label: 'US' }], es: [{ code: 'ES', label: 'ES' }], ru: [{ code: 'RU', label: 'RU' }], uk: [{ code: 'UA', label: 'UA' }] },
+    } }))
+    await page.reload()
+    await page.locator('header').getByRole('button', { name: 'English', exact: true }).click()
+    await page.getByRole('button', { name: locale.option, exact: true }).click()
+    await expect(page.getByRole('heading', { name: locale.title, exact: true })).toBeVisible()
+    await page.locator('#drug-search').fill('ibuprofen')
+    await page.getByRole('button', { name: locale.search, exact: true }).click()
+    await page.getByRole('button', { name: /^Ibuprofen(?: |$)/ }).click()
+    await page.locator('#target-language').selectOption(locale.code)
+    await expect(page.locator('#target-country option')).toHaveCount(1)
+    await expect(page.locator('#target-country')).toContainText(locale.country)
+    await page.getByRole('button', { name: new RegExp(locale.filter) }).click()
+    await expect(page.getByRole('dialog')).toContainText(locale.code === 'ru' ? 'Фильтр активных языков' : 'Фільтр активних мов')
+    await page.getByRole('button', { name: locale.close, exact: true }).click()
+    await page.locator('.workspace-navigation-toggle').click()
+    await page.getByRole('button', { name: locale.scan, exact: true }).click()
+    await expect(page.getByRole('dialog').last()).toContainText(locale.code === 'ru' ? 'Распознать и найти' : 'Розпізнати та знайти')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}
+
+test('server country mappings replace defaults for newly loaded packs', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/languages', route => route.fulfill({ json: {
+    languages: ['en', 'es'], countries: { en: [{ code: 'NZ', label: 'NZ' }], es: [{ code: 'AR', label: 'AR' }] },
+  } }))
+  await page.reload()
+  await search(page)
+  await page.getByRole('button', { name: 'Ibuprofen', exact: true }).click()
+  await expect(page.locator('#target-country')).toHaveValue('AR')
+  await page.locator('#target-language').selectOption('en')
+  await expect(page.locator('#target-country')).toHaveValue('NZ')
+  await expect(page.locator('#target-country option')).toHaveCount(1)
+})
+
+test('reduced motion disables new menu and dialog animations', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await fixture(page)
+  await page.getByRole('button', { name: 'Account', exact: true }).click()
+  await expect(page.locator('[data-dropdown-panel]')).toHaveCSS('animation-name', 'none')
+  await page.getByRole('button', { name: 'Project documentation', exact: true }).click()
+  await expect(page.locator('.workspace-modal')).toHaveCSS('animation-name', 'none')
+})
+
+test('long sidebar translations keep their text aligned after wrapping', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1024, height: 1000 })
+  await fixture(page)
+  await page.route('**/languages', route => route.fulfill({ json: { languages: ['en', 'es', 'fr', 'de', 'ru', 'uk'] } }))
+  await page.reload()
+  for (const code of ['es', 'fr', 'de', 'ru', 'uk']) {
+    await page.locator('header [data-variant=nav]').click()
+    await page.locator('header [data-dropdown-panel]').getByRole('button', { name: new RegExp(`${code}$`) }).click()
+    await expect(page.locator('header [data-dropdown-panel]')).toHaveCount(0)
+    const starts = await page.locator('.workspace-nav-active,.workspace-sidebar-group > button,.workspace-sidebar-group > div > div:first-child > button').evaluateAll(items => items.map(item => {
+      const label = item.querySelector(':scope > span:last-of-type')!
+      const range = document.createRange()
+      range.selectNodeContents(label)
+      const firstLine = range.getClientRects()[0]
+      return { x: firstLine.x, right: firstLine.right, edge: item.getBoundingClientRect().right }
+    }))
+    for (const item of starts) {
+      expect(Math.abs(item.x - starts[0].x)).toBeLessThan(1)
+      expect(item.right).toBeLessThanOrEqual(item.edge)
+    }
+  }
+  await page.screenshot({ path: testInfo.outputPath('ukrainian-sidebar.png'), animations: 'disabled' })
 })

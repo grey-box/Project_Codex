@@ -12,10 +12,10 @@ interface SourceOption {
 }
 
 const SOURCES: SourceOption[] = [
-  { id: 'drugbank', label: 'DrugBank', description: 'Pharmaceutical & commercial brand database' },
-  { id: 'snomed', label: 'SNOMED CT', description: 'Global clinical terminology & diagnoses' },
-  { id: 'rxnorm', label: 'RxNorm', description: 'Standardized clinical drugs (US NLM)' },
-  { id: 'icd11', label: 'ICD-11', description: 'WHO International Classification of Diseases' },
+  { id: 'drugbank', label: 'DrugBank', description: 'tools.drugbank' },
+  { id: 'snomed', label: 'SNOMED CT', description: 'tools.snomed' },
+  { id: 'rxnorm', label: 'RxNorm', description: 'tools.rxnorm' },
+  { id: 'icd11', label: 'ICD-11', description: 'tools.icd11' },
 ]
 
 interface PopulateDropdownProps {
@@ -53,7 +53,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
 
     setIsLoading(true)
     setPopulationError('')
-    setProgress('Starting population...')
+    setProgress(t('tools.populationStarting'))
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/populate-sources`, {
@@ -68,10 +68,10 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
       })
 
       await readPopulationResponse(response, setProgress)
-      setProgress('Successfully populated Neo4j!')
+      setProgress(t('tools.populationSuccess'))
     } catch (error) {
       setProgress('')
-      setPopulationError(error instanceof Error ? error.message : 'Error processing population request.')
+      setPopulationError(error instanceof Error ? error.message : t('tools.populationFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -138,7 +138,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
             />
             <div className="flex-1 text-xs">
               <div className="font-semibold text-slate-800">{source.label}</div>
-              <div className="text-slate-500">{source.description}</div>
+              <div className="text-slate-500">{t(source.description)}</div>
             </div>
           </label>
         ))}
@@ -176,7 +176,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
               type="text"
               value={icdID}
               onChange={(e) => setIcdID(e.target.value)}
-              placeholder="Client ID"
+              placeholder={t('tools.clientId')}
               className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
             />
           </div>
@@ -189,7 +189,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
               type="password"
               value={icdSecret}
               onChange={(e) => setIcdSecret(e.target.value)}
-              placeholder="Client Secret"
+              placeholder={t('tools.clientSecret')}
               className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
             />
           </div>

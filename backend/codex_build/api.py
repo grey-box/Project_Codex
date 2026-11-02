@@ -33,7 +33,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 import ast
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 import jwt
@@ -253,6 +253,7 @@ class AuditResponse(BaseModel):
 
 class LanguagesResponse(BaseModel):
     languages: list[str]
+    countries: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
 
 
 class MessageResponse(BaseModel):
@@ -551,11 +552,18 @@ def list_languages():
     """Returns every language code that has at least one translation node in Neo4j."""
     try:
         with driver.session() as session:
-            records = session.run(
-                "MATCH (l:Language) RETURN l.code AS code ORDER BY code"
-            )
-            codes = [r["code"] for r in records if r["code"]]
-        return LanguagesResponse(languages=codes)
+            # Country discovery follows Sebastian's dynamic-language implementation.
+            records = session.run("""
+                MATCH (tr:Translation)-[:IN_LANGUAGE]->(l:Language)
+                OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
+                RETURN l.code AS code, collect(DISTINCT c.iso2) AS countries
+                ORDER BY code
+            """)
+            countries = {
+                r["code"]: [{"code": c, "label": c} for c in sorted(r["countries"]) if c]
+                for r in records if r["code"]
+            }
+        return LanguagesResponse(languages=list(countries), countries=countries)
     except Exception as exc:
         log.exception("list_languages failed")
         raise HTTPException(status_code=500, detail=str(exc))

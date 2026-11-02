@@ -24,7 +24,7 @@ export async function loginUser(email: string, password: string): Promise<void> 
 /**
  * Fetches available language codes that have data in Neo4j.
  */
-export async function getLanguages(): Promise<string[]> {
+export async function getLanguageCatalog(): Promise<LanguagesResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/languages`, { headers: getAuthHeaders() })
     if (!response.ok) {
@@ -32,11 +32,11 @@ export async function getLanguages(): Promise<string[]> {
     }
     const data = (await response.json()) as LanguagesResponse
     return Array.isArray(data.languages) && data.languages.length > 0
-      ? data.languages
-      : FALLBACK_LANGUAGES
+      ? data
+      : { languages: FALLBACK_LANGUAGES }
   } catch (error) {
     console.warn('Using fallback languages due to error:', error)
-    return FALLBACK_LANGUAGES
+    return { languages: FALLBACK_LANGUAGES }
   }
 }
 

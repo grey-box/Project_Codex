@@ -29,7 +29,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
     setImportMessage('')
 
     if (!file.name.toLowerCase().endsWith('.json')) {
-      setImportError('El archivo debe tener extensión .json.')
+      setImportError(t('tools.jsonExtension'))
       setSelectedFile(null)
       return
     }
@@ -39,11 +39,11 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
       const json = JSON.parse(text)
 
       if (!json || typeof json !== 'object' || Array.isArray(json)) {
-        throw new Error('El JSON debe ser un objeto válido.')
+        throw new Error(t('tools.jsonObject'))
       }
 
       if (!json.language || !json.language.code || !Array.isArray(json.terms)) {
-        throw new Error("El archivo no tiene el formato de Language Pack (debe incluir 'language.code' y la lista 'terms').")
+        throw new Error(t('tools.packFormat'))
       }
 
       setSelectedFile(file)
@@ -51,7 +51,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
     } catch (err) {
       setSelectedFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
-      setImportError(err instanceof SyntaxError ? 'El archivo está corrupto o no es un JSON válido.' : (err as Error).message)
+      setImportError(err instanceof SyntaxError ? t('tools.jsonInvalid') : (err as Error).message)
     }
   }
 
@@ -85,7 +85,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
     setImportError('')
 
     if (!selectedFile) {
-      setImportError('Por favor selecciona un archivo .json válido primero.')
+      setImportError(t('tools.selectPack'))
       return
     }
 
@@ -102,11 +102,11 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
 
       if (!response.ok) {
         const errData = await response.json().catch(() => null)
-        throw new Error(errData?.detail || 'Failed to import language pack')
+        throw new Error(errData?.detail || t('tools.importFailed'))
       }
 
       const data = await response.json()
-      setImportMessage(data.message || 'Language pack imported successfully!')
+      setImportMessage(data.message || t('tools.importSuccess'))
       onImportSuccess?.()
       setTimeout(() => {
         resetAndClose()
@@ -150,7 +150,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
         isOpen={isOpen}
         onClose={resetAndClose}
         title={t('home.importTitle') || 'Import Language Pack'}
-        subtitle="Upload a standardized .json language pack to Neo4j"
+        subtitle={t('tools.importSubtitle')}
         icon="📁"
       >
         <form onSubmit={handleUpload} className="space-y-4">
@@ -162,7 +162,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
             onClick={() => fileInputRef.current?.click()}
             role="button"
             tabIndex={0}
-            aria-label="Choose language pack file"
+            aria-label={t('tools.choosePack')}
             onKeyDown={event => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
@@ -193,7 +193,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
                   {(selectedFile.size / 1024).toFixed(1)} KB
                 </span>
                 <span className="text-xs text-emerald-600 font-medium underline mt-1">
-                  Click to choose another file
+                  {t('tools.anotherFile')}
                 </span>
               </div>
             ) : (
@@ -204,10 +204,10 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <span className="text-sm font-semibold text-emerald-700">Click to upload</span>
-                  <span className="text-sm text-slate-600"> or drag and drop</span>
+                  <span className="text-sm font-semibold text-emerald-700">{t('tools.clickUpload')}</span>
+                  <span className="text-sm text-slate-600">{t('tools.dragDrop')}</span>
                 </div>
-                <p className="text-xs text-slate-400">Supported format: JSON (.json)</p>
+                <p className="text-xs text-slate-400">{t('tools.jsonFormat')}</p>
               </div>
             )}
           </div>
@@ -224,7 +224,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
               size="sm"
               onClick={resetAndClose}
             >
-              Cancel
+              {t('tools.cancel')}
             </Button>
             <Button
               type="submit"
@@ -233,7 +233,7 @@ export const ImportLanguageModal: React.FC<ImportLanguageModalProps> = ({
               isLoading={isImporting}
               disabled={!selectedFile}
             >
-              Upload Pack
+              {t('tools.uploadPack')}
             </Button>
           </div>
         </form>

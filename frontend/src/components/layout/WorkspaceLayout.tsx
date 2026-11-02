@@ -14,7 +14,23 @@ interface WorkspaceLayoutProps extends WorkspaceToolsProps {
 }
 
 export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayoutProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const shellRef = useRef<HTMLDivElement>(null)
+  const previousLanguage = useRef(i18n.language)
+  useEffect(() => {
+    document.documentElement.lang = i18n.resolvedLanguage || i18n.language
+    if (previousLanguage.current === i18n.language) return
+    previousLanguage.current = i18n.language
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const regions = shellRef.current?.querySelectorAll<HTMLElement>(
+      '.workspace-breadcrumb, .workspace-intro, .workspace-search, .workspace-results-heading, .workspace-translation'
+    )
+    const animations = Array.from(regions ?? []).map(region => region.animate(
+      [{ opacity: .55, transform: 'translateY(2px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 160, easing: 'cubic-bezier(.2,.8,.2,1)' }
+    ))
+    return () => animations.forEach(animation => animation.cancel())
+  }, [i18n.language, i18n.resolvedLanguage])
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
@@ -94,7 +110,7 @@ export function WorkspaceLayout({ languages, children, ...tools }: WorkspaceLayo
   }
 
   return (
-    <div className="workspace-shell" data-sidebar-collapsed={sidebarCollapsed}>
+    <div className="workspace-shell" ref={shellRef} data-sidebar-collapsed={sidebarCollapsed}>
       <a className="skip-link" href="#drug-search" inert={drawerOpen}>{t('workspace.skipToSearch')}</a>
       {drawerOpen && <button type="button" className="workspace-navigation-backdrop"
         tabIndex={-1} aria-label={t('workspace.closeNavigation')} onClick={closeNavigation} />}

@@ -10,6 +10,7 @@ export interface LanguageOption {
 
 export interface LanguagesResponse {
   languages: string[]
+  countries?: Record<string, CountryOption[]>
 }
 
 export interface SearchResultRow {
@@ -80,7 +81,8 @@ export const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
   ],
 }
 
-export const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
+// These five language packs ship with the API. Used when it cannot be reached.
+export const FALLBACK_LANGUAGES = ['en', 'es', 'fr', 'ru', 'uk']
 
 export interface OcrExtractedText {
   rec_text?: string

@@ -61,6 +61,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
           <button
             key={lang.code}
             type="button"
+            data-dropdown-close
             onClick={() => handleSelectLanguage(lang.code)}
             className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-left ${
               i18n.language === lang.code
