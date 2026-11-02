@@ -25,7 +25,7 @@ import os
 import sys
 import tempfile
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +53,7 @@ try:
     from codex.neo4j_driver import (
         driver,
         get_drugs_table,  # Retrieves the full medication catalogue from Neo4j
+        get_rxnorm_drugs, # Retrieves 
         language_exists,
         find_missing_translations,
         find_missing_brands,
@@ -129,10 +130,12 @@ class DrugRow(BaseModel):
     translated_language: str
 
 
-# Defines the response containing the drug catalogue and total number of rows
+
+# Stores the medication records and total number of rows
 class CsvExportResponse(BaseModel):
-    csv: List[DrugRow]
+    csv: List[dict]
     row_count: int
+
 
 
 class SourceSelection(BaseModel):
@@ -262,30 +265,55 @@ class HealthResponse(BaseModel):
     tags=["data"],
     summary="Retrieve the full medication catalogue"
 )
-def export_csv():
+
+# Retrieve medication records from the selected data source
+def export_csv(
+    name_type: Literal["generic", "brand"] = "generic",
+    start_name: Optional[str] = None,
+    end_name: Optional[str] = None,
+    source: Literal["demo", "rxnorm"] = "demo"
+):
     """
-    Gets all medications from Neo4j and returns them as JSON.
-    The frontend can use these records to generate a CSV file.
+    Returns medication records with optional alphabetical filtering.
     """
+    # Remove any extra spaces from the name range
+    start_name = start_name.strip() if start_name else None
+    end_name = end_name.strip() if end_name else None
+
+    # Check that the range is valid
+    if start_name and end_name and start_name.lower() > end_name.lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Start name must come before or match end name"
+        )
 
     try:
-        # Retrieve all medication records from the database
         with driver.session() as session:
-            rows = get_drugs_table(session)
+            # Retrieve records from the requested dataset
+            if source == "rxnorm":
+                rows = get_rxnorm_drugs(
+                    session, name_type, start_name, end_name
+                )
+            else:
+                rows = get_drugs_table(
+                    session, name_type, start_name, end_name
+                )
 
-        # Format the records and include the total number of rows
+        # Return JSON records without restricting the available columns
         return CsvExportResponse(
-            csv=[DrugRow(**row) for row in rows],
+            csv=rows,
             row_count=len(rows)
         )
 
     except Exception:
-        # Return an error if the database query fails
+        # Log the error if the database query fails
         log.exception("Failed to retrieve medication catalogue")
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve medication catalogue"
         )
+
+
 
 
 @app.get(

@@ -341,20 +341,25 @@ def get_languages_for_brand(session, term):
 
 
 
-# Retrieve all medications and their related information from Neo4j
-def get_drugs_table(session) -> list:
-    """
-    Returns the drug catalogue sorted alphabetically by generic name.
-    Includes brand name, country, and language information.
-    """
 
-    query = """
+# Retrieve medications within an optional alphabetical name range
+def get_drugs_table(session, name_type="generic", start_name=None, end_name=None) -> list:
+    """
+    Returns medication records, optionally filtered by generic or brand name.
+    """
+    name_field = "t.canonical" if name_type == "generic" else "b.name"
+
+    query = f"""
     MATCH (t:Term)
     WHERE t.type = 'medication'
     MATCH (tr:Translation)-[:OF_TERM]->(t)
     MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
     MATCH (tr)-[:USED_IN]->(c:Country)
     OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+
+    WITH t, tr, l, c, b, toLower({name_field}) AS filter_name
+    WHERE ($start_name IS NULL OR filter_name >= $start_name)
+      AND ($end_name IS NULL OR filter_name <= $end_name)
 
     RETURN DISTINCT
         t.canonical AS generic_name,
@@ -368,6 +373,53 @@ def get_drugs_table(session) -> list:
              toLower(coalesce(brand_name, ''))
     """
 
-    # Run the query and return the medication records as dictionaries
-    return [dict(record) for record in session.run(query)]
+    # Pass filtering values as query parameters
+    return [
+        dict(record)
+        for record in session.run(
+            query,
+            start_name=start_name.lower().strip() if start_name else None,
+            end_name=end_name.lower().strip() if end_name else None
+        )
+    ]
+
+
+
+
+# Retrieve RxNorm medication records for spreadsheet export
+def get_rxnorm_drugs(session, name_type="generic", start_name=None, end_name=None) -> list:
+    """
+    Returns RxNorm generic and brand names with optional alphabetical filtering.
+    """
+    # Choose which medication name to filter
+    name_field = "ingredient.name" if name_type == "generic" else "brand.name"
+
+    query = f"""
+    MATCH (ingredient:RXN {{tty: 'IN'}})-[:HAS_CHILD]->(brand:RXN {{tty: 'BN'}})
+
+    WITH ingredient, brand, toLower({name_field}) AS filter_name
+    WHERE ($start_name IS NULL OR filter_name >= $start_name)
+      AND ($end_name IS NULL OR filter_name <= $end_name)
+
+    RETURN DISTINCT
+        ingredient.name AS generic_name,
+        brand.name AS brand_name,
+        ingredient.rxcui AS generic_rxcui,
+        brand.rxcui AS brand_rxcui,
+        ingredient.ds AS dataset
+
+    ORDER BY toLower(generic_name), toLower(brand_name)
+    """
+
+    # Retrieve matching records using the selected range
+    return [
+        dict(record)
+        for record in session.run(
+            query,
+            start_name=start_name.lower().strip() if start_name else None,
+            end_name=end_name.lower().strip() if end_name else None
+        )
+    ]
+
+
 
