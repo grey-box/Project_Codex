@@ -161,7 +161,8 @@ TARGET_FOLDER_PATH = BASE_DIR / "codex" / "language_packs"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # seed default admin user
-    init_default_admin()
+    if os.getenv("TESTING") != "true":
+        init_default_admin()
     
     # scan for and load language packs
     print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
