@@ -174,3 +174,48 @@ The API uses standard HTTP status codes.
 | 404     | Not Found                        |
 | 500     | Internal Server Error            |
 
+---
+
+## Access List API
+
+The Access List API provides authentication, user management, and role-based access control for Project Codex.
+
+### Access-List Endpoint Inventory
+
+| Method | Endpoint | Purpose | Access |
+| --- | --- | --- | --- |
+| POST | `/api/login` | Authenticate a user and return a JWT access token | Public |
+| POST | `/users` | Create a user | Administrator |
+| GET | `/users` | List users, optionally filtered by role | Administrator |
+| GET | `/users/{email}` | Retrieve a user by email | Administrator |
+| PATCH | `/users/{email}` | Update user information | Administrator |
+| DELETE | `/users/{email}` | Delete a user | Administrator |
+| GET | `/users/{email}/role` | Retrieve a user role | Administrator |
+| PUT | `/users/{email}/role` | Update a user role | Administrator |
+
+### Authentication and Role Requirements
+
+Authentication uses JWT bearer tokens. A user first authenticates through `/api/login` using an email and password. Successful authentication returns an access token and the current user role.
+
+Protected requests must include the token in the `Authorization` header:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+All `/users` user-management and role-management endpoints require the `administrator` role.
+
+The API checks the authenticated user against the current Neo4j record when validating a token. Deleted users are rejected, and the current database role is used for authorization.
+
+### Access-List Error Responses
+
+| Status | Meaning |
+| --- | --- |
+| `401 Unauthorized` | Authentication is missing, invalid, expired, or belongs to a user that no longer exists. |
+| `403 Forbidden` | The authenticated user does not have the required role. |
+| `404 Not Found` | The requested user or user role does not exist. |
+| `409 Conflict` | The request conflicts with existing user data or an administrator safeguard. |
+| `422 Unprocessable Entity` | Request or query validation failed. |
+| `500 Internal Server Error` | An unexpected API or Neo4j/database error occurred. |
+
+Administrator safeguards prevent an administrator from deleting their own account, deleting the last remaining administrator, or demoting the last remaining administrator.
