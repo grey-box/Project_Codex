@@ -40,8 +40,8 @@ services:
         condition: service_healthy
     command: >
       sh -c "apt-get update && 
-             apt-get install -y --no-install-recommends libgl1 libglib2.0-0 build-essential gfortran &&
-             pip install --no-cache-dir -r /app/requirements.txt pytest &&
+             apt-get install -y --no-install-recommends libgl1 libglib2.0-0 &&
+             pip install --no-cache-dir -r /app/tests/requirements-test.txt pytest &&
              pytest /app/tests/integration_tests.py"
 
 volumes:
