@@ -234,7 +234,7 @@ def cmd_login():
         print(red("  ✗ Email and Password are required."))
         return
 
-    data = _request("post", "/api/login", json={"email": email, "password": password})
+    data = _request("post", "/auth", json={"email": email, "password": password})
     if data:
         CURRENT_TOKEN = data["access_token"]
         CURRENT_USER = {"email": email, "role": data["role"]}

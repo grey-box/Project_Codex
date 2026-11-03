@@ -169,7 +169,7 @@ def test_get_user(client, test_driver, admin_headers):
 
 def test_admin_login_and_access_protected_route(client):
     login_response = client.post(
-        "/api/login",
+        "/auth",
         json={
             "email": TEST_ADMIN_EMAIL,
             "password": TEST_ADMIN_PASS,
@@ -196,7 +196,7 @@ def test_admin_login_and_access_protected_route(client):
 
 def test_admin_login_wrong_password(client):
     response = client.post(
-        "/api/login",
+        "/auth",
         json={
             "email": TEST_ADMIN_EMAIL,
             "password": "WrongPassword123!",
@@ -208,7 +208,7 @@ def test_admin_login_wrong_password(client):
 
 def test_login_unknown_user(client):
     response = client.post(
-        "/api/login",
+        "/auth",
         json={
             "email": "doesnotexist@email.com",
             "password": "SomePassword123!",
@@ -248,7 +248,7 @@ def test_medical_professional_cannot_access_admin_users(client, admin_headers):
     assert create_response.status_code == 201
 
     login_response = client.post(
-        "/api/login",
+        "/auth",
         json={
             "email": test_email,
             "password": test_password,
@@ -710,7 +710,7 @@ def test_demoted_administrator_token_uses_current_database_role(client, admin_he
     assert create_response.status_code == 201
 
     login_response = client.post(
-        "/api/login",
+        "/auth",
         json={
             "email": test_email,
             "password": test_password,
