@@ -489,7 +489,7 @@ def get_user_role(session, email: str) -> str | None:
 def get_users_by_role(session, role: str) -> list[dict]:
     query = """
     MATCH (u:User {role: $role})
-    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation
+    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation, u.role AS role
     ORDER BY u.real_name
     """
     result = session.run(query, role=role)
