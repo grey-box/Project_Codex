@@ -17,7 +17,6 @@ Then run this:
 
 import sys
 import os
-import pytest
 import platform
 import subprocess
 
