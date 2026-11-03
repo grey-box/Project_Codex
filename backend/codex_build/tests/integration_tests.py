@@ -4,8 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from neo4j import GraphDatabase
-
-
 from pathlib import Path
 import sys
 
@@ -22,12 +20,32 @@ from codex.neo4j_driver import driver, create_user, get_user_by_email, delete_us
 TEST_ADMIN_EMAIL = "admin@email.com"
 TEST_ADMIN_PASS = "AdminTestPassword123!"
 
+REQUIRED_TEST_DB_NAME = os.getenv("TEST_NEO4J_DATABASE", "neo4j-test")
+
+@pytest.fixture(scope="session", autouse=True)
+def verify_test_database():
+    """Safety guard: prevents running destructive tests against non-test databases."""
+    with driver.session() as session:
+        # Verify active database name
+        result = session.run("CALL db.info() YIELD name RETURN name").single()
+        active_db = result["name"] if result else None
+
+        if active_db != REQUIRED_TEST_DB_NAME:
+            pytest.exit(
+                f"\n[SAFETY ERROR] Integration tests must run against the dedicated test database '{REQUIRED_TEST_DB_NAME}'. "
+                f"Currently connected to: '{active_db}'.\n"
+                f"Set TEST_NEO4J_DATABASE={active_db} to override."
+            )
+
 
 @pytest.fixture(scope="session")
 def test_driver():
     driver = GraphDatabase.driver(
-        "bolt://localhost:7687",
-        auth=("neo4j", "changeme"),
+        os.getenv("NEO4J_TEST_URI", "bolt://localhost:7687"),
+        auth=(
+            os.getenv("NEO4J_TEST_USER", "neo4j"),
+            os.getenv("NEO4J_TEST_PASSWORD", "changeme"),
+        ),
     )
 
     driver.verify_connectivity()
@@ -41,28 +59,32 @@ def client(test_driver):
         yield client
 
 
-# Ensures a test admin user exists in Neo4j during the test run
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_admin():
+def setup_test_environment(test_driver):
+    """
+    Purges all existing data (including pre-seeded admins) before tests start,
+    then sets up the predictable test admin.
+    """
+    # 1. Clear database completely prior to running tests
     with driver.session() as session:
-        # Check if test admin already exists; create if missing
-        admin = get_user_by_email(session, TEST_ADMIN_EMAIL)
+        session.run("MATCH (n) DETACH DELETE n").consume()
 
-        if not admin:
-            create_user(
-                session,
-                real_name="Test Admin",
-                password=TEST_ADMIN_PASS,
-                role="administrator",
-                affiliation="Testing Dept",
-                email=TEST_ADMIN_EMAIL
-            )
+    # 2. Seed the required test admin user
+    with driver.session() as session:
+        create_user(
+            session,
+            real_name="Test Admin",
+            password=TEST_ADMIN_PASS,
+            role="administrator",
+            affiliation="Testing Dept",
+            email=TEST_ADMIN_EMAIL,
+        )
 
     yield
 
-    # Teardown: Delete test admin after tests complete
+    # Teardown: Clean up test admin and database
     with driver.session() as session:
-        delete_user(session, TEST_ADMIN_EMAIL)
+        session.run("MATCH (n) DETACH DELETE n").consume()
 
 
 # Generates valid JWT Auth Headers for the admin user
@@ -89,11 +111,25 @@ def user_headers():
 
 @pytest.fixture(autouse=True)
 def run_before_each_test(client, test_driver, admin_headers):
+    # clean database
+    with test_driver.session() as session:
+        session.run("MATCH (u:User) DETACH DELETE u").consume()
+
+        # Re-create ONLY the required test admin user
+        create_user(
+            session,
+            real_name="Test Admin",
+            password=TEST_ADMIN_PASS,
+            role="administrator",
+            affiliation="Testing Dept",
+            email=TEST_ADMIN_EMAIL,
+        )
+    
     init_users = [
         {
             "email": "jane@email.com",
             "real_name": "Jane Doe",
-            "role": "Admin",
+            "role": "medical professional",
             "password": "hello world",
             "affiliation": "grey-box"
         }
