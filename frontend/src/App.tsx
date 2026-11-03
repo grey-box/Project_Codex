@@ -4,8 +4,7 @@ import { Header } from './components/layout/Header'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'
 import { TranslationPanel } from './components/translation/TranslationPanel'
-import type { SearchResultRow, TranslateResultRow, LanguageOption } from './types/codex'
-import { LANGUAGE_COUNTRY_MAP, FALLBACK_LANGUAGES } from './types/codex'
+import type { SearchResultRow, TranslateResultRow, LanguageOption, CountryOption } from './types/codex'
 import { getLanguages, searchDrug, translateDrug } from './services/api'
 
 function App() {
@@ -13,12 +12,12 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResultRow[]>([])
   const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
-  const [loadedLanguages, setLoadedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
-  const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
+  const [loadedLanguages, setLoadedLanguages] = useState<string[]>([])
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([])
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
   const [searchLanguage, setSearchLanguage] = useState('all')
-  const [targetLanguage, setTargetLanguage] = useState('es')
-  const [targetCountry, setTargetCountry] = useState('MX')
+  const [targetLanguage, setTargetLanguage] = useState('')
+  const [targetCountry, setTargetCountry] = useState('')
   const [translatedName, setTranslatedName] = useState('')
   const [translatedBrand, setTranslatedBrand] = useState('')
   const [translateError, setTranslateError] = useState('')
@@ -26,6 +25,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
   const [hasBrand, setHasBrand] = useState(false)
+  const [languageCountryMap, setLanguageCountryMap] = useState<Record<string, CountryOption[]>>({})
 
   const getLanguageLabel = (code: string) => {
     const raw = code.trim()
@@ -43,10 +43,10 @@ function App() {
     return label.charAt(0).toUpperCase() + label.slice(1)
   }
 
-  const availableCountries = LANGUAGE_COUNTRY_MAP[targetLanguage] ?? []
+  const availableCountries = languageCountryMap[targetLanguage] ?? []
 
   const getFirstCountryForLanguage = (langCode: string): string => {
-    const available = LANGUAGE_COUNTRY_MAP[langCode] ?? []
+    const available = languageCountryMap[langCode] ?? []
     return available.length > 0 ? available[0].code : ''
   }
 
@@ -61,18 +61,24 @@ function App() {
 
   const loadLanguages = async (isActive: boolean) => {
     try {
-      const nextLanguages = await getLanguages()
+      const data = await getLanguages()
       if (!isActive) return
-      setLoadedLanguages(nextLanguages)
-      setAvailableLanguages(nextLanguages)
-      setSelectedLanguages(nextLanguages)
-      setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
+      setLoadedLanguages(data.languages)
+      setAvailableLanguages(data.languages)
+      setSelectedLanguages(data.languages)
+      setLanguageCountryMap(data.countries)
+      if (data.languages.length > 0) {
+        setTargetLanguage((current) => (data.languages.includes(current) ? current : data.languages[0]))
+        const firstCountry = (data.countries[data.languages[0]] ?? [])[0]?.code ?? ''
+        setTargetCountry(firstCountry)
+      }
     } catch {
       if (!isActive) return
-      setLoadedLanguages(FALLBACK_LANGUAGES)
-      setAvailableLanguages(FALLBACK_LANGUAGES)
-      setSelectedLanguages(FALLBACK_LANGUAGES)
-      setTargetLanguage((current) => (FALLBACK_LANGUAGES.includes(current) ? current : FALLBACK_LANGUAGES[0]))
+      setLoadedLanguages([])
+      setAvailableLanguages([])
+      setSelectedLanguages([])
+      setLanguageCountryMap({})
+      setTargetCountry('')
     }
   }
 
@@ -212,7 +218,7 @@ function App() {
       return
     }
 
-    const validCountries = (LANGUAGE_COUNTRY_MAP[targetLanguage] ?? []).map((c) => c.code)
+    const validCountries = (languageCountryMap[targetLanguage] ?? []).map((c) => c.code)
     const finalCountry = validCountries.includes(targetCountry)
       ? targetCountry
       : getFirstCountryForLanguage(targetLanguage)
