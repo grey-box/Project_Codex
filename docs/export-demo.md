@@ -14,6 +14,9 @@ The optional preview and separate data screen are omitted.
 - [x] Connect dataset, name type and name range to the teammate's export query.
 - [x] Project checked columns into a downloadable UTF-8 CSV.
 - [x] Check empty results, failed requests, range validation and mobile layouts.
+- [x] Open [PR #9](https://github.com/grey-box/Project_Codex/pull/9) from
+  `codex/medication-export-modal` into our current working branch,
+  `codex/branden-stephen-integration`. Owner: Branden.
 - [ ] Review the implementation and meeting notes with the team. Owner: Branden.
 - [ ] Get the RxNorm column screenshot from the teammate for visual comparison.
   Owner: Branden. The current backend schema already establishes the five keys,
