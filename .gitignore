@@ -17,3 +17,6 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/.env.local
 frontend/.env.*.local
+
+# Local API credentials, loaded by api.py and never committed.
+backend/codex_build/.env

@@ -27,12 +27,17 @@ deployment ports and CORS policy are not changed by this auth integration.
 
 ## Configuration
 
-Set `JWT_SECRET_KEY` to a private, persistent random key in the untracked `.env`
-for deployments and multiple workers. When it is absent or blank, the development
-API generates a random process-local key, so tokens cannot survive an API restart.
+For local development, put private settings in the ignored
+`backend/codex_build/.env`, which `api.py` loads at startup. The repository-root
+`.env` is tracked and must not receive private credentials. Supply deployment
+settings through the deployment environment. Set `JWT_SECRET_KEY` to a private,
+persistent random key for deployments and multiple workers. When it is absent or
+blank, the development API generates a random process-local key, so tokens cannot
+survive an API restart.
 
 Initial administrator bootstrap is optional. Set both `DEFAULT_ADMIN_EMAIL` and
-`DEFAULT_ADMIN_PASSWORD` in `.env` to create the configured account at startup.
+`DEFAULT_ADMIN_PASSWORD` in the ignored API `.env` to create the configured
+account at startup.
 Blank or partial configuration does not create an account. Existing accounts are
 left intact. The source branch's hardcoded administrator password is not used.
 `TESTING=true` disables bootstrap, and `LOAD_DEMO_DATA=false` disables automatic
