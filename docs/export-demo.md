@@ -1,6 +1,6 @@
 # Export demo for November 5
 
-The export opens from **Export data** beside the results language filter. It is
+The export opens from **Export data** under **Manage data** in the left sidebar. It is
 an integrated modal with dataset selection, Generic/Brand choice, optional
 inclusive alphabetical name bounds, and five selectable columns per dataset.
 The optional preview and separate data screen are omitted.

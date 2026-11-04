@@ -9,6 +9,8 @@ test('live Initial Data export downloads a filtered CSV from the local Neo4j-bac
   await mkdir(artifacts, { recursive: true })
   await page.addInitScript(() => { localStorage.setItem('codex-theme', 'dark'); localStorage.setItem('i18nextLng', 'en') })
   await page.goto(process.env.CODEX_LIVE_EXPORT_URL!)
+  await expect(page.getByRole('complementary', { name: 'Workspace tools', exact: true }).getByRole('button', { name: 'Export data', exact: true })).toBeVisible()
+  await page.screenshot({ path: path.join(artifacts, 'export-sidebar.png'), animations: 'disabled' })
   await page.getByRole('button', { name: 'Export data', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Export medications', exact: true })
   await page.getByRole('combobox', { name: 'Dataset', exact: true }).click()

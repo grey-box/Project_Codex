@@ -8,6 +8,7 @@ async function fixture(page: Page) {
     await route.fulfill({ json: url.pathname === '/languages' ? { languages: ['en', 'es', 'fr', 'ru', 'uk'] } : url.pathname === '/csv' ? { csv: url.searchParams.get('source') === 'rxnorm' ? rxnorm : initial, row_count: 1 } : [] })
   })
   await page.goto('/')
+  if (page.viewportSize()!.width < 768) await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
   await page.getByRole('button', { name: 'Export data', exact: true }).click()
 }
 

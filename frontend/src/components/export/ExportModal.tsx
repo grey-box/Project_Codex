@@ -25,7 +25,7 @@ export function ExportModal() {
   const close = () => { request.current?.abort(); setBusy(false); clearFeedback(); setOpen(false) }
 
   return <>
-    <Button variant="nav" onClick={() => { clearFeedback(); setOpen(true) }} icon={
+    <Button variant="nav" fullWidth onClick={() => { clearFeedback(); setOpen(true) }} icon={
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 15v6h16v-6" /></svg>
     }>{t('export.open')}</Button>
     <Modal isOpen={open} onClose={close} title={t('export.title')} maxWidthClass="max-w-lg">

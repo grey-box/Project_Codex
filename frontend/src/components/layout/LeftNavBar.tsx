@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { PopulateDropdown } from '../populate/PopulateDropdown'
 import { ImportLanguageModal } from '../import/ImportLanguageModal'
 import { OcrModal } from '../ocr/OcrModal'
+import { ExportModal } from '../export/ExportModal'
 import { AccountMenu } from './AccountMenu'
 import type { WorkspaceToolsProps } from './WorkspaceTools'
 
@@ -37,6 +38,7 @@ export const LeftNavBar: React.FC<LeftNavBarProps> = ({ onImportSuccess, onSelec
           <p className="workspace-nav-label">{t('workspace.manageData')}</p>
           <PopulateDropdown fullWidth triggerLabel={t('workspace.populateSources')} />
           <ImportLanguageModal fullWidth onImportSuccess={onImportSuccess} />
+          <ExportModal />
         </div>
       </nav>
       <AccountMenu />
