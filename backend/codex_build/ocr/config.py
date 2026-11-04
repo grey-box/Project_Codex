@@ -18,8 +18,14 @@ from fastapi import status, HTTPException
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
+LOGGER_NAME = "ocr_logger"
+
+# Neo4j Database Configuration
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+
 # Define logger names as constants
-LOGGER_NAME = "codex_backend_logger"
 LOGGER_NAME_FILE = "codex_file_logger"
 
 # Initialize logger - note this is configured properly later

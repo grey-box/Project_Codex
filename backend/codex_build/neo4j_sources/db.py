@@ -4,7 +4,7 @@ Mirrors scripts/db.py but imports from api.config.
 """
 
 from neo4j import GraphDatabase
-from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+from ocr.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 
 class CodexDB:

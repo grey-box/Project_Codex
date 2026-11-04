@@ -14,3 +14,7 @@ class FuzzyResult(BaseModel):
 
 class FuzzyMatching(BaseModel):
     results: List[FuzzyResult]
+
+class OCRExtractionResult(BaseModel):
+    rec_text: str
+    rec_score: float

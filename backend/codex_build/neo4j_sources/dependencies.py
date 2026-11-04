@@ -3,7 +3,7 @@ Project Codex — FastAPI dependency injection for Neo4j.
 """
 
 from typing import Generator
-from db import CodexDB
+from neo4j_sources.db import CodexDB
 
 
 def get_db() -> Generator[CodexDB, None, None]:
