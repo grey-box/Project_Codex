@@ -25,7 +25,7 @@ function escapeCsvValue(value: unknown): string {
   let text = String(value);
 
   // Reduce the risk of spreadsheet formula injection.
-  if (typeof value === "string" && /^[\s\u0000-\u001F]*[=+\-@]/.test(text)) {
+  if (typeof value === "string" && /^[\s\p{Cc}]*[=+\-@]/u.test(text)) {
     text = "'" + text;
   }
 
