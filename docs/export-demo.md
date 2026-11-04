@@ -16,7 +16,8 @@ The optional preview and separate data screen are omitted.
 - [x] Check empty results, failed requests, range validation and mobile layouts.
 - [x] Open [PR #9](https://github.com/grey-box/Project_Codex/pull/9) from
   `codex/medication-export-modal` into our current working branch,
-  `codex/branden-stephen-integration`. Owner: Branden.
+  `asu-ui-branch`. Owner: Branden. Retargeted November 3; merge conflicts
+  need reconciliation before the team merges it.
 - [ ] Review the implementation and meeting notes with the team. Owner: Branden.
 - [ ] Get the RxNorm column screenshot from the teammate for visual comparison.
   Owner: Branden. The current backend schema already establishes the five keys,
