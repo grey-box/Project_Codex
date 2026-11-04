@@ -123,5 +123,24 @@
   "tools": {
     "tryAgain": "Reintentar",
     "dismissMessage": "Cerrar mensaje"
+  },
+  "export": {
+    "open": "Exportar datos",
+    "title": "Exportar medicamentos",
+    "dataset": "Conjunto de datos",
+    "initial": "Datos iniciales",
+    "nameType": "Nombres de medicamentos",
+    "generic": "Genérico",
+    "brand": "Marca",
+    "start": "Nombre inicial del medicamento",
+    "end": "Nombre final del medicamento",
+    "rangeHint": "Opcional. Incluye ambos nombres; déjalo en blanco para todos los medicamentos.",
+    "columns": "Columnas para exportar",
+    "invalidRange": "El nombre inicial debe ir antes o ser igual al nombre final.",
+    "empty": "No hay medicamentos que coincidan. Amplía el rango o cambia el conjunto de datos.",
+    "failed": "No se pudieron exportar los medicamentos.",
+    "downloaded": "Filas exportadas: {{count}}",
+    "exporting": "Preparando CSV...",
+    "download": "Descargar CSV"
   }
 }

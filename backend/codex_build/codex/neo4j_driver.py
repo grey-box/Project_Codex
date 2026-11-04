@@ -553,3 +553,83 @@ def init_default_admin():
                 log.info(f"Default administrator user already exists: {admin_email}")
     except Exception as exc:
         log.error(f"Failed to initialize default admin user: {exc}")
+
+
+# Spreadsheet export queries from Bevin John (5cd857f).
+def get_drugs_table(session, name_type="generic", start_name=None, end_name=None) -> list:
+    """
+    Returns medication records, optionally filtered by generic or brand name.
+    """
+    name_field = "t.canonical" if name_type == "generic" else "b.name"
+
+    query = f"""
+    MATCH (t:Term)
+    WHERE t.type = 'medication'
+    MATCH (tr:Translation)-[:OF_TERM]->(t)
+    MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    MATCH (tr)-[:USED_IN]->(c:Country)
+    OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+
+    WITH t, tr, l, c, b, toLower({name_field}) AS filter_name
+    WHERE ($start_name IS NULL OR filter_name >= $start_name)
+      AND ($end_name IS NULL OR filter_name <= $end_name)
+
+    RETURN DISTINCT
+        t.canonical AS generic_name,
+        b.name AS brand_name,
+        c.iso2 AS country,
+        coalesce(t.source_language, 'English') AS original_language,
+        l.name AS translated_language
+
+    ORDER BY toLower(generic_name),
+             country,
+             toLower(coalesce(brand_name, ''))
+    """
+
+    # Pass filtering values as query parameters
+    return [
+        dict(record)
+        for record in session.run(
+            query,
+            start_name=start_name.lower().strip() if start_name else None,
+            end_name=end_name.lower().strip() if end_name else None
+        )
+    ]
+
+
+def get_rxnorm_drugs(
+    session,
+    name_type="generic",
+    start_name=None,
+    end_name=None
+) -> list:
+    """Get RxNorm generic or brand records with optional alphabetical filtering."""
+
+    # Select the RxNorm term type based on the user's choice.
+    # IN = generic ingredient, BN = brand name.
+    tty = "IN" if name_type == "generic" else "BN"
+
+    # Retrieve RxNorm records using their original database property names.
+    query = """
+    MATCH (n:RXN)
+    WHERE n.tty = $tty
+      AND ($start_name IS NULL OR toLower(n.name) >= $start_name)
+      AND ($end_name IS NULL OR toLower(n.name) <= $end_name)
+    RETURN n.conceptID AS conceptID,
+           n.ds AS ds,
+           n.name AS name,
+           n.rxcui AS rxcui,
+           n.tty AS tty
+    ORDER BY toLower(n.name)
+    """
+
+    # Run the query with the selected type and alphabetical range.
+    result = session.run(
+        query,
+        tty=tty,
+        start_name=start_name.lower().strip() if start_name else None,
+        end_name=end_name.lower().strip() if end_name else None
+    )
+
+    # Convert the Neo4j records into dictionaries for the API response.
+    return [dict(record) for record in result]

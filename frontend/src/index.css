@@ -89,7 +89,7 @@ button,input,select,textarea { font-family:inherit; }
 .workspace-select-option[data-state=checked] { color:var(--workspace-accent); }
 @media(max-width:767px) { .workspace-select-trigger { height:44px; font-size:16px; } .workspace-select-option { min-height:44px; font-size:14px; } }
 .workspace-tools { display:flex; justify-content:flex-end; flex-shrink:0; }
-.workspace-tool-group { min-width:0; }
+.workspace-tool-group { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; min-width:0; }
 .workspace-tool-group > * { max-width:100%; }
 .workspace-tool-group > button { min-height:30px; padding:6px 9px; border-radius:5px; font-size:11px; font-weight:400; box-shadow:none; }
 .workspace-filter-notice { display:flex; flex-wrap:wrap; gap:8px 24px; justify-content:space-between; margin-top:16px; padding:12px 16px; border-radius:6px; background:var(--workspace-selection); color:var(--workspace-accent); font-size:12px; }
@@ -103,7 +103,7 @@ button,input,select,textarea { font-family:inherit; }
   .workspace-result-table { display:block; }
   .workspace-result-cards { display:none; }
 }
-.workspace-results-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 32px; border-bottom:1px solid var(--workspace-line); }
+.workspace-results-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; padding:14px 32px; border-bottom:1px solid var(--workspace-line); }
 .workspace-results-summary { display:flex; align-items:center; gap:8px; min-width:0; }
 .workspace-results-summary h2 { font-size:13px; font-weight:500; }
 .workspace-result-count { font-size:10px; padding:3px 6px; border-radius:4px; background:var(--workspace-ground); }
@@ -326,3 +326,20 @@ a:focus-visible,button:focus-visible { outline-offset:4px; }
 
 [data-theme=dark] .workspace-sidebar-group > button,[data-theme=dark] .workspace-sidebar-group > div > div:first-child > button { background:transparent; }
 [data-theme=dark] .workspace-sidebar-group > button:hover,[data-theme=dark] .workspace-sidebar-group > div > div:first-child > button:hover { background:var(--workspace-nav-active); }
+
+/* Export uses the existing modal, form, checkbox and theme tokens. */
+.workspace-export { display:flex; flex-direction:column; gap:20px; }
+.workspace-export-label { font-size:13px; font-weight:500; color:var(--workspace-ink); }
+.workspace-export-label span { color:var(--workspace-muted); font-size:11px; font-weight:400; }
+.workspace-export-toggle { display:flex; padding:3px; gap:4px; border:1px solid var(--workspace-line); border-radius:6px; background:var(--workspace-ground); }
+.workspace-export-toggle button { flex:1; padding:7px 12px; border:1px solid transparent; border-radius:4px; color:var(--workspace-muted); font-size:12px; cursor:pointer; }
+.workspace-export-toggle button[aria-pressed=true] { border-color:var(--workspace-line); background:var(--workspace-surface); color:var(--workspace-ink); }
+.workspace-export-hint { margin-top:8px; color:var(--workspace-muted); font-size:12px; line-height:1.5; }
+.workspace-export-columns-heading { display:flex; justify-content:flex-end; gap:8px; }
+.workspace-export-columns-heading button { color:var(--workspace-muted); font-size:11px; text-decoration:underline; cursor:pointer; }
+.workspace-export-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 16px; }
+.workspace-export-columns label { display:flex; align-items:center; gap:10px; min-height:38px; font-size:12px; cursor:pointer; }
+.workspace-export-columns span { overflow-wrap:anywhere; min-width:0; }
+.workspace-export-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; padding-top:16px; border-top:1px solid var(--workspace-line); }
+@media(max-width:767px) { .workspace-tool-group { gap:4px; } .workspace-export-columns label { min-height:44px; } .workspace-export-columns-heading button { min-height:44px; } }
+@media(max-width:479px) { .workspace-export-columns { grid-template-columns:minmax(0,1fr); } .workspace-results-heading .workspace-tools { grid-column:1 / -1; grid-row:auto; justify-content:flex-start; } .workspace-tool-group { justify-content:flex-start; } }

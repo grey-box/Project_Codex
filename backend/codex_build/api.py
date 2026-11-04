@@ -26,7 +26,7 @@ import sys
 import tempfile
 import logging
 import secrets
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -128,6 +128,8 @@ try:
         find_missing_brands,
         get_equivalent_brands,
         search_database,
+        get_drugs_table,
+        get_rxnorm_drugs,
         resolve_to_base_term,
         get_translation_data,
         get_countries_for_term,
@@ -199,6 +201,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class CsvExportResponse(BaseModel):
+    csv: List[dict]
+    row_count: int
+
+
 
 class SourceSelection(BaseModel):
     selectedSources: List[str]
@@ -348,6 +356,62 @@ class TokenResponse(BaseModel):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
+@app.get(
+    "/csv",
+    response_model=CsvExportResponse,
+    tags=["data"],
+    summary="Retrieve the full medication catalogue"
+)
+
+# Retrieve medication records from the selected data source
+def export_csv(
+    name_type: Literal["generic", "brand"] = "generic",
+    start_name: Optional[str] = None,
+    end_name: Optional[str] = None,
+    source: Literal["demo", "rxnorm"] = "demo"
+):
+    """
+    Returns medication records with optional alphabetical filtering.
+    """
+    # Remove any extra spaces from the name range
+    start_name = start_name.strip() if start_name else None
+    end_name = end_name.strip() if end_name else None
+
+    # Check that the range is valid
+    if start_name and end_name and start_name.lower() > end_name.lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Start name must come before or match end name"
+        )
+
+    try:
+        with driver.session() as session:
+            # Retrieve records from the requested dataset
+            if source == "rxnorm":
+                rows = get_rxnorm_drugs(
+                    session, name_type, start_name, end_name
+                )
+            else:
+                rows = get_drugs_table(
+                    session, name_type, start_name, end_name
+                )
+
+        # Return JSON records without restricting the available columns
+        return CsvExportResponse(
+            csv=rows,
+            row_count=len(rows)
+        )
+
+    except Exception:
+        # Log the error if the database query fails
+        log.exception("Failed to retrieve medication catalogue")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve medication catalogue"
+        )
+
+
 
 @app.get(
     "/health",

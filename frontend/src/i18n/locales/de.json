@@ -119,5 +119,24 @@
   "tools": {
     "tryAgain": "Erneut versuchen",
     "dismissMessage": "Meldung schließen"
+  },
+  "export": {
+    "open": "Daten exportieren",
+    "title": "Medikamente exportieren",
+    "dataset": "Datensatz",
+    "initial": "Ausgangsdaten",
+    "nameType": "Medikamentennamen",
+    "generic": "Generikum",
+    "brand": "Marke",
+    "start": "Erster Medikamentenname",
+    "end": "Letzter Medikamentenname",
+    "rangeHint": "Optional. Beide Namen sind enthalten; leer lassen für alle Medikamente.",
+    "columns": "Zu exportierende Spalten",
+    "invalidRange": "Der erste Name muss vor dem letzten liegen oder gleich sein.",
+    "empty": "Keine passenden Medikamente. Erweitere den Bereich oder wähle einen anderen Datensatz.",
+    "failed": "Medikamente konnten nicht exportiert werden.",
+    "downloaded": "Exportierte Zeilen: {{count}}",
+    "exporting": "CSV wird erstellt...",
+    "download": "CSV herunterladen"
   }
 }

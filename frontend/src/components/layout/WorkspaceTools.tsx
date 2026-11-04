@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageFilterModal } from '../language/LanguageFilterModal'
+import { ExportModal } from '../export/ExportModal'
 import type { LanguageOption } from '../../types/codex'
 
 export interface WorkspaceToolsProps {
@@ -23,6 +24,7 @@ export const WorkspaceTools: React.FC<WorkspaceToolsProps> = ({
   return (
     <div className="workspace-tools" role="group" aria-label={t('workspace.tools')}>
       <div className="workspace-tool-group">
+        <ExportModal />
         {allLoadedLanguages && selectedLanguages && onToggleLanguage && onSelectAllLanguages && onDeselectAllLanguages && onApplyLanguageFilter && (
           <LanguageFilterModal allLanguages={allLoadedLanguages} selectedLanguages={selectedLanguages}
             onToggleLanguage={onToggleLanguage} onSelectAll={onSelectAllLanguages}

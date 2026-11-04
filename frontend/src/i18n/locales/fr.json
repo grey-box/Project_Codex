@@ -119,5 +119,24 @@
   "tools": {
     "tryAgain": "Réessayer",
     "dismissMessage": "Fermer le message"
+  },
+  "export": {
+    "open": "Exporter les données",
+    "title": "Exporter les médicaments",
+    "dataset": "Jeu de données",
+    "initial": "Données initiales",
+    "nameType": "Noms des médicaments",
+    "generic": "Générique",
+    "brand": "Marque",
+    "start": "Nom de médicament de début",
+    "end": "Nom de médicament de fin",
+    "rangeHint": "Facultatif. Les deux noms sont inclus ; laissez vide pour tous les médicaments.",
+    "columns": "Colonnes à exporter",
+    "invalidRange": "Le nom de début doit précéder le nom de fin ou être identique.",
+    "empty": "Aucun médicament ne correspond. Élargissez la plage ou changez de jeu de données.",
+    "failed": "Impossible d’exporter les médicaments.",
+    "downloaded": "Lignes exportées : {{count}}",
+    "exporting": "Préparation du CSV...",
+    "download": "Télécharger le CSV"
   }
 }

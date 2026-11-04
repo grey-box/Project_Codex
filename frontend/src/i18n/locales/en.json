@@ -184,5 +184,24 @@
     "translationFailed": "Translation failed",
     "tryAgain": "Try again",
     "dismissMessage": "Dismiss message"
+  },
+  "export": {
+    "open": "Export data",
+    "title": "Export medications",
+    "dataset": "Dataset",
+    "initial": "Initial Data",
+    "nameType": "Medication names",
+    "generic": "Generic",
+    "brand": "Brand",
+    "start": "Start medication name",
+    "end": "End medication name",
+    "rangeHint": "Optional. Includes both names; leave blank for all medications.",
+    "columns": "Columns to export",
+    "invalidRange": "Start name must come before or match end name.",
+    "empty": "No medications match these filters. Try a wider range or another dataset.",
+    "failed": "Unable to export medications.",
+    "downloaded": "Rows exported: {{count}}",
+    "exporting": "Preparing CSV...",
+    "download": "Download CSV"
   }
 }
