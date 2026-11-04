@@ -9,9 +9,9 @@ import { getAuthHeaders, setAccessToken } from './session'
 // Set this to the development computer's LAN URL when testing on a phone.
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
-// Matches the team's ACL branch contract; the backend must expose /api/login.
+// Matches the team's ACL branch contract; the backend must expose /auth.
 export async function loginUser(email: string, password: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/login`, {
+  const response = await fetch(`${API_BASE_URL}/auth`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   })

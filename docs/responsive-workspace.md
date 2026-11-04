@@ -153,7 +153,7 @@ the results filter stays beside the results, so each has one control and one
 shared state. Geist, themes, embedded documentation and the right-hand phone
 hamburger remain available.
 
-Stephen's `LoginButton` now uses the existing `/api/login` request, requires a
+Stephen's `LoginButton` now uses Ryan's `/auth` request, requires a
 server access token, and updates the account menu through `onSuccess`. The
 separate `SignIn` component was consolidated into it. The source branch's
 region and social buttons had no destinations or handlers. The sign-in dialog footer now

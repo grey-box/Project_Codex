@@ -352,7 +352,7 @@ for (const width of [1440, 390]) {
     await page.getByRole('dialog', { name: 'Sign in', exact: true }).getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page.getByRole('alert')).toContainText('did not return an access token')
     await expect(page.getByLabel('Password', { exact: true })).toHaveValue('')
-    await page.route('**/api/login', route => route.fulfill({ json: { access_token: 'synthetic-fixture-token', role: 'user', token_type: 'bearer' } }))
+    await page.route('**/auth', route => route.fulfill({ json: { access_token: 'synthetic-fixture-token', role: 'user', token_type: 'bearer' } }))
     await page.getByLabel('Password', { exact: true }).fill('synthetic-test-password')
     await page.getByRole('dialog', { name: 'Sign in', exact: true }).getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Sign in', exact: true })).toHaveCount(0)

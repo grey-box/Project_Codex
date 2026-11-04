@@ -2,7 +2,10 @@
 from neo4j import GraphDatabase       # Python driver from Neo4j
 from dotenv import load_dotenv        # Loads environment variables from .env file
 import os                             # Access to OS environment variables
+import logging
 import bcrypt                         # Used for hashing passwords
+
+log = logging.getLogger(__name__)
 
 # Loads environment varibles 
 load_dotenv()
@@ -376,7 +379,11 @@ def create_user(session, real_name, password, role, affiliation, email):
         affiliation: $affiliation,
         created_at: datetime()
     })
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation,
+           toString(u.created_at) AS created_at
     """
     result = session.run(
         query, 
@@ -388,7 +395,7 @@ def create_user(session, real_name, password, role, affiliation, email):
     )
     record = result.single()
     if record:
-        print(f"User created: {record['email']}")
+        log.info(f"User created: {record['email']}")
         return record.data()
     return None
 
@@ -396,7 +403,11 @@ def create_user(session, real_name, password, role, affiliation, email):
 def get_user_by_email(session, email):
     query = """
     MATCH (u:User {email: $email})
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation, u.created_at AS created_at
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation,
+           toString(u.created_at) AS created_at
     """
     result = session.run(query, email=email.lower().strip()).single()
     return result.data() if result else None
@@ -405,7 +416,10 @@ def get_user_by_email(session, email):
 def get_all_users(session, limit=100):
     query = """
     MATCH (u:User)
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation
     LIMIT $limit
     """
     result = session.run(query, limit=limit)
@@ -430,7 +444,7 @@ def update_user(session, email, real_name=None, role=None, affiliation=None, pas
         params["password"] = hash_password(password)
 
     if not updates:
-        print("No fields provided to update.")
+        log.warning("No fields provided to update.")
         return None
 
     set_clause = ", ".join(updates)
@@ -454,9 +468,9 @@ def delete_user(session, email):
     result = session.run(query, email=email.lower().strip()).single()
     deleted = result["deleted_count"] > 0
     if deleted:
-        print(f"Successfully deleted user: {email}")
+        log.info(f"Successfully deleted user: {email}")
     else:
-        print(f"No user found with email: {email}")
+        log.error(f"No user found with email: {email}")
     return deleted
 
 # Retrieves only the role assigned to a specific user
@@ -472,7 +486,7 @@ def get_user_role(session, email: str) -> str | None:
 def get_users_by_role(session, role: str) -> list[dict]:
     query = """
     MATCH (u:User {role: $role})
-    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation
+    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation, u.role AS role
     ORDER BY u.real_name
     """
     result = session.run(query, role=role)
@@ -483,7 +497,10 @@ def update_user_role(session, email: str, new_role: str) -> dict | None:
     query = """
     MATCH (u:User {email: $email})
     SET u.role = $new_role, u.updated_at = datetime()
-    RETURN u.email AS email, u.real_name AS real_name, u.role AS role
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation
     """
     result = session.run(
         query, 
@@ -492,8 +509,47 @@ def update_user_role(session, email: str, new_role: str) -> dict | None:
     ).single()
     
     if result:
-        print(f"Updated role for {email} to '{new_role}'")
+        log.info(f"Updated role for {email} to '{new_role}'")
         return result.data()
     
-    print(f"User with email '{email}' not found.")
+    log.error(f"User with email '{email}' not found.")
     return None
+def count_administrators(session) -> int:
+    query = """
+    MATCH (u:User)
+    WHERE toLower(u.role) = 'administrator'
+    RETURN count(u) AS admin_count
+    """
+    result = session.run(query).single()
+    return result["admin_count"] if result else 0
+
+# Ensures unique constraints exist and seeds a default admin user on startup
+def init_default_admin():
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "").strip()
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "")
+
+    if not admin_email or not admin_password:
+        log.info("Default admin bootstrap disabled; configure both DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD to enable.")
+        return
+
+    try:
+        with driver.session() as session:
+            # 1. Ensure email uniqueness constraint exists in Neo4j
+            init_user_constraints(session)
+
+            # 2. Check if default admin exists; create if not
+            existing_admin = get_user_by_email(session, admin_email)
+            if not existing_admin:
+                create_user(
+                    session,
+                    real_name="Default Administrator",
+                    password=admin_password,
+                    role="administrator",
+                    affiliation="System",
+                    email=admin_email,
+                )
+                log.info(f"Initialized default administrator user: {admin_email}")
+            else:
+                log.info(f"Default administrator user already exists: {admin_email}")
+    except Exception as exc:
+        log.error(f"Failed to initialize default admin user: {exc}")

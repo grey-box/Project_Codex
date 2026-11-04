@@ -2,6 +2,13 @@
 
 Reviewed November 1, 2026 on `codex/branden-stephen-integration` after fetching origin.
 
+November 3 update: Ryan's ACL authentication and administrator API changes have
+now been integrated with the existing UI. The earlier inventory below records
+the November 1 state. See [current authentication integration](../auth-integration.md)
+for the `/auth` endpoint, database-backed role checks, bootstrap configuration
+and isolated verification setup. OCR and the other unrelated branch features
+remain separate.
+
 ## Running application
 
 The root Compose file starts `backend/codex_build/api.py`. The separate

@@ -25,6 +25,7 @@ import os
 import sys
 import tempfile
 import logging
+import secrets
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
@@ -33,7 +34,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 import ast
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from dotenv import load_dotenv
 
 import jwt
@@ -47,7 +48,7 @@ from neo4j_sources.source_data import source_data
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 # ── JSON Web Token (JWT) setup and functions ─────────────────────────────────
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-fallback-key")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "").strip() or secrets.token_urlsafe(48)
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24   # access lasts for 24 hours
 
@@ -60,18 +61,40 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
-    """Decodes JWT and returns payload if present, or None if unauthenticated."""
+    """Decodes JWT and returns the current database-backed user identity and role."""
     if not credentials:
         return None
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload
     except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    email = str(payload.get("sub", "")).lower().strip()
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    with driver.session() as session:
+        user = get_user_by_email(session, email)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload["sub"] = user["email"]
+    payload["role"] = user["role"]
+    return payload
 
 def require_roles(allowed_roles: List[str]):
     """Enforces that the current authenticated user belongs to one of the allowed roles."""
@@ -117,6 +140,8 @@ try:
         update_user,
         delete_user,
         get_user_role,
+        count_administrators,
+        init_default_admin,
         get_users_by_role,
         update_user_role,
         authenticate_user,
@@ -132,6 +157,11 @@ log = logging.getLogger("codex.api")
 TARGET_FOLDER_PATH = Path("./codex/language_packs")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if os.getenv("TESTING") != "true":
+        init_default_admin()
+    if os.getenv("LOAD_DEMO_DATA", "true").lower() not in ("true", "1", "yes"):
+        yield
+        return
     print(f"Scanning directory: {TARGET_FOLDER_PATH.resolve()}")
     
     if TARGET_FOLDER_PATH.exists() and TARGET_FOLDER_PATH.is_dir():
@@ -275,7 +305,7 @@ class UserCreateRequest(BaseModel):
     model_config = {"json_schema_extra": {"example": {
         "real_name": "Jane Doe",
         "password": "SecurePassword123!",
-        "role": "Admin",
+        "role": "administrator",
         "affiliation": "Global Health Org",
         "email": "jane.doe@example.com"
     }}}
@@ -295,6 +325,12 @@ class UserResponse(BaseModel):
     role: str
     affiliation: str
     created_at: Optional[Any] = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, created_at: Any, _info):
+        if created_at is not None:
+            return str(created_at)
+        return None
 
 class UserRoleResponse(BaseModel):
     email: str
@@ -569,12 +605,13 @@ def list_languages():
         raise HTTPException(status_code=500, detail=str(exc))
     
 @app.post(
-    "/api/login",
+    "/auth",
     response_model=TokenResponse,
     summary="Authenticate user",
     tags=["auth"],
 )
 def login(body: LoginRequest):
+    """Authenticate a user and return a JWT access token with the current role."""
     with driver.session() as session:
         user = authenticate_user(session, body.email, body.password)
 
@@ -607,7 +644,7 @@ def login(body: LoginRequest):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_create_user(body: UserCreateRequest):
-    """Creates a new user node in Neo4j."""
+    """Create a new user in Neo4j. Returns 409 if the email already exists."""
     try:
         with driver.session() as session:
             # Check if user already exists
@@ -647,7 +684,7 @@ def api_get_users(
     role: Optional[str] = Query(None, description="Optional role filter"),
     limit: int = Query(100, ge=1, le=1000)
 ):
-    """Retrieves users from Neo4j. Optionally filter by role."""
+    """Return users from Neo4j, optionally filtered by role and limited by count."""
     try:
         with driver.session() as session:
             if role:
@@ -666,7 +703,7 @@ def api_get_users(
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_user(email: str):
-    """Fetches details for a single user by email address."""
+    """Return a single user by email. Returns 404 when the user does not exist."""
     try:
         with driver.session() as session:
             user = get_user_by_email(session, email)
@@ -691,9 +728,23 @@ def api_get_user(email: str):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_update_user(email: str, body: UserUpdateRequest):
-    """Updates user fields (real_name, role, affiliation, password)."""
+    """Update user profile fields and prevent demotion of the last administrator."""
     try:
         with driver.session() as session:
+            if body.role is not None:
+                current_role = get_user_role(session, email)
+
+                if (
+                    current_role is not None
+                    and current_role.strip().lower() == "administrator"
+                    and body.role.strip().lower() != "administrator"
+                    and count_administrators(session) <= 1
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Cannot demote the last administrator."
+                    )
+
             updated = update_user(
                 session,
                 email=email,
@@ -722,11 +773,40 @@ def api_update_user(email: str, body: UserUpdateRequest):
     tags=["users"],
     dependencies=[Depends(require_roles(["administrator"]))],
 )
-def api_delete_user(email: str):
-    """Removes a user node from Neo4j."""
+def api_delete_user(
+    email: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a user while preventing administrator self-deletion and removal of the last administrator."""
     try:
         with driver.session() as session:
+            role = get_user_role(session, email)
+
+            if role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+
+            current_email = str(current_user.get("sub", "")).lower().strip()
+
+            if email.lower().strip() == current_email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Administrators cannot delete their own account."
+                )
+
+            if (
+                role.strip().lower() == "administrator"
+                and count_administrators(session) <= 1
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete the last administrator."
+                )
+
             deleted = delete_user(session, email)
+
             if not deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -747,7 +827,7 @@ def api_delete_user(email: str):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_get_user_role(email: str):
-    """Retrieves only the role assigned to a specific user."""
+    """Return the role assigned to a user. Returns 404 when the user does not exist."""
     try:
         with driver.session() as session:
             role = get_user_role(session, email)
@@ -772,9 +852,27 @@ def api_get_user_role(email: str):
     dependencies=[Depends(require_roles(["administrator"]))],
 )
 def api_update_user_role(email: str, body: UserRoleUpdateRequest):
-    """Updates only the role for a specific user."""
+    """Update a user role while preventing demotion of the last administrator."""
     try:
         with driver.session() as session:
+            current_role = get_user_role(session, email)
+
+            if current_role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+
+            if (
+                current_role.strip().lower() == "administrator"
+                and body.role.strip().lower() != "administrator"
+                and count_administrators(session) <= 1
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot demote the last administrator."
+                )
+
             updated = update_user_role(session, email=email, new_role=body.role)
             if not updated:
                 raise HTTPException(
