@@ -1,22 +1,45 @@
-node_modules
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# Python bytecode (regenerated every time the API runs)
-__pycache__/
-*.py[cod]
-
-# macOS Finder metadata
-.DS_Store
-
-# Runtime logs
+# Build outputs
+dist/
+build/
+*.egg-info/
+.vite/
+logs/
 *.log
 
-# Frontend build and browser-check outputs
-frontend/dist/
-frontend/.test-build/
-frontend/test-results/
-frontend/playwright-report/
-frontend/.env.local
-frontend/.env.*.local
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
 
-# Local API credentials, loaded by api.py and never committed.
-backend/codex_build/.env
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.test-build/
+test-results/
+playwright-report/
+
+# Database & populated outputs
+databases.txt
+**/databases.txt
+
+# Environment & local files
+.env
+.env.local
+.env.*.local
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
