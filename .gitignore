@@ -1,14 +1,49 @@
-node_modules
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# Python bytecode (regenerated every time the API runs)
+# Build outputs
+dist/
+build/
+*.egg-info/
+.vite/
+logs/
+*.log
+
+# Python cache & virtual environments
 __pycache__/
 *.py[cod]
+*$py.class
 
-# macOS Finder metadata
+.venv/
+venv/
+ENV/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.test-build/
+test-results/
+playwright-report/
+
+# Database & populated outputs
+databases.txt
+**/databases.txt
+
+# Environment & local files
+.env
+.env.local
+.env.*.local
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
 .DS_Store
-
-# Runtime logs
-*.log
+Thumbs.db
 
 # Frontend build and browser-check outputs
 frontend/dist/

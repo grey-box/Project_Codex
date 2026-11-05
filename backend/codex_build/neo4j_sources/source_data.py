@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from collections import deque
 
 import requests
-from neo4j import GraphDatabase, WRITE_ACCESS
+from neo4j import GraphDatabase, WRITE_ACCESS  # type: ignore
 from dotenv import load_dotenv
 from urllib.request import urlopen, Request
 from urllib.parse import quote
