@@ -246,4 +246,3 @@ All API responses returning tabular data use this envelope:
   ```bash
   docker compose down -v
   ```
-

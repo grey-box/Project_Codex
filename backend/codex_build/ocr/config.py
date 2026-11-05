@@ -29,10 +29,10 @@ logger = logging.getLogger(LOGGER_NAME)
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
-    
+
     This class defines all configurable settings for the application with sensible
     defaults. Values can be overridden by environment variables or a .env file.
-    
+
     Attributes:
         logging_format: Format string for log messages
         logging_level: Minimum log level to record (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # Logging settings
     logging_format: str = "%(asctime)s - %(levelname)s - %(message)s"
     logging_level: str = "INFO"
-    
+
     # Database settings
     db_type: str = "postgresql"
     db_host: str = "localhost"
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     postgres_user: Optional[str] = None
     postgres_password: Optional[str] = None
     database_url: Optional[str] = None
-    
+
     # Application settings
     fallback_translation_method: str = "gemini"
     google_api_key: Optional[str] = None
@@ -122,10 +122,10 @@ fuzzySettings = FuzzySettings()
 class LogConfig(BaseModel):
     """
     Logging configuration for the application.
-    
+
     This class defines the structure and settings for application logging,
     including formatters, handlers, and logger configurations.
-    
+
     Attributes:
         logger_name: Name of the main application logger
         logger_name_file: Name of the file logger
@@ -150,7 +150,7 @@ class LogConfig(BaseModel):
         directory = os.path.join(os.getcwd(), "logs")
         os.makedirs(directory, exist_ok=True)
         return directory
-    
+
     @property
     def log_file_path(self) -> str:
         """Get the full path to the log file."""
@@ -177,7 +177,7 @@ class LogConfig(BaseModel):
                 "datefmt": "%Y-%m-%d %H:%M:%S %z",
             }
         }
-    
+
     # Log handlers configuration
     @property
     def handlers(self) -> Dict[str, Dict[str, Any]]:
@@ -208,7 +208,7 @@ class LogConfig(BaseModel):
                 "encoding": "utf-8",
             }
         }
-    
+
     # Loggers configuration
     @property
     def loggers(self) -> Dict[str, Dict[str, Any]]:
@@ -223,7 +223,7 @@ class LogConfig(BaseModel):
     def model_dump(self) -> Dict[str, Any]:
         """
         Convert the model to a dictionary suitable for logging configuration.
-        
+
         Returns:
             Dict[str, Any]: Dictionary representation of the logging configuration
         """
@@ -240,10 +240,10 @@ class LogConfig(BaseModel):
 def setup_logging() -> None:
     """
     Configure logging for the application.
-    
+
     This function applies the logging configuration defined in LogConfig.
     It should be called early in the application startup process.
-    
+
     Raises:
         RuntimeError: If logging configuration fails
     """
@@ -251,20 +251,20 @@ def setup_logging() -> None:
         # Apply logging configuration
         config_dict = LogConfig().model_dump()
         logging_config.dictConfig(config_dict)
-        
+
         # Log successful configuration
         logger.info(f"Logging configured successfully")
     except Exception as error:
         # Since logging might not be configured yet, print to stderr as well
         error_msg = f"Failed to configure logging: {str(error)}"
         print(f"ERROR: {error_msg}")
-        
+
         # Try to log the error, but this might not work if logging setup failed
         try:
             logger.error(f"Error during logging setup: {error_msg}")
         except Exception as e:
             pass
-        
+
         # In a web context, you might want to raise an HTTPException
         # But for module initialization, a RuntimeError is more appropriate
         raise RuntimeError(f"Logging configuration failed: {error_msg}") from error

@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": [
+      "node"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": ".test-build"
+  },
+  "include": [
+    "tests/**/*.ts",
+    "src/services/population.ts"
+  ],
+  "exclude": [
+    "tests/browser"
+  ]
+}

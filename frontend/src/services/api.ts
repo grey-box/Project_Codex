@@ -1,40 +1,42 @@
 import type {
-  CountryOption,
   LanguagesResponse,
   SearchResponse,
   TranslateResponse,
 } from '../types/codex'
+import { FALLBACK_LANGUAGES } from '../types/codex'
+import { getAuthHeaders, setAccessToken } from './session'
 
-export const API_BASE_URL = 'http://localhost:8000'
+// Set this to the development computer's LAN URL when testing on a phone.
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+
+// Matches the team's ACL branch contract; the backend must expose /auth.
+export async function loginUser(email: string, password: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : 'Sign-in is unavailable on this backend.')
+  if (typeof data?.access_token !== 'string' || !data.access_token.trim()) throw new Error('The server did not return an access token.')
+  setAccessToken(data.access_token)
+}
 
 /**
  * Fetches available language codes that have data in Neo4j.
  */
-export interface LanguagesData {
-  languages: string[]
-  countries: Record<string, CountryOption[]>
-}
-
-/**
- * Fetches available language codes and their associated countries from Neo4j.
- */
-export async function getLanguages(): Promise<LanguagesData> {
+export async function getLanguageCatalog(): Promise<LanguagesResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/languages`)
+    const response = await fetch(`${API_BASE_URL}/languages`, { headers: getAuthHeaders() })
     if (!response.ok) {
       throw new Error('Failed to load languages')
     }
     const data = (await response.json()) as LanguagesResponse
-    return {
-      languages: Array.isArray(data.languages) ? data.languages : [],
-      countries: data.countries ?? {},
-    }
+    return Array.isArray(data.languages) && data.languages.length > 0
+      ? data
+      : { languages: FALLBACK_LANGUAGES }
   } catch (error) {
-    console.warn('Failed to fetch languages from Neo4j:', error)
-    return {
-      languages: [],
-      countries: {},
-    }
+    console.warn('Using fallback languages due to error:', error)
+    return { languages: FALLBACK_LANGUAGES }
   }
 }
 
@@ -48,6 +50,7 @@ export async function searchDrug(query: string): Promise<SearchResponse[]> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         query: query,
@@ -80,6 +83,7 @@ export async function translateDrug(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       term,
@@ -99,7 +103,7 @@ export async function translateDrug(
 /**
  * Scans an image file using OCR and extracts medical terms with fuzzy matching.
  */
-export async function scanOcrImage(file: File, sourceLanguage?: string): Promise<import('../types/codex').OcrResultItem[]> {
+export async function scanOcrImage(file: File, sourceLanguage?: string, signal?: AbortSignal): Promise<import('../types/codex').OcrResultItem[]> {
   const formData = new FormData()
   formData.append('file', file)
   if (sourceLanguage && sourceLanguage !== 'all') {
@@ -108,7 +112,9 @@ export async function scanOcrImage(file: File, sourceLanguage?: string): Promise
 
   const response = await fetch(`${API_BASE_URL}/ocrmatching/`, {
     method: 'POST',
+    headers: getAuthHeaders(),
     body: formData,
+    signal,
   })
 
   if (!response.ok) {
