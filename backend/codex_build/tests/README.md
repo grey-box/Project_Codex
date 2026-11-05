@@ -16,17 +16,11 @@ The tests verify persistence by retrieving users after create, update, and role-
 
 During role-update testing, a response validation issue was identified because the API response was missing the `affiliation` field required by the `UserResponse` model. The backend response was corrected.
 
-## Setup for Integration Tests
-
-```bash
-docker compose -f docker-compose-test.yml up
-# Wait ~30 seconds for Neo4j, frontend, and api to be ready
-```
-
 ## Running Integration Tests
 
 ```bash
-python -m pytest -v integration_tests.py
+docker compose -f docker-compose-test.yml up --exit-code-from test-runner
+# this may take a few moments
 ```
 
 ## Adding new integration tests

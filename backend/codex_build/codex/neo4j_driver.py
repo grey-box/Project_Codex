@@ -3,6 +3,7 @@ from neo4j import GraphDatabase       # Python driver from Neo4j
 from dotenv import load_dotenv        # Loads environment variables from .env file
 import os                             # Access to OS environment variables
 import bcrypt                         # Used for hashing passwords
+import logging
 
 # Loads environment varibles 
 load_dotenv()
@@ -14,6 +15,10 @@ password = os.getenv("NEO4J_PASSWORD")
 
 # Connect to Neo4j
 driver = GraphDatabase.driver(uri, auth=(user, password))
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
+log = logging.getLogger("codex.neo4j_driver")
 
 # Create or update translation nodes for any medical term (medication and symtom)
 def create_translation(session, canonical, brand, country, lang_code, lang_name, translation, term_type="medication"):
@@ -47,7 +52,7 @@ def create_translation(session, canonical, brand, country, lang_code, lang_name,
         session.run(query, canonical=canonical, translation=translation, country=country, brand=brand)
 
     # Just for comfirmation in console for verification
-    print(f"Added {canonical} → {translation} ({lang_name}) / Brand: {brand} in {country}")
+    log.info(f"Added {canonical} → {translation} ({lang_name}) / Brand: {brand} in {country}")
 
 # Retrieves all translations and related info for a given term
 def get_translation_data(session, canonical, lang, country):
@@ -393,7 +398,7 @@ def create_user(session, real_name, password, role, affiliation, email):
     )
     record = result.single()
     if record:
-        print(f"User created: {record['email']}")
+        log.info(f"User created: {record['email']}")
         return record.data()
     return None
 
@@ -442,7 +447,7 @@ def update_user(session, email, real_name=None, role=None, affiliation=None, pas
         params["password"] = hash_password(password)
 
     if not updates:
-        print("No fields provided to update.")
+        log.warning("No fields provided to update.")
         return None
 
     set_clause = ", ".join(updates)
@@ -466,9 +471,9 @@ def delete_user(session, email):
     result = session.run(query, email=email.lower().strip()).single()
     deleted = result["deleted_count"] > 0
     if deleted:
-        print(f"Successfully deleted user: {email}")
+        log.info(f"Successfully deleted user: {email}")
     else:
-        print(f"No user found with email: {email}")
+        log.error(f"No user found with email: {email}")
     return deleted
 
 # Retrieves only the role assigned to a specific user
@@ -484,7 +489,7 @@ def get_user_role(session, email: str) -> str | None:
 def get_users_by_role(session, role: str) -> list[dict]:
     query = """
     MATCH (u:User {role: $role})
-    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation
+    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation, u.role AS role
     ORDER BY u.real_name
     """
     result = session.run(query, role=role)
@@ -507,10 +512,10 @@ def update_user_role(session, email: str, new_role: str) -> dict | None:
     ).single()
     
     if result:
-        print(f"Updated role for {email} to '{new_role}'")
+        log.info(f"Updated role for {email} to '{new_role}'")
         return result.data()
     
-    print(f"User with email '{email}' not found.")
+    log.error(f"User with email '{email}' not found.")
     return None
 
 def count_administrators(session) -> int:
@@ -543,8 +548,8 @@ def init_default_admin():
                     affiliation="System",
                     email=admin_email,
                 )
-                print("Initialized default administrator user: %s", admin_email)
+                log.info(f"Initialized default administrator user: {admin_email}")
             else:
-                print("Default administrator user already exists: %s", admin_email)
+                log.info(f"Default administrator user already exists: {admin_email}")
     except Exception as exc:
-        print("ERROR: Failed to initialize default admin user: %s", exc)
+        log.error(f"Failed to initialize default admin user: {exc}")

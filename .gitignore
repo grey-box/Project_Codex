@@ -19,6 +19,18 @@ __pycache__/
 venv/
 ENV/
 
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.test-build/
+test-results/
+playwright-report/
+
+# Database & populated outputs
+databases.txt
+**/databases.txt
+
 # Environment & local files
 .env
 .env.local

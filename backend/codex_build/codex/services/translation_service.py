@@ -13,41 +13,33 @@ CONFIG_PATH = os.path.abspath(
     )
 )
 
+DEMO_PACKS_DIR = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "demo_language_packs"
+    )
+)
+
 with open(CONFIG_PATH, "r") as f:
     FALLBACK_LANGUAGES = json.load(f)
 
-# Loads sample translation data into the Neo4j database
+# Loads sample translation data into the Neo4j database dynamically from JSON files
 # Used for testing, demos, and development
-def load_demo_data():
-    with driver.session() as session:
-        # Ibuprofen
-        create_translation(session, "Ibuprofen", "Advil", "US", "en", "English", "ibuprofen")
-        create_translation(session, "Ibuprofen", "Brufen", "FR", "fr", "French", "ibuprofène")
-        create_translation(session, "Ibuprofen", "Nurofen", "GB", "en", "English", "ibuprofen")
-        create_translation(session, "Ibuprofen", None, "NG", "en", "English", "ibuprofen")
-        create_translation(session, "Ibuprofen", "Advil", "MX", "es", "Spanish", "ibuprofeno")
-        create_translation(session, "Ibuprofen", "Espidifen", "ES", "es", "Spanish", "ibuprofeno")
+def load_demo_data(demo_dir: str = DEMO_PACKS_DIR):
+    loaded = []
+    if os.path.exists(demo_dir) and os.path.isdir(demo_dir):
+        for filename in sorted(os.listdir(demo_dir)):
+            if filename.endswith(".json"):
+                file_path = os.path.join(demo_dir, filename)
+                try:
+                    result = load_language_pack(file_path)
+                    loaded.append(result)
+                except Exception as exc:
+                    print(f"Failed to load demo pack {filename}: {exc}")
+    return {"status": "Demo data added", "loaded": loaded}
 
-        # Paracetamol
-        create_translation(session, "Paracetamol", "Tylenol", "US", "en", "English", "acetaminophen")
-        create_translation(session, "Paracetamol", "Calpol", "GB", "en", "English", "paracetamol")
-        create_translation(session, "Paracetamol", "Doliprane", "FR", "fr", "French", "paracétamol")
-        create_translation(session, "Paracetamol", "Panadol", "NG", "en", "English", "paracetamol")
-        create_translation(session, "Paracetamol", None, "ES", "es", "Spanish", "paracetamol")
-
-        # Amoxicillin
-        create_translation(session, "Amoxicillin", "Amoxil", "US", "en", "English", "amoxicillin")
-        create_translation(session, "Amoxicillin", "Clamoxyl", "FR", "fr", "French", "amoxicilline")
-        create_translation(session, "Amoxicillin", "Amoxil", "MX", "es", "Spanish", "amoxicilina")
-        create_translation(session, "Amoxicillin", None, "IN", "en", "English", "amoxicillin")
-        
-
-    return {"status": "Demo data added"}
-
-# Translates a medical term using:
-# 1. Requested language
-# 2. Configured fallback languages
-# 3. Universal English fallback
 def translate(term: str, lang: str = None, country: str = None):
     # Normalize input
     term = term.strip().lower()
