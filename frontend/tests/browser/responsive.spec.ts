@@ -115,7 +115,7 @@ test('phone dialogs fit long filenames and allow all form actions', async ({ pag
   await inViewport(dialog.getByRole('button', { name: 'Upload Pack' }), page)
   await page.screenshot({ path: testInfo.outputPath('phone-import.png') })
   await dialog.getByRole('button', { name: 'Upload Pack' }).click()
-  await expect(dialog.getByRole('alert')).toContainText('Fixture language pack imported')
+  await expect(dialog.getByRole('status')).toContainText('Fixture language pack imported')
 })
 
 test('selected details can be reached directly from phone results', async ({ page }, testInfo) => {
@@ -141,7 +141,7 @@ test('phone layout remains usable with German labels and dark appearance', async
   await page.getByRole('button', { name: 'Konto', exact: true }).click()
   await page.getByRole('button', { name: 'Dunkel', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect(page.locator('.workspace-account [data-dropdown-panel]')).toHaveCSS('background-color', 'rgb(24, 25, 27)')
+  await expect(page.locator('.workspace-account [data-dropdown-panel]')).toHaveCSS('background-color', 'rgb(28, 30, 33)')
   await fitsWidth(page.locator('.workspace-sidebar'))
   await page.screenshot({ path: testInfo.outputPath('phone-dark-navigation.png'), animations: 'disabled' })
 })

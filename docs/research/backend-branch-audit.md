@@ -1,0 +1,149 @@
+# Backend and branch integration review
+
+Reviewed November 1, 2026 on `codex/branden-stephen-integration` after fetching origin.
+
+November 3 update: Ryan's ACL authentication and administrator API changes have
+now been integrated with the existing UI. The earlier inventory below records
+the November 1 state. See [current authentication integration](../auth-integration.md)
+for the `/auth` endpoint, database-backed role checks, bootstrap configuration
+and isolated verification setup. OCR and the other unrelated branch features
+remain separate.
+
+## Running application
+
+The root Compose file starts `backend/codex_build/api.py`. The separate
+`main.py` application and its drugs, conditions, sources and translation routers
+are not registered in this entry point. The frontend calls `/languages`,
+`/search`, `/translate`, `/api/login`, `/packs/load`, `/api/populate-sources`
+and `/ocrmatching/`.
+
+The local API and Neo4j were stopped. The existing API container originally
+mounted a different checkout and used an older image without PyJWT. Recreating
+it from this checkout, rebuilding, and adding its missing bcrypt dependency
+restored startup. The Vite `/backend` development proxy connects the preview
+without expanding backend CORS permissions. For local development, set
+`VITE_API_BASE_URL=/backend` in `frontend/.env.development.local`. For the
+Docker frontend, set `CODEX_API_PROXY_TARGET=http://api:8000` if using that proxy.
+Production deployments must configure `VITE_API_BASE_URL` for their backend.
+
+Live checks passed for API/Neo4j health, search, and all bundled Russian and
+Ukrainian translations: 10 Russian entries and 18 Ukrainian entries across
+9 Ukrainian terms. Data in these files is demo content, not clinical validation.
+The observed database contained 11 Term nodes and no imported Drug or Condition
+nodes. External provider ingestion has not been verified. No provider keys
+were submitted and no bulk import was started during this review.
+
+## Language fixes
+
+Russian and Ukrainian data options previously selected interface languages
+without corresponding UI resource files. Added both resource files, translated
+tool dialogs and validation messages, localized country labels, and made the
+language menu close after selection. Backend country metadata now follows
+Sebastian's country-discovery approach from commit `3814fe2`, retaining this
+branch's authentication routes. The frontend uses returned countries and keeps
+static mappings only as compatibility fallback for older APIs.
+
+## Branch inventory and remaining integration
+
+All 20 remote branch tips were inventoried. Relevant backend route definitions,
+frontend locale resources, dependency files and current feature differences
+were compared; archived source-loader branches were checked as historical work.
+This is an integration review, not a complete security or clinical audit.
+
+| Branch | Relevant work and integration status |
+| --- | --- |
+| `branden-branch` | Responsive workspace and basic JWT/account backend; integration baseline. |
+| `codex/branden-stephen-integration` | Reconciled responsive workspace, Stephen components and account flow; current review branch. |
+| `stephen-nav-bar-ui-branch` | Navigation/login UI cherry-picked with original authorship. Its backend ancestry also contains OCR and dynamic countries but lacks the current login API. |
+| `left_nav_bar_ui` | Earlier navigation UI, with OCR/dynamic-country backend ancestry. |
+| `sebastian-branch` | Dynamic country mapping, modular demo loading, OCR and Docker startup changes. Do not replace the current API wholesale because it would remove login/access-control routes. |
+| `asu-ui-branch` | Shared UI/OCR/dynamic-country lineage and Neo4j health-check change. |
+| `acl-branch` | Newer database-backed role checks, user-management safeguards and OCR integration. These updates remain to be reconciled with the current backend. |
+| `arshit-frontend-auth` | Authentication/admin-management prototype; current UI uses server-token sign-in, not its full admin interface. |
+| `feature/spreadsheet-drug-list` | `/csv` catalogue endpoint returning JSON. Not registered in the current backend. |
+| `josh/api-test-infrastructure` | Disposable Neo4j/pytest smoke-test infrastructure. Not integrated; current tests must not wipe the development database. |
+| `logan-branch` | OCR pipeline ancestry. Current API has no OCR router or runtime dependencies. |
+| `feat/security-encryption-utilities` | Crypto/hash/vault helpers and tests; not wired into current application behavior. |
+| `codex/ic2-population-errors` | Earlier responsive UI and population-stream error handling, plus OCR ancestry. |
+| `main`, `main-refactored` | Older project baselines. |
+| `frontend-demo` | Earlier search/CSV UI work. |
+| `configuring-source-loaders`, `rxnorm-api-loader` | Historical source-ingestion implementations. |
+| `new-patch-main`, `sofievargas-patch-1` | Historical documentation/API updates. |
+
+OCR is not working in this runtime: `/ocrmatching/` is absent. Importing its
+branch also requires reviewing PaddleOCR/model downloads, image validation and
+ClamAV configuration. The UI's mocked OCR tests do not demonstrate live OCR.
+
+Population and pack import remain protected and return 401 without a session.
+A negative login check also returned 401. Successful real-user login and
+provider-authorized ingestion still need account/credential-backed verification.
+
+External source loaders populate a separate Drug/DrugName/Condition schema,
+while current search/translation use Term/Translation nodes. Registering or
+bridging those query paths is necessary before claiming the entire external
+catalogue is searchable in this workspace. `neo4j_sources/db.py` also imports
+`config` from the old location, which must be reconciled before enabling the
+unused `main.py` router stack.
+
+## Appearance and motion
+
+Light mode retains the approved pale surfaces and forest sidebar. Dark mode
+uses neutral charcoal surfaces. Its Search action and selected navigation use
+the same forest green; light mode's action is slightly lighter. Native CSS
+handles popovers, dialogs, drawer entry, hover and desktop grid collapse.
+Language changes use the browser's Web Animations API for a brief fade without
+remounting application state. No animation dependency was added. Reduced motion
+bypasses those effects. Wrapped navigation labels share left alignment and a
+fixed icon column.
+
+## Search semantics and sample-data scope
+
+The term metadata queries compare each translation's text with its canonical
+spelling. Logan introduced this in commit `39cf2ef`. It could intentionally
+describe where that exact spelling is used, rather than every language into
+which a medicine can be translated. The commit message does not resolve that
+question. Existing query behavior is preserved pending an API-team decision.
+
+The [2026 project plan](https://app.notion.com/p/134815ddf30b809ea25fd02a48e2fdbc)
+describes ongoing ingestion and mapping across medical databases. The
+[UI epic](https://app.notion.com/p/3dd815ddf30b80dba962fd53ca90ffce) expects API
+integration, with backend functionality supplied by the backend team. Neither
+establishes a sample-only final product. Sebastian's README explicitly documents
+automatic demo packs for development and disabling them for clean ingestion tests.
+The October 10 local research note proposes temporary stubs while integration
+is pending; its attribution to an October 8 Slack suggestion was not independently
+verified in the focused Slack searches. It is not treated as a sponsor mandate.
+
+No provider population was started. Sample data in this preview is served by
+the real local Neo4j-backed API, not a frontend mock. Provider ingestion and
+successful account-backed administration remain unverified.
+
+## UI follow-up
+
+Language fades use opacity without moving bottom-edge panels, preventing
+temporary page overflow. Loading placeholders follow the list structure shown by
+[Grain](https://mobbin.com/screens/8755a9ed-34c8-4e4b-af8a-80a965bbc4a9) and
+[Navan](https://mobbin.com/screens/2c395ab1-c8d1-4753-b1d3-7a79935aa2c6).
+Recoverable search errors use the retry pattern shown by
+[Care.com](https://mobbin.com/screens/5bea7e07-ed66-498c-9862-a7e7110507f2).
+Validation stays associated with its field; failures also use shared dismissible
+toasts. Source checkboxes and counts are compact and neutral. The breadcrumb
+shows Medications without an invented parent. A native SVG illustrates help.
+
+Radix Select provides the custom language/country popup's keyboard navigation,
+focus management and typeahead. This adds a UI dependency; motion still has no
+animation-library dependency. Footer destinations come from the
+[official Grey-box website](https://www.grey-box.ca/home/), since Stephen's
+branch supplied buttons without URLs.
+
+
+### Sign-in footer placement, November 2
+
+Grey-box website/social links and copyright now appear below the sign-in form,
+removed from the workspace sidebar. The
+[sweetgreen sign-in reference](https://mobbin.com/screens/9250a7ba-aaf5-4f6e-9c3e-e08690f9e4fa)
+places social/company links beneath its form;
+[Jira](https://mobbin.com/screens/f7cfad1f-3533-4e1d-bd66-cda5bb2ba682)
+places company information below authentication. These cross-domain references
+inform placement only. The exact compact modal arrangement is our adaptation.
+No authentication methods or destinations changed.

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import React, { useEffect, useState, useRef } from 'react'
 import { Modal, Button, Alert } from '../ui'
 import { scanOcrImage } from '../../services/api'
@@ -18,6 +19,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
   triggerClassName,
   triggerLabel = 'OCR Scan',
 }) => {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -55,15 +57,15 @@ export const OcrModal: React.FC<OcrModalProps> = ({
     setOcrResults([])
 
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      setOcrError('Please upload a valid image file (PNG, JPG, JPEG, WEBP).')
+      setOcrError(t('tools.invalidImage'))
       return
     }
     if (file.size === 0) {
-      setOcrError('This image is empty. Please choose another file.')
+      setOcrError(t('tools.emptyImage'))
       return
     }
     if (file.size > 10 * 1024 * 1024) {
-      setOcrError('Please choose an image no larger than 10 MB.')
+      setOcrError(t('tools.largeImage'))
       return
     }
 
@@ -106,7 +108,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
     setOcrResults([])
 
     if (!selectedFile) {
-      setOcrError('Please select or drop an image file first.')
+      setOcrError(t('tools.selectImage'))
       return
     }
 
@@ -118,11 +120,11 @@ export const OcrModal: React.FC<OcrModalProps> = ({
       if (activeScan.current !== controller || controller.signal.aborted) return
       setOcrResults(results)
       if (results.length === 0) {
-        setOcrError('No drug names or text recognized in this image.')
+        setOcrError(t('tools.noText'))
       }
     } catch (err) {
       if (activeScan.current !== controller || controller.signal.aborted) return
-      setOcrError(err instanceof Error ? err.message : 'Failed to scan image')
+      setOcrError(err instanceof Error ? err.message : t('tools.scanFailed'))
     } finally {
       if (activeScan.current === controller) {
         activeScan.current = null
@@ -171,8 +173,8 @@ export const OcrModal: React.FC<OcrModalProps> = ({
       <Modal
         isOpen={isOpen}
         onClose={resetAndClose}
-        title="Scan Image for Drug Names (OCR)"
-        subtitle="Extract medication text and find fuzzy matches in the knowledge graph"
+        title={t('tools.ocrTitle')}
+        subtitle={t('tools.ocrSubtitle')}
         maxWidthClass="max-w-2xl"
         icon={
           <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,7 +194,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
             <div
               role="button"
               tabIndex={0}
-              aria-label="Choose an image"
+              aria-label={t('tools.chooseImage')}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault()
@@ -215,7 +217,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                 ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                aria-label="Image file"
+                aria-label={t('tools.imageFile')}
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -224,7 +226,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                   <img
                     src={previewUrl}
-                    alt="Uploaded preview"
+                    alt={t('tools.uploadedPreview')}
                     className="w-24 h-24 object-cover rounded-lg border border-slate-200 shadow-xs"
                   />
                   <div className="text-left">
@@ -233,7 +235,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                       {selectedFile ? (selectedFile.size / 1024).toFixed(1) : 0} KB
                     </p>
                     <p className="text-xs text-emerald-600 font-medium underline mt-1">
-                      Click to choose another image
+                      {t('tools.anotherImage')}
                     </p>
                   </div>
                 </div>
@@ -250,10 +252,10 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                     </svg>
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-emerald-700">Click to upload image</span>
-                    <span className="text-sm text-slate-600"> or drag and drop</span>
+                    <span className="text-sm font-semibold text-emerald-700">{t('tools.uploadImage')}</span>
+                    <span className="text-sm text-slate-600">{t('tools.dragDrop')}</span>
                   </div>
-                  <p className="text-xs text-slate-400">PNG, JPG, JPEG or WEBP, up to 10 MB</p>
+                  <p className="text-xs text-slate-400">{t('tools.imageFormats')}</p>
                 </div>
               )}
             </div>
@@ -264,7 +266,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
             {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-1">
               <Button type="button" variant="ghost" size="sm" onClick={resetAndClose}>
-                Cancel
+                {t('tools.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -273,7 +275,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                 isLoading={isScanning}
                 disabled={!selectedFile}
               >
-                {isScanning ? 'Extracting Text...' : 'Extract & Match'}
+                {isScanning ? t('tools.extracting') : t('tools.extract')}
               </Button>
             </div>
           </form>
@@ -283,19 +285,19 @@ export const OcrModal: React.FC<OcrModalProps> = ({
             <div className="space-y-3 pt-3 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-slate-800">
-                  Extracted Terms & Matches ({ocrResults.length})
+                  {t('tools.extractedTerms', { count: ocrResults.length })}
                 </h4>
-                <span className="text-xs text-slate-500">Select a term to search directly</span>
+                <span className="text-xs text-slate-500">{t('tools.selectTerm')}</span>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                      <th className="py-2.5 px-3">Term / Text</th>
-                      <th className="py-2.5 px-3">Confidence / Distance</th>
-                      <th className="py-2.5 px-3">Source</th>
-                      <th className="py-2.5 px-3 text-right">Action</th>
+                      <th className="py-2.5 px-3">{t('tools.termText')}</th>
+                      <th className="py-2.5 px-3">{t('tools.confidence')}</th>
+                      <th className="py-2.5 px-3">{t('tools.source')}</th>
+                      <th className="py-2.5 px-3 text-right">{t('tools.action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -303,7 +305,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                       const termName =
                         item.matching_name ||
                         item.rec_text ||
-                        'Unknown'
+                        t('tools.unknown')
                       const detail =
                         item.rec_score !== undefined
                           ? `${(item.rec_score * 100).toFixed(1)}%`
@@ -329,7 +331,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                               onClick={() => handleUseTerm(termName)}
                               className="font-medium text-xs px-2 py-1"
                             >
-                              Use in Search
+                              {t('tools.useSearch')}
                             </Button>
                           </td>
                         </tr>

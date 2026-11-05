@@ -1,13 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { WorkspaceTools } from './components/layout/Header'
+import { WorkspaceTools } from './components/layout/WorkspaceTools'
 import { WorkspaceLayout } from './components/layout/WorkspaceLayout'
 import { SearchBar } from './components/search/SearchBar'
 import { ResultsTable } from './components/results/ResultsTable'
 import { TranslationPanel } from './components/translation/TranslationPanel'
-import type { SearchResultRow, TranslateResultRow, LanguageOption } from './types/codex'
+import type { SearchResultRow, TranslateResultRow, LanguageOption, CountryOption } from './types/codex'
 import { LANGUAGE_COUNTRY_MAP, FALLBACK_LANGUAGES } from './types/codex'
-import { getLanguages, searchDrug, translateDrug } from './services/api'
+import { getLanguageCatalog, searchDrug, translateDrug } from './services/api'
+import { useToastError } from './services/toasts'
 
 function App() {
   const { t, i18n } = useTranslation()
@@ -15,6 +16,7 @@ function App() {
   const [unfilteredResults, setSearchResults] = useState<SearchResultRow[]>([])
   const [selectedResult, setSelectedResult] = useState<SearchResultRow | null>(null)
   const [loadedLanguages, setLoadedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
+  const [languageCountries, setLanguageCountries] = useState<Record<string, CountryOption[]>>(LANGUAGE_COUNTRY_MAP)
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(FALLBACK_LANGUAGES)
   const [searchLanguage, setSearchLanguage] = useState('all')
@@ -24,6 +26,9 @@ function App() {
   const [translatedBrand, setTranslatedBrand] = useState('')
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
+  const [hasQueryError, setHasQueryError] = useState(false)
+  useToastError(searchError)
+  useToastError(hasQueryError ? t('tools.searchRequired') : undefined)
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
@@ -54,10 +59,12 @@ function App() {
     return label.charAt(0).toUpperCase() + label.slice(1)
   }
 
-  const availableCountries = LANGUAGE_COUNTRY_MAP[targetLanguage] ?? []
+  const availableCountries = (languageCountries[targetLanguage] ?? []).map(country => ({
+    ...country, label: new Intl.DisplayNames([i18n.language], { type: 'region' }).of(country.code) ?? country.label,
+  }))
 
   const getFirstCountryForLanguage = (langCode: string): string => {
-    const available = LANGUAGE_COUNTRY_MAP[langCode] ?? []
+    const available = languageCountries[langCode] ?? []
     return available.length > 0 ? available[0].code : ''
   }
 
@@ -70,9 +77,11 @@ function App() {
 
   const loadLanguages = useCallback(async (isActive: () => boolean) => {
     try {
-      const nextLanguages = await getLanguages()
+      const catalog = await getLanguageCatalog()
+      const nextLanguages = catalog.languages
       if (!isActive()) return
       setLoadedLanguages(nextLanguages)
+      setLanguageCountries(catalog.countries ?? LANGUAGE_COUNTRY_MAP)
       setAvailableLanguages(nextLanguages)
       setSelectedLanguages(nextLanguages)
       setTargetLanguage((current) => (nextLanguages.includes(current) ? current : nextLanguages[0]))
@@ -92,6 +101,11 @@ function App() {
       isActive = false
     }
   }, [loadLanguages])
+
+  useEffect(() => {
+    const countries = languageCountries[targetLanguage] ?? []
+    setTargetCountry(current => countries.some(country => country.code === current) ? current : countries[0]?.code ?? '')
+  }, [languageCountries, targetLanguage])
 
   const hasActiveLanguageMatch = (
     itemLanguageString: string | null | undefined,
@@ -179,15 +193,17 @@ function App() {
     return Array.from(new Set(brands)).join(', ')
   }
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchError('Please enter a search term')
+  const handleSearch = async (query = searchQuery) => {
+    if (!query.trim()) {
+      setHasQueryError(true)
+      document.getElementById('drug-search')?.focus()
       return
     }
+    setHasQueryError(false)
 
     clearTranslation()
     setHasSearched(true)
-    setSearchedQuery(searchQuery.trim())
+    setSearchedQuery(query.trim())
     setIsLoading(true)
     setSearchError('')
     setTranslateError('')
@@ -197,10 +213,10 @@ function App() {
     setTranslatedBrand('')
 
     try {
-      const data = await searchDrug(searchQuery)
+      const data = await searchDrug(query)
       setSearchResults(data)
     } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'An error occurred during search')
+      setSearchError(err instanceof Error ? err.message : t('tools.searchFailed'))
       setSearchResults([])
     } finally {
       setIsLoading(false)
@@ -209,11 +225,11 @@ function App() {
 
   const handleTranslateSelected = async () => {
     if (!selectedResult) {
-      setTranslateError('Select a search result first')
+      setTranslateError(t('tools.selectResult'))
       return
     }
 
-    const validCountries = (LANGUAGE_COUNTRY_MAP[targetLanguage] ?? []).map((c) => c.code)
+    const validCountries = (languageCountries[targetLanguage] ?? []).map((c) => c.code)
     const finalCountry = validCountries.includes(targetCountry)
       ? targetCountry
       : getFirstCountryForLanguage(targetLanguage)
@@ -233,11 +249,11 @@ function App() {
       setTranslatedName(name)
       setTranslatedBrand(brand)
       if (results.length === 0 || name === '-') {
-        setTranslateError('No translation found for the selected language')
+        setTranslateError(t('tools.noTranslation'))
       }
     } catch (err) {
       if (requestId === translationRequest.current) {
-        setTranslateError(err instanceof Error ? err.message : 'Translation failed')
+        setTranslateError(err instanceof Error ? err.message : t('tools.translationFailed'))
       }
     } finally {
       if (requestId === translationRequest.current) setIsTranslating(false)
@@ -270,7 +286,8 @@ function App() {
                 setSearchLanguage(language)
                 setSelectedResult(null)
                 clearTranslation()
-              }} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery}
+              }} searchQuery={searchQuery} onSearchQueryChange={query => { setSearchQuery(query); setHasQueryError(false) }}
+                queryError={hasQueryError ? t('tools.searchRequired') : undefined}
                 onSearch={handleSearch} isLoading={isLoading} languages={languages} />
               {availableLanguages.length < loadedLanguages.length && (
                 <div className="workspace-filter-notice">
@@ -288,7 +305,7 @@ function App() {
                 onDeselectAllLanguages={handleDeselectAll}
                 onApplyLanguageFilter={handleApplyLanguageFilter}
               />}
-              onSelectResult={(result) => {
+              onRetry={() => handleSearch(searchedQuery)} onSelectResult={(result) => {
                 setSelectedResult(result)
                 clearTranslation()
               }} hasBrand={hasBrand} searchError={searchError} isLoading={isLoading} hasSearched={hasSearched} />

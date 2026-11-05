@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import React, { useEffect, useId, useRef } from 'react'
 
 export interface ModalProps {
@@ -19,6 +20,7 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidthClass = 'max-w-lg',
 }) => {
+  const { t } = useTranslation()
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -95,7 +97,7 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={t('tools.closeDialog')}
             className="shrink-0 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

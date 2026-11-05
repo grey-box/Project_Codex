@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../ui'
+import { HelpIllustration } from './HelpIllustration'
 
 export function Documentation() {
   const { t } = useTranslation()
@@ -13,6 +14,7 @@ export function Documentation() {
       </button>
       <Modal isOpen={open} onClose={() => setOpen(false)} title={t('workspace.documentation')} maxWidthClass="max-w-2xl">
         <div className="workspace-help">
+          <HelpIllustration />
           {['search', 'translate', 'scan', 'import', 'populate'].map(section => (
             <section key={section}>
               <h4>{t(`workspace.help.${section}.title`)}</h4>

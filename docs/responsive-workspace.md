@@ -1,6 +1,6 @@
 # Responsive Medical Codex workspace
 
-Updated October 28, 2026. Branch: `branden-branch`.
+Updated November 1, 2026. Integration branch: `codex/branden-stephen-integration`.
 
 The workspace follows the [Purist design](https://purist.design/file/SprEvCZwabzDFdcZ).
 The desktop layout keeps its 232px sidebar, 304px medication details column,
@@ -33,7 +33,7 @@ This avoids using hidden page overflow to conceal content that does not fit.
 
 When details are below the results, selecting a medication reveals a
 "View medication details" link. It jumps to the selected details without
-clearing the query, results or selection. The link is translated in all four
+clearing the query, results or selection. The link is translated in all six
 interface languages.
 
 ## Navigation, touch and dialogs
@@ -67,12 +67,28 @@ Safe-area padding reserves room around device cutouts and the home indicator.
 The existing reduced-motion preference and account appearance controls remain
 available.
 
+Desktop collapse animates the grid columns without remounting the workspace.
+Menus and dialogs use short CSS opacity/transform transitions. Interface-language
+changes fade text with the browser's Web Animations API, using opacity alone so
+bottom-edge panels cannot briefly create page overflow. Reduced-motion mode
+bypasses these effects. Wrapped navigation labels share a fixed icon column and
+left-aligned text across English, Spanish, French, German, Russian and Ukrainian.
+
+Search and translation use themed Radix Select popups with keyboard navigation,
+typeahead and focus restoration. This is a UI dependency; no animation library
+was added. Search loading uses skeleton rows. Invalid searches keep existing
+results and associate guidance with the input; request failures offer a retry.
+Shared dismissible toasts replace large error banners in the workspace tools.
+
 ## Component map
 
 | File | Responsibility |
 | --- | --- |
 | `frontend/src/components/layout/WorkspaceLayout.tsx` | Drawer state, focus handling, inert background and scroll restoration. |
-| `frontend/src/components/layout/Header.tsx` | Header, breadcrumbs and reusable sidebar navigation. |
+| `frontend/src/components/layout/Header.tsx` | Header, breadcrumbs and responsive navigation toggle. |
+| `frontend/src/components/layout/LeftNavBar.tsx` | Shared sidebar content: search, OCR, source population, import and account controls. |
+| `frontend/src/components/layout/WorkspaceTools.tsx` | Shared tool callbacks and the results language-filter control. |
+| `frontend/src/components/account/LoginModal.tsx` | Sign-in trigger, validated credentials and the server-token login flow. |
 | `frontend/src/index.css` | Grid layout, media/container queries, touch sizing and safe areas. |
 | `frontend/src/components/results/ResultsTable.tsx` | Table/cards, selection and link to details. |
 | `frontend/src/components/ui/Modal.tsx` | Viewport-bounded dialogs, wrapping headings and close control. |
@@ -86,10 +102,14 @@ with a separate copy of the search or account state.
 
 ## Verification
 
-The October 28 run passed 29 browser checks, including desktop sidebar collapse,
-search/selection preservation and focus during viewport changes. The unchanged
-population-stream suite passed its 17 unit tests on October 27. Lint and the
-production TypeScript/Vite build also passed.
+The November 1 verification passed 42 browser scenarios across the full run and
+targeted reruns. These include desktop collapse, search/selection preservation,
+focus during viewport changes, mocked server-token sign-in and sign-out, language
+refresh after importing, Russian and Ukrainian dialogs, translated-label
+alignment, scrollbar stability, custom picker keyboard access, retries and toasts.
+The population-stream suite passed its 17 unit tests. Lint and the production
+TypeScript/Vite build also passed. Three backend metadata/access checks and live
+requests for all 10 Russian and 18 Ukrainian bundled translation entries passed.
 
 The browser suite checks 320, 360, 390, 479, 480, 639, 640, 767, 768, 1024,
 1199, 1200 and 1440px widths. It also checks a 667 by 320 landscape viewport,
@@ -120,25 +140,51 @@ is still useful for checking keyboard and safe-area behavior.
 
 ## Branch integration and testing on a phone
 
+The October 31 integration combines `branden-branch` at `fc81def` with the UI
+commits from Stephen's `stephen-nav-bar-ui-branch` at `4afd2de`. Five feature
+commits were cherry-picked with their original author information. Stephen's
+branch also includes other developers' backend changes; those were excluded
+from this frontend integration.
+
+The overlapping sidebars are reconciled in `LeftNavBar`. `WorkspaceLayout`
+owns its placement and drawer/collapse behavior. Tools use the existing search
+and import callbacks. The interface-language selector stays in the header and
+the results filter stays beside the results, so each has one control and one
+shared state. Geist, themes, embedded documentation and the right-hand phone
+hamburger remain available.
+
+Stephen's `LoginButton` now uses Ryan's `/auth` request, requires a
+server access token, and updates the account menu through `onSuccess`. The
+separate `SignIn` component was consolidated into it. The source branch's
+region and social buttons had no destinations or handlers. The sign-in dialog footer now
+uses the website, X and Facebook destinations published by Grey-box's official
+website. Help includes a small themed SVG illustration, and the home breadcrumb
+shows only Medications.
+
 The frontend was brought over from
 [`9337574`](https://github.com/grey-box/Project_Codex/commit/9337574702907a1cb95c2a2120279d56e849da89)
 onto the existing `branden-branch`, then extended with the responsive changes
 above. The branch's backend/authentication code, backend tests and ACL research
 were retained. No backend access rule was relaxed. The integration includes the
 source frontend's Tailwind build setup and browser-test tooling. The responsive
-adjustments add no JavaScript UI library or generated artwork.
+adjustments use native motion and inline SVG artwork. The custom select adds
+Radix UI; it is separate from the animation implementation.
 
 For a phone on the same network, start Vite with `npm run dev -- --host 0.0.0.0`
 and open the development computer's LAN address on port 9000. For real API
-requests, set `VITE_API_BASE_URL` to that computer's reachable API address in
-`frontend/.env.local`, then restart Vite. `localhost` on the phone refers to the
-phone itself. The backend must also allow that exact frontend origin in its
-CORS configuration. The existing branch permits `http://localhost:9000` by
-default, so loading the UI from another device alone does not establish API
-access. Keep origins restricted to the development setup being used.
+requests through Vite, set `VITE_API_BASE_URL=/backend` in an ignored local
+environment file and restart Vite. Its development proxy targets
+`http://127.0.0.1:8000` by default, so the phone uses the frontend origin rather
+than its own localhost. Override `CODEX_API_PROXY_TARGET` when the API runs
+elsewhere; a containerized frontend uses `http://api:8000`. A production build
+needs its deployment's explicit API URL or reverse proxy. Direct browser-to-API
+requests still require the exact frontend origin in backend CORS settings.
 
 The branch's API supports the existing search, translation, language-pack and
 login contracts. Its entry point does not yet expose `/ocrmatching/`; connecting
 that interface requires the team's OCR backend integration. The spreadsheet
 drug-list feature is a separate Notion task and is not implemented by this
 responsive layout work.
+
+See [the backend and branch audit](research/backend-branch-audit.md) for the
+remaining provider-ingestion, authentication and search-metadata limitations.

@@ -11,6 +11,7 @@ interface SearchBarProps {
   onSearch: () => void
   isLoading: boolean
   languages: LanguageOption[]
+  queryError?: string
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -21,6 +22,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
   isLoading,
   languages,
+  queryError,
 }) => {
   const { t } = useTranslation()
 
@@ -37,14 +39,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       event.preventDefault()
       if (!isLoading) onSearch()
     }}>
-      <Input id="drug-search" label={t('workspace.medicationName')} value={searchQuery}
+      <Input id="drug-search" label={t('workspace.medicationName')} value={searchQuery} error={queryError}
         onChange={(event) => onSearchQueryChange(event.target.value)}
         placeholder={t('home.sourcePlaceholder')} autoComplete="off"
         icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="7" strokeWidth="1.5" /><path d="m16 16 5 5" strokeWidth="1.5" />
         </svg>} />
       <Select id="search-language" label={t('workspace.searchLanguage')} value={searchLanguage}
-        options={languageOptions} onChange={(event) => onSearchLanguageChange(event.target.value)} />
+        options={languageOptions} onValueChange={onSearchLanguageChange} />
       <Button type="submit" isLoading={isLoading} className="workspace-search-button">
         {isLoading ? t('workspace.searching') : t('common.search')}
       </Button>

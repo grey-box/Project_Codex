@@ -115,5 +115,9 @@
         "body": "Wählen Sie die Quellen aus und geben Sie bei Bedarf die API-Zugangsdaten ein. Fortschritt und Fehler erscheinen im Ladebereich."
       }
     }
+  },
+  "tools": {
+    "tryAgain": "Erneut versuchen",
+    "dismissMessage": "Meldung schließen"
   }
 }
