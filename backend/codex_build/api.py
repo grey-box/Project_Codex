@@ -37,6 +37,7 @@ from pydantic import BaseModel, field_serializer
 from dotenv import load_dotenv
 
 import jwt
+import json
 from datetime import datetime, timedelta, timezone
 from fastapi import Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -401,7 +402,7 @@ def health():
     )
 
 @app.post(
-    "/search",
+    "/search/{term}",
     response_model=List[SearchResponse],
     tags=["translation"],
 )
@@ -411,7 +412,10 @@ def search(term: str):
         with driver.session() as session:
             results = search_database(session, term)
             if not results:
-                return []
+                raise HTTPException(
+                    status_code=404,
+                    detail="Translation term not found."
+                )
             for result in results:
                 canonical = result[0]
                 brand = result[1]
@@ -442,6 +446,8 @@ def search(term: str):
                         language=languages,
                         uploaded_at=""
                     ))
+    except HTTPException:
+        raise
     except Exception as exc:
         log.exception("search raised an unexpected error")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -591,6 +597,8 @@ async def load_pack(file: UploadFile = File(...)):
     """
     if not file.filename or not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="File must be a .json language pack")
+    
+    
 
     log.info("Loading language pack: %s", file.filename)
 
@@ -600,9 +608,16 @@ async def load_pack(file: UploadFile = File(...)):
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
             tmp.write(content)
             tmp_path = tmp.name
+            
 
         message = load_language_pack(tmp_path)
+        
+        if message.startswith("Missing"):
+            raise HTTPException(status_code=400, detail=f"Invalid JSON format: {message}")
+        
         return MessageResponse(message=message)
+    except HTTPException:
+        raise
     except Exception as exc:
         log.exception("load_pack failed")
         raise HTTPException(status_code=500, detail=str(exc))

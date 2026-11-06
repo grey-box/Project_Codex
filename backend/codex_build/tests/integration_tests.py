@@ -1,7 +1,7 @@
 import os
 import pytest
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.testclient import TestClient
 from neo4j import GraphDatabase
 from pathlib import Path
@@ -19,23 +19,6 @@ from codex.neo4j_driver import driver, create_user, get_user_by_email, delete_us
 
 TEST_ADMIN_EMAIL = "admin@grey-box.ca"
 TEST_ADMIN_PASS = "ChangeMeNow123!"
-
-REQUIRED_TEST_DB_NAME = os.getenv("TEST_NEO4J_DATABASE", "neo4j-test")
-
-@pytest.fixture(scope="session", autouse=True)
-def verify_test_database():
-    """Safety guard: prevents running destructive tests against non-test databases."""
-    with driver.session() as session:
-        # Verify active database name
-        result = session.run("CALL db.info() YIELD name RETURN name").single()
-        active_db = result["name"] if result else None
-
-        if active_db != REQUIRED_TEST_DB_NAME:
-            pytest.exit(
-                f"\n[SAFETY ERROR] Integration tests must run against the dedicated test database '{REQUIRED_TEST_DB_NAME}'. "
-                f"Currently connected to: '{active_db}'.\n"
-                f"Set TEST_NEO4J_DATABASE={active_db} to override."
-            )
 
 REQUIRED_TEST_DB_NAME = os.getenv("TEST_NEO4J_DATABASE", "neo4j-test")
 
@@ -97,11 +80,11 @@ def setup_test_environment(test_driver):
             email=TEST_ADMIN_EMAIL,
         )
 
-    yield
+    # yield
 
-    # Teardown: Clean up test admin and database
-    with driver.session() as session:
-        session.run("MATCH (n) DETACH DELETE n").consume()
+    # # Teardown: Clean up test admin and database
+    # with driver.session() as session:
+    #     session.run("MATCH (n) DETACH DELETE n").consume()
 
 
 # Generates valid JWT Auth Headers for the admin user
@@ -156,13 +139,13 @@ def run_before_each_test(client, test_driver, admin_headers):
         client.post("/users", json=user, headers=admin_headers)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_database_after_tests(test_driver):
-    yield
+# @pytest.fixture(scope="session", autouse=True)
+# def cleanup_database_after_tests(test_driver):
+#     yield
 
-    # Cleanup after all tests have finished
-    with test_driver.session() as session:
-        session.run("MATCH (n) DETACH DELETE n").consume()
+#     # Cleanup after all tests have finished
+#     with test_driver.session() as session:
+#         session.run("MATCH (n) DETACH DELETE n").consume()
 
 
 # ___________TEST CASES______________________________________
@@ -172,6 +155,115 @@ def test_health(client, test_driver):
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    
+def test_load_pack(client, test_driver, admin_headers):
+    
+    file_path = Path(__file__).resolve().parent / "test_packs" / "test_pack.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 201
+    assert response.json()["message"] == "Loaded language pack: Portuguese"
+    
+def test_load_duplicate_pack(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "duplicate_test_pack.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 201
+    assert response.json()["message"] == "Loaded language pack: Portuguese"
+    
+def test_load_invalid_pack_not_json(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack.txt"
+    
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "File must be a .json language pack"
+
+def test_load_invalid_pack_missing_language(client, test_driver, admin_headers):
+    
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing language"
+    
+def test_load_invalid_pack_missing_code(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_2.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing language code"
+
+def test_load_invalid_pack_missing_terms(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_3.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing terms"
+    
+def test_load_invalid_pack_missing_canonical(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_4.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing canonical"
+    
+def test_search_nonexistent_term(client, test_driver, admin_headers):
+    response = client.post(
+        "/search/thisdrugdoesnotexist"
+    )
+        
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Translation term not found."
+
 
 
 def test_get_user(client, test_driver, admin_headers):
