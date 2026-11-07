@@ -39,6 +39,11 @@
     "brandInCountry": "Торговое название в"
   },
   "workspace": {
+    "sortResults": "Сортировка",
+    "sortOriginal": "Исходный порядок",
+    "sortAscending": "Название по возрастанию",
+    "sortDescending": "Название по убыванию",
+    "sortedBy": "Порядок результатов: {{order}}",
     "regionalBrand": "Местное торговое название",
     "navigationSection": "Рабочая область",
     "medicationSearch": "Поиск лекарств",

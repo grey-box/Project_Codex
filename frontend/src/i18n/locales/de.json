@@ -35,6 +35,11 @@
     "brandInCountry": "Marke in"
   },
   "workspace": {
+    "sortResults": "Ergebnisse sortieren",
+    "sortOriginal": "Standardreihenfolge",
+    "sortAscending": "Medikamentenname A–Z",
+    "sortDescending": "Medikamentenname Z–A",
+    "sortedBy": "Ergebnisse sortiert nach {{order}}",
     "regionalBrand": "Regionale Marke",
     "navigationSection": "Arbeitsbereich",
     "medicationSearch": "Medikamentensuche",
