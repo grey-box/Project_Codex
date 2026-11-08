@@ -341,6 +341,78 @@ def test_load_malformed_json_returns_400(client, test_driver, admin_headers):
     assert response.json()["detail"] == "Invalid JSON format: malformed JSON"
 
 
+def _load_fuzzy_test_pack(client, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "fuzzy_test_pack.json",
+                b'{"language":{"code":"qx","name":"Codex Test Language"},"terms":[{"canonical":"CodexMedicationAlpha","entries":[{"translation":"Lumivara","country":"XZ","brand":"CodexBrandZeta"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+
+
+def test_fuzzy_search_matches_canonical_typo(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodexMedicationAlph")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+
+def test_fuzzy_search_matches_canonical_transposition(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodexMedicatoinAlpha")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+
+@pytest.mark.xfail(
+    reason="Current search only fuzzy-matches canonical terms, not brand names",
+    strict=True,
+)
+def test_fuzzy_search_brand_typo_current_gap(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodexBrandZet")
+
+    assert response.status_code == 200
+    assert any(
+        result["brand"] == "CodexBrandZeta"
+        for result in response.json()
+    )
+
+
+@pytest.mark.xfail(
+    reason="Current search does not fuzzy-match translated medication names",
+    strict=True,
+)
+def test_fuzzy_search_translation_typo_current_gap(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/Lumivar")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+
 def test_search_nonexistent_term(client, test_driver, admin_headers):
     response = client.post(
         "/search/thisdrugdoesnotexist"
