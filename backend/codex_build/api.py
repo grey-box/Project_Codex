@@ -35,6 +35,7 @@ from pathlib import Path
 import ast
 from pydantic import BaseModel, field_serializer
 from dotenv import load_dotenv
+import asyncio
 
 import jwt
 import json
@@ -147,7 +148,10 @@ try:
         get_users_by_role,
         update_user_role,
         authenticate_user,
-        init_default_admin
+        init_default_admin,
+        get_all_generic_names,
+        init_db_schema,
+        seed_offline_generic_synonyms
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -160,10 +164,19 @@ log = logging.getLogger("codex.api")
 BASE_DIR = Path(__file__).resolve().parent
 TARGET_FOLDER_PATH = BASE_DIR / "codex" / "language_packs"
 DEMO_PACKS_DIR = BASE_DIR / "demo_language_packs"
+USAN_INN_MAP_DIR = BASE_DIR / "generics_sources" / "usan_inn_map.csv"
 LOAD_DEMO_DATA = os.getenv("LOAD_DEMO_DATA", "true").lower() in ("true", "1", "yes")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Seed constraints and indexes automatically
+    try:
+        with driver.session() as session:
+            init_db_schema(session)
+            seed_offline_generic_synonyms(session, USAN_INN_MAP_DIR)
+    except Exception as exc:
+        log.error(f"Failed to run schema startup queries: {exc}")
+    
     # seed default admin user
     if os.getenv("TESTING") != "true":
         init_default_admin()
@@ -453,82 +466,80 @@ def search(term: str):
         raise HTTPException(status_code=500, detail=str(exc))
     
     return search_results
-
+   
 @app.post(
     "/translate",
     response_model=TranslateResponse,
     summary="Translate a drug term",
     tags=["translation"],
 )
-def translate_term(body: TranslateRequest):
+async def translate_term(body: TranslateRequest):
     """
-    Translate a medical term into the requested language.
-
-    - Resolves brand names and fuzzy input to a canonical term first.
-    - Falls back through configured language chains if no direct match.
-
-    JSON SETUP
-      incoming
-      { "term": "ibuprofen", "source_lang": "en", "target_lang": "es", "country": "MX" }
-      
-      outgoing
-      {
-      "canonical": "ibuprofen",
-      "results": [
-        { "translation": "ibuprofeno", "language": "Spanish", "brand": "Advil", "country": "MX" }
-      ]
-      }
+    Translates a drug term from one language to another.
     """
-    log.info("Translate  term=%r  lang=%s  country=%s", body.term, body.lang, body.country)
+    def _fetch_synonyms_and_data():
+        with driver.session() as session:
+            # 1. Resolve initial query to base term
+            resolved = resolve_to_base_term(session, body.term)
+            base_term = resolved[0] if resolved else body.term
+            
+            # 2. Get all equivalent generic terms (e.g., Acetaminophen & Paracetamol)
+            all_generics = get_all_generic_names(session, base_term)
+            return base_term, all_generics
 
-    try:
-        raw_data = translate(term=body.term, lang=body.lang, country=body.country)
-        if isinstance(raw_data, str):
-            raw = ast.literal_eval(raw_data)
-        else:
-            raw = raw_data
-    except Exception as exc:
-        log.exception("translate() raised an unexpected error")
-        raise HTTPException(status_code=500, detail=str(exc))
+    base_term, generic_names = await asyncio.to_thread(_fetch_synonyms_and_data)
 
-    raw_results = raw.get("results", []) if isinstance(raw, dict) else []
-    target_lang_str = (body.lang or "").strip().lower()
-    # Build dynamic language map
-    LANGUAGE_MAP = {
-        "fr": "french",
-        "es": "spanish",
-        "en": "english",
-        "ru": "russian",
-        "uk": "ukrainian",
-    }
-    mapped_lang_name = LANGUAGE_MAP.get(target_lang_str, target_lang_str)
+    # 3. Define worker for parallel query execution per generic name
+    def _fetch_for_term(term: str):
+        with driver.session() as session:
+            return get_translation_data(session, term, body.lang, body.country)
 
-    results = [
-        TranslationResult(
-            translation=r.get("translation", ""),
-            language=r.get("language", ""),
-            brand=r.get("brand"),
-            country=r.get("country"),
-        )
-        for r in raw_results
-        if (
-            not body.lang 
-            or str(r.get("language", "")).lower() == target_lang_str
-            or str(r.get("lang_code", "")).lower() == target_lang_str
-            or str(r.get("language_code", "")).lower() == target_lang_str
-            or str(r.get("language", "")).lower() == mapped_lang_name
-        )
-        and (
-            not body.country 
-            or str(r.get("country", "")).lower() == body.country.lower()
-        )
-    ]
+    # 4. Execute generic searches concurrently in thread pool tasks
+    tasks = [asyncio.to_thread(_fetch_for_term, g_name) for g_name in generic_names]
+    results_nested = await asyncio.gather(*tasks)
 
-    resolved_canonical = raw.get("canonical") if isinstance(raw, dict) and raw.get("canonical") else body.term
+    # 5. Deduplicate and merge results across all generic names
+    flattened_results = []
+    seen = set()
+    
+    target_lang = (body.lang or "").strip().lower()
+    target_country = (body.country or "").strip().lower()
+
+    for res in results_nested:
+        if isinstance(res, Exception):
+            continue
+
+        for r in res:
+            res_lang_code = str(r.get("lang_code", "")).lower()
+            res_lang_name = str(r.get("language", "")).lower()
+            res_country = str(r.get("country", "")).lower()
+
+            # Enforce request filters
+            if target_lang and (target_lang != res_lang_code and target_lang != res_lang_name):
+                continue
+            if target_country and target_country != res_country:
+                continue
+
+            key = (r.get("translation"), r.get("brand"), r.get("country"))
+            if key not in seen:
+                seen.add(key)
+                flattened_results.append(
+                    TranslationResult(
+                        translation=r.get("translation", ""),
+                        language=r.get("language", ""),
+                        brand=r.get("brand"),
+                        country=r.get("country"),
+                    )
+                )
+
+    # Clean canonical label output (limit to standard generic names)
+    clean_generics = [g for g in generic_names if not any(c in g for c in ['[', 'Component'])]
+    other_names = [g for g in clean_generics if g.lower() != base_term.lower()]
+    canonical_label = f"{base_term} ({', '.join(other_names)})" if other_names else base_term
 
     return TranslateResponse(
-        canonical=resolved_canonical,
-        results=results,
+        canonical=canonical_label,
+        results=flattened_results,
     )
 
 

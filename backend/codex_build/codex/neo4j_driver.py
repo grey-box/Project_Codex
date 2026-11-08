@@ -4,6 +4,8 @@ from dotenv import load_dotenv        # Loads environment variables from .env fi
 import os                             # Access to OS environment variables
 import bcrypt                         # Used for hashing passwords
 import logging
+import csv
+from pathlib import Path
 
 # Loads environment varibles 
 load_dotenv()
@@ -60,15 +62,18 @@ def get_translation_data(session, canonical, lang, country):
     MATCH (t:Term)
     WHERE t.canonical IS NOT NULL 
       AND (
-        t.canonical = $canonical 
-        OR apoc.text.jaroWinklerDistance(t.canonical, $canonical) < 0.20
+        toLower(t.canonical) = toLower($canonical)
+        OR apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($canonical)) < 0.20
       )
     MATCH (tr:Translation)-[:OF_TERM]->(t)
     MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
     OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
+    
+    // Filter translations by language and country before matching brands
+    WHERE ($lang IS NULL OR $lang = '' OR toLower(l.code) = toLower($lang) OR toLower(l.name) = toLower($lang))
+      AND ($country IS NULL OR $country = '' OR toLower(c.iso2) = toLower($country))
+      
     OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
-    WHERE ($lang IS NULL OR l.code = $lang)
-      AND ($country IS NULL OR c.iso2 = $country)
     RETURN DISTINCT
         tr.text AS translation, 
         l.name AS language,
@@ -159,33 +164,35 @@ def get_equivalent_brands(session, term):
 def search_database(session, term): 
     query = """
     CALL {
+        // Direct canonical match
         MATCH (t:Term)
-        WHERE t.canonical = $term
+        WHERE toLower(t.canonical) = toLower($term)
         RETURN t.canonical AS brand, t.canonical AS base
+
         UNION
+        
+        // Match via synonym relationship (USAN <-> INN)
+        MATCH (syn:Term)-[:SYNONYM_OF]-(t:Term)
+        WHERE toLower(syn.canonical) = toLower($term)
+        RETURN t.canonical AS brand, t.canonical AS base
+
+        UNION
+
+        // Brand name contains term
         MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-        WHERE b.name = $term
+        WHERE toLower(b.name) = toLower($term)
         RETURN b.name AS brand, t.canonical AS base
+
         UNION
-        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-        WHERE tr.text = $term
-        RETURN t.canonical AS brand, t.canonical AS base
-        UNION
+
+        // Fuzzy matching fallback
         MATCH (t:Term)
         WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
-        RETURN t.canonical AS brand, t.canonical AS base
-        UNION
-        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
-        RETURN b.name AS brand, t.canonical AS base
-        UNION
-        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-        WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
         RETURN t.canonical AS brand, t.canonical AS base
     }
     WITH collect({brand: brand, base: base}) AS results
     UNWIND results AS row
-    RETURN row.brand AS brand, row.base AS base
+    RETURN DISTINCT row.brand AS brand, row.base AS base
     """
 
     results = session.run(query, term=term)
@@ -194,14 +201,15 @@ def search_database(session, term):
     
     results_array = []
     for result in results:
-        if (result["base"].lower() == term.lower()):
+        if result["base"].lower() == term.lower():
             results_array.append([result["base"], None])
             return results_array
         
-        if (result["base"] == result["brand"]):
+        if result["base"] == result["brand"]:
             results_array.append([result["base"], None])
         else:
             results_array.append([result["base"], result["brand"]])
+            
     return results_array
 
 # Resolves any input (canonical, translated, or fuzzy) to a base canonical term
@@ -553,3 +561,113 @@ def init_default_admin():
                 log.info(f"Default administrator user already exists: {admin_email}")
     except Exception as exc:
         log.error(f"Failed to initialize default admin user: {exc}")
+        
+def get_all_generic_names(session, canonical: str) -> list[str]:
+    """
+    Returns equivalent generic names (US, INN) for a given canonical term.
+    Restricted to 1 hop to prevent traversing through combination products.
+    """
+    query = """
+    MATCH (t:Term)
+    WHERE toLower(t.canonical) = toLower($canonical)
+    OPTIONAL MATCH (t)-[:SYNONYM_OF]-(syn:Term)
+    WITH t, collect(DISTINCT syn.canonical) AS synonyms
+    UNWIND ([t.canonical] + synonyms) AS raw_term
+    WITH toString(raw_term) AS term
+    WHERE term IS NOT NULL 
+      AND trim(term) <> ''
+      AND NOT term CONTAINS 'Component'
+      AND NOT term CONTAINS '['
+    RETURN DISTINCT term
+    """
+    results = session.run(query, canonical=canonical)
+    return [r["term"] for r in results if r["term"]]
+
+def link_generic_synonyms(session, canonical_a: str, canonical_b: str, relation_type: str = "US_INN"):
+    """
+    Creates bidirectional :SYNONYM_OF relationships between two canonical generic names.
+    """
+    query = """
+    MERGE (t1:Term {canonical: $canonical_a})
+      ON CREATE SET t1.type = 'medication'
+    MERGE (t2:Term {canonical: $canonical_b})
+      ON CREATE SET t2.type = 'medication'
+    MERGE (t1)-[:SYNONYM_OF {type: $relation_type}]->(t2)
+    MERGE (t2)-[:SYNONYM_OF {type: $relation_type}]->(t1)
+    """
+    session.run(query, canonical_a=canonical_a, canonical_b=canonical_b, relation_type=relation_type)
+    
+def init_db_schema(session):
+    """
+    Automates database schema initialization on app startup.
+    Ensures unique constraints and indexes exist without manual developer intervention.
+    """
+    schema_queries = [
+        # User constraint (existing)
+        "CREATE CONSTRAINT user_email_unique IF NOT EXISTS FOR (u:User) REQUIRE u.email IS UNIQUE",
+        
+        # Term canonical uniqueness constraint
+        "CREATE CONSTRAINT term_canonical_unique IF NOT EXISTS FOR (t:Term) REQUIRE t.canonical IS UNIQUE",
+        
+        # Fast lookup indexes for text matching
+        "CREATE INDEX term_canonical_idx IF NOT EXISTS FOR (t:Term) ON (t.canonical)",
+        "CREATE INDEX translation_text_idx IF NOT EXISTS FOR (tr:Translation) ON (tr.text)"
+    ]
+    
+    for query in schema_queries:
+        session.run(query)
+    log.info("Database schema and constraints verified/initialized.")
+    
+def seed_offline_generic_synonyms(session, csv_file_path: str, batch_size: int = 1000):
+    """
+    Reads an offline CSV mapping USAN to INN names and seeds :SYNONYM_OF 
+    relationships in safe batches.
+    """
+    path = Path(csv_file_path)
+    if not path.exists():
+        log.error(f"CRITICAL: Offline generic mapping file not found at {csv_file_path.absolute()}")
+        return
+
+    query = """
+    UNWIND $rows AS row
+    WITH row WHERE row.usan_name IS NOT NULL AND row.inn_name IS NOT NULL
+      AND trim(row.usan_name) <> '' AND trim(row.inn_name) <> ''
+    MERGE (t1:Term {canonical: trim(row.usan_name)})
+      ON CREATE SET t1.type = 'medication'
+    MERGE (t2:Term {canonical: trim(row.inn_name)})
+      ON CREATE SET t2.type = 'medication'
+    MERGE (t1)-[r1:SYNONYM_OF {type: 'US_INN'}]->(t2)
+    MERGE (t2)-[r2:SYNONYM_OF {type: 'US_INN'}]->(t1)
+    SET r1.unii = coalesce(row.unii_code, ''),
+        r2.unii = coalesce(row.unii_code, '')
+    """
+
+    with open(path, mode="r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        batch = []
+        total_loaded = 0
+
+        for row in reader:
+            # Ensure dictionary keys match CSV header names
+            usan = row.get("usan_name") or row.get("USAN_NAME")
+            inn = row.get("inn_name") or row.get("INN_NAME")
+            unii = row.get("unii_code") or row.get("UNII_CODE") or ""
+
+            if usan and inn:
+                batch.append({
+                    "usan_name": usan.strip(),
+                    "inn_name": inn.strip(),
+                    "unii_code": unii.strip()
+                })
+
+            if len(batch) >= batch_size:
+                session.run(query, rows=batch)
+                total_loaded += len(batch)
+                batch.clear()
+
+        # Process remaining rows
+        if batch:
+            session.run(query, rows=batch)
+            total_loaded += len(batch)
+
+    log.info(f"Successfully loaded {total_loaded} USAN-INN synonym mappings into Neo4j.")

@@ -14,4 +14,4 @@ paddleocr
 opencv-python-headless==4.9.0.80
 clamd~=1.0.2
 pillow~=11.2.1
-
+asyncio
