@@ -256,6 +256,57 @@ def test_load_invalid_pack_missing_canonical(client, test_driver, admin_headers)
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing canonical"
     
+def test_load_invalid_pack_missing_entries(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_entries.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[{"canonical":"Ibuprofen"}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing entries"
+
+
+def test_load_invalid_pack_missing_translation(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_translation.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[{"canonical":"Ibuprofen","entries":[{"country":"BR"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing translation"
+
+
+def test_load_invalid_pack_missing_country(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_country.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[{"canonical":"Ibuprofen","entries":[{"translation":"ibuprofeno"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing country"
+
+
 def test_load_invalid_pack_missing_language_name(client, test_driver, admin_headers):
     response = client.post(
         "/packs/load",
