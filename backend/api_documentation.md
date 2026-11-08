@@ -164,6 +164,63 @@ Response Example:
 }
 ```
 
+### 7. Bulk Return
+
+Returns Neo4j data nodes as a rectangular JSON table suitable for importing
+into a spreadsheet or converting to CSV. The endpoint is protected and may be
+used by `medical professional` and `administrator` accounts. Account (`User`)
+nodes are never included in the export.
+
+* **Method:** `GET`
+* **Path:** `/api/bulk-return`
+
+Protected requests must include a JWT bearer token:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+| Query parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `start` | integer | `0` | Zero-based first row, inclusive. |
+| `end` | integer | end of database | Zero-based last row, inclusive. |
+| `fields` | string/list | all attributes | Attributes to return. Use `fields=id,title` or repeat the parameter. `_labels` is also selectable. |
+| `labels` | string/list | all data labels | Neo4j labels to export. Use `labels=DRUG,RXN` or repeat the parameter. |
+
+Rows have a stable ordering by node label and the best available node
+identifier. All rows contain every listed column; a missing attribute is
+represented by `null`. The `total` is calculated after applying the optional
+label filter but before applying the range.
+
+Example:
+
+```text
+GET /api/bulk-return?start=0&end=99&labels=DRUG,RXN&fields=_labels,conceptID,title,ds
+```
+
+```json
+{
+  "range": {"start": 0, "end": 1},
+  "total": 2,
+  "count": 2,
+  "columns": ["_labels", "conceptID", "title", "ds"],
+  "rows": [
+    {
+      "_labels": ["DRUG"],
+      "conceptID": "aspirin-pain-drugbank",
+      "title": "Aspirin",
+      "ds": "DrugBank:API"
+    },
+    {
+      "_labels": ["RXN"],
+      "conceptID": "aspirin-pain-rxnorm",
+      "title": null,
+      "ds": "RxNorm:current"
+    }
+  ]
+}
+```
+
 #### Error Handling
 The API uses standard HTTP status codes.
 

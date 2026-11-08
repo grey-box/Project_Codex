@@ -17,6 +17,7 @@ Endpoints
   POST /demo/load           Load built-in sample data
   POST /packs/load          Upload and load a language pack JSON
   GET  /languages           List language codes that have data in Neo4j
+  GET  /api/bulk-return     Protected JSON data export
 """
 
 from __future__ import annotations
@@ -150,6 +151,7 @@ try:
         authenticate_user,
         init_default_admin,
         get_all_generic_names,
+        get_bulk_records,
         init_db_schema,
         seed_offline_generic_synonyms
     )
@@ -390,6 +392,45 @@ class TokenResponse(BaseModel):
     role: str
 
 
+class BulkReturnRange(BaseModel):
+    start: int
+    end: Optional[int]
+
+
+class BulkReturnResponse(BaseModel):
+    range: BulkReturnRange
+    total: int
+    count: int
+    columns: List[str]
+    rows: List[Dict[str, Any]]
+
+
+def _parse_csv_query_values(values: Optional[List[str]]) -> List[str]:
+    """Support both ``?fields=a,b`` and ``?fields=a&fields=b`` syntax."""
+    parsed = []
+    for value in values or []:
+        for item in value.split(","):
+            item = item.strip()
+            if item and item not in parsed:
+                parsed.append(item)
+    return parsed
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert Neo4j-specific values into values accepted by JSON encoders."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+
+    isoformat = getattr(value, "isoformat", None)
+    if callable(isoformat):
+        return isoformat()
+    return str(value)
+
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get(
@@ -412,6 +453,92 @@ def health():
         status="ok" if neo4j_ok else "degraded",
         neo4j=neo4j_ok,
         api_version=app.version,
+    )
+
+
+@app.get(
+    "/api/bulk-return",
+    response_model=BulkReturnResponse,
+    summary="Return a JSON data dump",
+    tags=["data"],
+    dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
+)
+def bulk_return(
+    start: int = Query(
+        0,
+        ge=0,
+        description="Zero-based index of the first row to return (inclusive).",
+    ),
+    end: Optional[int] = Query(
+        None,
+        ge=0,
+        description="Zero-based index of the last row to return (inclusive); omit for the end of the database.",
+    ),
+    fields: Optional[List[str]] = Query(
+        None,
+        description="Optional attributes to include; repeat or provide a comma-separated list.",
+    ),
+    labels: Optional[List[str]] = Query(
+        None,
+        description="Optional Neo4j node labels to include; repeat or provide a comma-separated list.",
+    ),
+):
+    """Return database nodes as a rectangular JSON table suitable for spreadsheets.
+
+    Account nodes are excluded unconditionally.  Rows are ordered by node label,
+    then by their most useful known identifier, so range requests can be used to
+    retrieve a large export in predictable chunks.
+    """
+    if end is not None and end < start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="'end' must be greater than or equal to 'start'.",
+        )
+
+    requested_fields = _parse_csv_query_values(fields)
+    requested_labels = _parse_csv_query_values(labels)
+
+    try:
+        with driver.session() as session:
+            total, database_fields, raw_rows = get_bulk_records(
+                session,
+                start=start,
+                end=end,
+                node_labels=requested_labels,
+            )
+    except Exception as exc:
+        log.exception("bulk_return failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    available_fields = {"_labels", *database_fields}
+
+    if requested_fields:
+        unknown_fields = [field for field in requested_fields if field not in available_fields]
+        if unknown_fields:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "One or more requested fields are not present in the selected data.",
+                    "unknown_fields": unknown_fields,
+                    "available_fields": sorted(available_fields),
+                },
+            )
+        columns = requested_fields
+    else:
+        columns = ["_labels", *sorted(available_fields - {"_labels"})]
+
+    rows = [
+        {column: _json_safe(row.get(column)) for column in columns}
+        for row in raw_rows
+    ]
+    actual_end = start + len(rows) - 1 if rows else None
+
+    return BulkReturnResponse(
+        range=BulkReturnRange(start=start, end=actual_end),
+        total=total,
+        count=len(rows),
+        columns=columns,
+        rows=rows,
     )
 
 @app.post(

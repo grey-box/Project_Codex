@@ -204,6 +204,7 @@ All API responses returning tabular data use this envelope:
 | GET    | `/countries`    | List supported countries and their languages               |
 | POST   | `/csv/upload`   | Upload a Codex CSV → Neo4j                                 |
 | GET    | `/csv`          | Export full drug catalogue (sorted)                        |
+| GET    | `/api/bulk-return` | Protected, ranged JSON database export                  |
 | POST   | `/ocrmatching/` | Extract text from image via OCR and fuzzy match drug terms |
 
 
