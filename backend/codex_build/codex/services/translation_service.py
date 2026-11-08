@@ -185,7 +185,7 @@ def load_language_pack(path_to_json):
         return "Missing language code"
     
     lang_name = language.get("name")
-    if lang_code is None:
+    if lang_name is None:
         return "Missing language name"
     
 

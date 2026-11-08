@@ -256,6 +256,40 @@ def test_load_invalid_pack_missing_canonical(client, test_driver, admin_headers)
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing canonical"
     
+def test_load_invalid_pack_missing_language_name(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_language_name.json",
+                b'{"language":{"code":"pt"},"terms":[]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing language name"
+
+
+def test_load_malformed_json_returns_400(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "malformed.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: malformed JSON"
+
+
 def test_search_nonexistent_term(client, test_driver, admin_headers):
     response = client.post(
         "/search/thisdrugdoesnotexist"

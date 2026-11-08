@@ -629,6 +629,8 @@ async def load_pack(file: UploadFile = File(...)):
         return MessageResponse(message=message)
     except HTTPException:
         raise
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format: malformed JSON")
     except Exception as exc:
         log.exception("load_pack failed")
         raise HTTPException(status_code=500, detail=str(exc))
