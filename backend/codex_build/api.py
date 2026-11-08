@@ -477,6 +477,12 @@ async def translate_term(body: TranslateRequest):
     """
     Translates a drug term from one language to another.
     """
+    if body.lang and not language_exists(body.lang):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Language pack '{body.lang}' is not loaded"
+        )
+
     def _fetch_synonyms_and_data():
         with driver.session() as session:
             # 1. Resolve initial query to base term
@@ -536,6 +542,12 @@ async def translate_term(body: TranslateRequest):
     clean_generics = [g for g in generic_names if not any(c in g for c in ['[', 'Component'])]
     other_names = [g for g in clean_generics if g.lower() != base_term.lower()]
     canonical_label = f"{base_term} ({', '.join(other_names)})" if other_names else base_term
+
+    if not flattened_results:
+        raise HTTPException(
+            status_code=404,
+            detail="Translation not found"
+        )
 
     return TranslateResponse(
         canonical=canonical_label,

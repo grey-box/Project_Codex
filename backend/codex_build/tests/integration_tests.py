@@ -300,6 +300,45 @@ def test_search_nonexistent_term(client, test_driver, admin_headers):
 
 
 
+def test_translate_missing_language_pack_returns_422(client):
+    response = client.post(
+        "/translate",
+        json={
+            "term": "ibuprofen",
+            "lang": "zz",
+            "country": "US",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Language pack 'zz' is not loaded"
+
+
+def test_translate_missing_translation_returns_404(client, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "test_pack.json"
+
+    with open(file_path, "rb") as f:
+        load_response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+
+    assert load_response.status_code == 201
+
+    response = client.post(
+        "/translate",
+        json={
+            "term": "definitelynotarealmedicationxyz",
+            "lang": "pt",
+            "country": "BR",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Translation not found"
+
+
 def test_get_user(client, test_driver, admin_headers):
     response = client.get(
         "/users/jane@email.com",
