@@ -381,11 +381,7 @@ def test_fuzzy_search_matches_canonical_transposition(client, admin_headers):
     )
 
 
-@pytest.mark.xfail(
-    reason="Current search only fuzzy-matches canonical terms, not brand names",
-    strict=True,
-)
-def test_fuzzy_search_brand_typo_current_gap(client, admin_headers):
+def test_fuzzy_search_matches_brand_typo(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
     response = client.post("/search/CodexBrandZet")
@@ -397,11 +393,7 @@ def test_fuzzy_search_brand_typo_current_gap(client, admin_headers):
     )
 
 
-@pytest.mark.xfail(
-    reason="Current search does not fuzzy-match translated medication names",
-    strict=True,
-)
-def test_fuzzy_search_translation_typo_current_gap(client, admin_headers):
+def test_fuzzy_search_matches_translation_typo(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
     response = client.post("/search/Lumivar")

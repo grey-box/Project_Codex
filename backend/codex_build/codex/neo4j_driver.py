@@ -185,9 +185,23 @@ def search_database(session, term):
 
         UNION
 
-        // Fuzzy matching fallback
+        // Fuzzy canonical matching
         MATCH (t:Term)
         WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base
+
+        UNION
+
+        // Fuzzy brand name matching
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
+        RETURN b.name AS brand, t.canonical AS base
+
+        UNION
+
+        // Fuzzy translated name matching
+        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+        WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
         RETURN t.canonical AS brand, t.canonical AS base
     }
     WITH collect({brand: brand, base: base}) AS results
