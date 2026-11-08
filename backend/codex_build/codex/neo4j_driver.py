@@ -238,46 +238,49 @@ def search_database(session, term):
         // Direct canonical match
         MATCH (t:Term)
         WHERE toLower(t.canonical) = toLower($term)
-        RETURN t.canonical AS brand, t.canonical AS base
+        RETURN t.canonical AS brand, t.canonical AS base, 0.0 AS distance
 
         UNION
         
         // Match via synonym relationship (USAN <-> INN)
         MATCH (syn:Term)-[:SYNONYM_OF]-(t:Term)
         WHERE toLower(syn.canonical) = toLower($term)
-        RETURN t.canonical AS brand, t.canonical AS base
+        RETURN t.canonical AS brand, t.canonical AS base, 0.0 AS distance
 
         UNION
 
         // Brand name contains term
         MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
         WHERE toLower(b.name) = toLower($term)
-        RETURN b.name AS brand, t.canonical AS base
+        RETURN b.name AS brand, t.canonical AS base, 0.0 AS distance
 
         UNION
 
         // Fuzzy canonical matching
         MATCH (t:Term)
-        WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
-        RETURN t.canonical AS brand, t.canonical AS base
+        WITH t, apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) AS distance
+        WHERE distance < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base, distance
 
         UNION
 
         // Fuzzy brand name matching
         MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
-        RETURN b.name AS brand, t.canonical AS base
+        WITH t, b, apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) AS distance
+        WHERE distance < 0.20
+        RETURN b.name AS brand, t.canonical AS base, distance
 
         UNION
 
         // Fuzzy translated name matching
         MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-        WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
-        RETURN t.canonical AS brand, t.canonical AS base
+        WITH t, tr, apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) AS distance
+        WHERE distance < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base, distance
     }
-    WITH collect({brand: brand, base: base}) AS results
-    UNWIND results AS row
-    RETURN DISTINCT row.brand AS brand, row.base AS base
+    WITH brand, base, min(distance) AS distance
+    RETURN brand, base
+    ORDER BY distance ASC, toLower(base), toLower(brand)
     """
 
     results = session.run(query, term=term)

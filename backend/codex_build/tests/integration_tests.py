@@ -405,6 +405,59 @@ def test_fuzzy_search_matches_translation_typo(client, admin_headers):
     )
 
 
+def test_fuzzy_search_matches_harder_canonical_typo(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodxMedcatonAlph")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+
+def test_fuzzy_search_rejects_unrelated_term(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/ZXQVVVNONMATCH999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Translation term not found."
+
+
+def test_fuzzy_search_ranks_closest_match_first(client, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "fuzzy_ranking_pack.json",
+                b'{"language":{"code":"qr","name":"Ranking Test Language"},"terms":[{"canonical":"RankMedicationAlpine","entries":[{"translation":"RankAlpineTranslation","country":"XR","brand":"RankAlpineBrand"}]},{"canonical":"RankMedicationAlpha","entries":[{"translation":"RankAlphaTranslation","country":"XR","brand":"RankAlphaBrand"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.post("/search/RankMedicationAlph")
+
+    assert response.status_code == 200
+
+    ranked_matches = [
+        result["name"]
+        for result in response.json()
+        if result["name"] in {
+            "RankMedicationAlpha",
+            "RankMedicationAlpine",
+        }
+    ]
+
+    assert ranked_matches
+    assert ranked_matches[0] == "RankMedicationAlpha"
+
+
 def test_search_nonexistent_term(client, test_driver, admin_headers):
     response = client.post(
         "/search/thisdrugdoesnotexist"
