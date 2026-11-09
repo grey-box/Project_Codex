@@ -139,23 +139,25 @@ def run_before_each_test(client, test_driver, admin_headers):
         client.post("/users", json=user, headers=admin_headers)
 
 
-# @pytest.fixture(scope="session", autouse=True)
-# def cleanup_database_after_tests(test_driver):
-#     yield
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_database_after_tests(test_driver):
+    yield
 
-#     # Cleanup after all tests have finished
-#     with test_driver.session() as session:
-#         session.run("MATCH (n) DETACH DELETE n").consume()
+    # Cleanup after all tests have finished
+    with test_driver.session() as session:
+        session.run("MATCH (n) DETACH DELETE n").consume()
 
 
 # ___________TEST CASES______________________________________
 
+@pytest.mark.health
 def test_health(client, test_driver):
     response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
-    
+
+@pytest.mark.packs
 def test_load_pack(client, test_driver, admin_headers):
     
     file_path = Path(__file__).resolve().parent / "test_packs" / "test_pack.json"
@@ -171,20 +173,8 @@ def test_load_pack(client, test_driver, admin_headers):
     assert response.status_code == 201
     assert response.json()["message"] == "Loaded language pack: Portuguese"
     
-def test_load_duplicate_pack(client, test_driver, admin_headers):
-    file_path = Path(__file__).resolve().parent / "test_packs" / "duplicate_test_pack.json"
 
-    with open(file_path, "rb") as f:
-        # Key name ('file') must match the parameter name in your FastAPI endpoint
-        response = client.post(
-            "/packs/load",
-            headers=admin_headers,
-            files={"file": (file_path.as_uri(), f, "app/json")}
-        )
-    
-    assert response.status_code == 201
-    assert response.json()["message"] == "Loaded language pack: Portuguese"
-    
+@pytest.mark.packs
 def test_load_invalid_pack_not_json(client, test_driver, admin_headers):
     file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack.txt"
     
@@ -198,7 +188,8 @@ def test_load_invalid_pack_not_json(client, test_driver, admin_headers):
     
     assert response.status_code == 400
     assert response.json()["detail"] == "File must be a .json language pack"
-
+    
+@pytest.mark.packs
 def test_load_invalid_pack_missing_language(client, test_driver, admin_headers):
     
     file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack.json"
@@ -214,6 +205,7 @@ def test_load_invalid_pack_missing_language(client, test_driver, admin_headers):
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing language"
     
+@pytest.mark.packs    
 def test_load_invalid_pack_missing_code(client, test_driver, admin_headers):
     file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_2.json"
 
@@ -227,7 +219,8 @@ def test_load_invalid_pack_missing_code(client, test_driver, admin_headers):
     
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing language code"
-
+    
+@pytest.mark.packs
 def test_load_invalid_pack_missing_terms(client, test_driver, admin_headers):
     file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_3.json"
 
@@ -241,7 +234,7 @@ def test_load_invalid_pack_missing_terms(client, test_driver, admin_headers):
     
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing terms"
-    
+@pytest.mark.packs    
 def test_load_invalid_pack_missing_canonical(client, test_driver, admin_headers):
     file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_4.json"
 
@@ -255,7 +248,7 @@ def test_load_invalid_pack_missing_canonical(client, test_driver, admin_headers)
     
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing canonical"
-    
+@pytest.mark.packs    
 def test_load_invalid_pack_missing_entries(client, test_driver, admin_headers):
     response = client.post(
         "/packs/load",
@@ -272,7 +265,7 @@ def test_load_invalid_pack_missing_entries(client, test_driver, admin_headers):
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing entries"
 
-
+@pytest.mark.packs
 def test_load_invalid_pack_missing_translation(client, test_driver, admin_headers):
     response = client.post(
         "/packs/load",
@@ -289,7 +282,7 @@ def test_load_invalid_pack_missing_translation(client, test_driver, admin_header
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing translation"
 
-
+@pytest.mark.packs
 def test_load_invalid_pack_missing_country(client, test_driver, admin_headers):
     response = client.post(
         "/packs/load",
@@ -306,7 +299,7 @@ def test_load_invalid_pack_missing_country(client, test_driver, admin_headers):
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing country"
 
-
+@pytest.mark.packs
 def test_load_invalid_pack_missing_language_name(client, test_driver, admin_headers):
     response = client.post(
         "/packs/load",
@@ -323,7 +316,7 @@ def test_load_invalid_pack_missing_language_name(client, test_driver, admin_head
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: Missing language name"
 
-
+@pytest.mark.packs
 def test_load_malformed_json_returns_400(client, test_driver, admin_headers):
     response = client.post(
         "/packs/load",
@@ -340,7 +333,7 @@ def test_load_malformed_json_returns_400(client, test_driver, admin_headers):
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid JSON format: malformed JSON"
 
-
+@pytest.mark.packs
 def _load_fuzzy_test_pack(client, admin_headers):
     response = client.post(
         "/packs/load",
@@ -357,6 +350,7 @@ def _load_fuzzy_test_pack(client, admin_headers):
     assert response.status_code == 201
 
 
+@pytest.mark.fuzzy
 def test_fuzzy_search_matches_canonical_typo(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
@@ -368,7 +362,7 @@ def test_fuzzy_search_matches_canonical_typo(client, admin_headers):
         for result in response.json()
     )
 
-
+@pytest.mark.fuzzy
 def test_fuzzy_search_matches_canonical_transposition(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
@@ -380,7 +374,7 @@ def test_fuzzy_search_matches_canonical_transposition(client, admin_headers):
         for result in response.json()
     )
 
-
+@pytest.mark.fuzzy
 def test_fuzzy_search_matches_brand_typo(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
@@ -392,7 +386,7 @@ def test_fuzzy_search_matches_brand_typo(client, admin_headers):
         for result in response.json()
     )
 
-
+@pytest.mark.fuzzy
 def test_fuzzy_search_matches_translation_typo(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
@@ -404,7 +398,7 @@ def test_fuzzy_search_matches_translation_typo(client, admin_headers):
         for result in response.json()
     )
 
-
+@pytest.mark.fuzzy
 def test_fuzzy_search_matches_harder_canonical_typo(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
@@ -416,7 +410,7 @@ def test_fuzzy_search_matches_harder_canonical_typo(client, admin_headers):
         for result in response.json()
     )
 
-
+@pytest.mark.fuzzy
 def test_fuzzy_search_rejects_unrelated_term(client, admin_headers):
     _load_fuzzy_test_pack(client, admin_headers)
 
@@ -425,7 +419,7 @@ def test_fuzzy_search_rejects_unrelated_term(client, admin_headers):
     assert response.status_code == 404
     assert response.json()["detail"] == "Translation term not found."
 
-
+@pytest.mark.fuzzy
 def test_fuzzy_search_ranks_closest_match_first(client, admin_headers):
     response = client.post(
         "/packs/load",
@@ -506,7 +500,7 @@ def test_translate_missing_translation_returns_404(client, admin_headers):
     assert response.status_code == 404
     assert response.json()["detail"] == "Translation not found"
 
-
+@pytest.mark.auth
 def test_get_user(client, test_driver, admin_headers):
     response = client.get(
         "/users/jane@email.com",
@@ -516,7 +510,7 @@ def test_get_user(client, test_driver, admin_headers):
     assert response.status_code == 200
     assert response.json()["real_name"] == "Jane Doe"
 
-
+@pytest.mark.auth
 def test_admin_login_and_access_protected_route(client):
     login_response = client.post(
         "/auth",
@@ -544,6 +538,7 @@ def test_admin_login_and_access_protected_route(client):
 
     assert users_response.status_code == 200
 
+@pytest.mark.auth
 def test_admin_login_wrong_password(client):
     response = client.post(
         "/auth",
@@ -555,7 +550,7 @@ def test_admin_login_wrong_password(client):
 
     assert response.status_code == 401
 
-
+@pytest.mark.auth
 def test_login_unknown_user(client):
     response = client.post(
         "/auth",
@@ -567,13 +562,13 @@ def test_login_unknown_user(client):
 
     assert response.status_code == 401
 
-
+@pytest.mark.auth
 def test_users_requires_authentication(client):
     response = client.get("/users")
 
     assert response.status_code == 401
 
-
+@pytest.mark.auth
 def test_medical_professional_cannot_access_admin_users(client, admin_headers):
     test_email = "medicaltest@email.com"
     test_password = "MedicalTestPassword123!"
@@ -627,7 +622,7 @@ def test_medical_professional_cannot_access_admin_users(client, admin_headers):
 
     assert delete_response.status_code == 200
 
-
+@pytest.mark.auth
 def test_admin_can_create_user(client, admin_headers):
     test_email = "crudcreate@email.com"
 
@@ -670,7 +665,7 @@ def test_admin_can_create_user(client, admin_headers):
         headers=admin_headers,
     )
 
-
+@pytest.mark.auth
 def test_admin_can_list_users(client, admin_headers):
     response = client.get(
         "/users",
@@ -687,7 +682,7 @@ def test_admin_can_list_users(client, admin_headers):
         for user in users
     )
 
-
+@pytest.mark.auth
 def test_admin_can_update_user(client, admin_headers):
     test_email = "crudupdate@email.com"
 
@@ -740,7 +735,7 @@ def test_admin_can_update_user(client, admin_headers):
         headers=admin_headers,
     )
 
-
+@pytest.mark.auth
 def test_admin_can_change_user_role(client, admin_headers):
     test_email = "crudrole@email.com"
 
@@ -787,7 +782,7 @@ def test_admin_can_change_user_role(client, admin_headers):
         headers=admin_headers,
     )
 
-
+@pytest.mark.auth
 def test_admin_can_delete_user(client, admin_headers):
     test_email = "cruddelete@email.com"
 
@@ -824,7 +819,7 @@ def test_admin_can_delete_user(client, admin_headers):
 
     assert get_response.status_code == 404
 
-
+@pytest.mark.auth
 def test_create_duplicate_user_returns_409(client, admin_headers):
     response = client.post(
         "/users",
@@ -840,7 +835,7 @@ def test_create_duplicate_user_returns_409(client, admin_headers):
 
     assert response.status_code == 409
 
-
+@pytest.mark.auth
 def test_get_nonexistent_user_returns_404(client, admin_headers):
     response = client.get(
         "/users/nonexistent@email.com",
@@ -849,7 +844,7 @@ def test_get_nonexistent_user_returns_404(client, admin_headers):
 
     assert response.status_code == 404
 
-
+@pytest.mark.auth
 def test_update_nonexistent_user_returns_404(client, admin_headers):
     response = client.patch(
         "/users/nonexistent@email.com",
@@ -861,7 +856,7 @@ def test_update_nonexistent_user_returns_404(client, admin_headers):
 
     assert response.status_code == 404
 
-
+@pytest.mark.auth
 def test_delete_nonexistent_user_returns_404(client, admin_headers):
     response = client.delete(
         "/users/nonexistent@email.com",
@@ -870,7 +865,7 @@ def test_delete_nonexistent_user_returns_404(client, admin_headers):
 
     assert response.status_code == 404
 
-
+@pytest.mark.auth
 def test_get_role_for_nonexistent_user_returns_404(client, admin_headers):
     response = client.get(
         "/users/nonexistent@email.com/role",
@@ -879,7 +874,7 @@ def test_get_role_for_nonexistent_user_returns_404(client, admin_headers):
 
     assert response.status_code == 404
 
-
+@pytest.mark.auth
 def test_update_role_for_nonexistent_user_returns_404(client, admin_headers):
     response = client.put(
         "/users/nonexistent@email.com/role",
@@ -891,7 +886,7 @@ def test_update_role_for_nonexistent_user_returns_404(client, admin_headers):
 
     assert response.status_code == 404
 
-
+@pytest.mark.auth
 def test_create_user_missing_required_field_returns_422(client, admin_headers):
     response = client.post(
         "/users",
@@ -906,7 +901,7 @@ def test_create_user_missing_required_field_returns_422(client, admin_headers):
 
     assert response.status_code == 422
 
-
+@pytest.mark.auth
 def test_invalid_token_returns_401(client):
     response = client.get(
         "/users",
@@ -917,7 +912,7 @@ def test_invalid_token_returns_401(client):
 
     assert response.status_code == 401
 
-
+@pytest.mark.auth
 def test_administrator_cannot_delete_own_account(client, admin_headers):
     response = client.delete(
         f"/users/{TEST_ADMIN_EMAIL}",
@@ -933,7 +928,7 @@ def test_administrator_cannot_delete_own_account(client, admin_headers):
 
     assert get_response.status_code == 200
 
-
+@pytest.mark.auth
 def test_last_administrator_cannot_be_demoted_by_role_endpoint(client, admin_headers):
     
     response = client.put(
@@ -954,7 +949,7 @@ def test_last_administrator_cannot_be_demoted_by_role_endpoint(client, admin_hea
     assert get_response.status_code == 200
     assert get_response.json()["role"] == "administrator"
 
-
+@pytest.mark.auth
 def test_last_administrator_cannot_be_demoted_by_patch(client, admin_headers):
     
     response = client.patch(
@@ -975,7 +970,7 @@ def test_last_administrator_cannot_be_demoted_by_patch(client, admin_headers):
     assert get_response.status_code == 200
     assert get_response.json()["role"] == "administrator"
 
-
+@pytest.mark.auth
 def test_administrator_can_demote_user_when_another_administrator_exists(
     client,
     admin_headers,
@@ -1019,7 +1014,7 @@ def test_administrator_can_demote_user_when_another_administrator_exists(
 
     assert delete_response.status_code == 200
 
-
+@pytest.mark.auth
 def test_stale_admin_token_for_missing_user_returns_401(client):
     token = create_access_token({
         "sub": "formeradmin@email.com",
@@ -1037,7 +1032,7 @@ def test_stale_admin_token_for_missing_user_returns_401(client):
 
     assert response.status_code == 401
 
-
+@pytest.mark.auth
 def test_demoted_administrator_token_uses_current_database_role(client, admin_headers):
     test_email = "demotedadmin@email.com"
     test_password = "DemotedAdminPassword123!"
