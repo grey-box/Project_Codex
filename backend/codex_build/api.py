@@ -175,7 +175,8 @@ async def lifespan(app: FastAPI):
     try:
         with driver.session() as session:
             init_db_schema(session)
-            seed_offline_generic_synonyms(session, USAN_INN_MAP_DIR)
+            if os.getenv("TESTING") != "true":
+                seed_offline_generic_synonyms(session, USAN_INN_MAP_DIR)
     except Exception as exc:
         log.error(f"Failed to run schema startup queries: {exc}")
     
