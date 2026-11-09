@@ -19,9 +19,29 @@ During role-update testing, a response validation issue was identified because t
 ## Running Integration Tests
 
 ```bash
-docker compose -f docker-compose-test.yml up --exit-code-from test-runner
+docker compose -f docker-compose-test.yml up 
 # this may take a few moments
 ```
+
+Wait until the test-runner container is initialized, then:
+
+```bash
+docker compose -f docker-compose-test.yml exec test-runner pytest -v ../app/tests/integration_tests.py
+```
+
+This allows for tests to be changed and run the above command multiple times without restarting the docker container.
+
+### Running grouped tests
+By default the above pytest command will run all tests Within `integration_tests.py`. Tests on similar functions are grouped using pytest marks. To run with these marks, add the following option to the exec command.
+```bash
+    pytest -m [arg]
+```
+
+#### Currently supported args include:
+- **health**: Tests only api health.
+- **paths**: Test cases for loading language packs.
+- **fuzzy**: Test cases for fuzzy search.
+- **auth**: Test cases for user and admin authentication.
 
 ## Adding new integration tests
 
