@@ -166,10 +166,12 @@ Response Example:
 
 ### 7. Bulk Return
 
-Returns Neo4j data nodes as a rectangular JSON table suitable for importing
-into a spreadsheet or converting to CSV. The endpoint is protected and may be
-used by `medical professional` and `administrator` accounts. Account (`User`)
-nodes are never included in the export.
+Returns a rectangular JSON table suitable for importing into a spreadsheet or
+converting to CSV. It joins related graph nodes into one row per
+term/translation/brand combination.
+
+The endpoint is protected and may be used by `medical professional` and
+`administrator` accounts.
 
 * **Method:** `GET`
 * **Path:** `/api/bulk-return`
@@ -184,38 +186,31 @@ Authorization: Bearer <access_token>
 | --- | --- | --- | --- |
 | `start` | integer | `0` | Zero-based first row, inclusive. |
 | `end` | integer | end of database | Zero-based last row, inclusive. |
-| `fields` | string/list | all attributes | Attributes to return. Use `fields=id,title` or repeat the parameter. `_labels` is also selectable. |
-| `labels` | string/list | all data labels | Neo4j labels to export. Use `labels=DRUG,RXN` or repeat the parameter. |
+| `fields` | string/list | all columns | Columns to return. Use a comma-separated list or repeat the parameter. |
 
-Rows have a stable ordering by node label and the best available node
-identifier. All rows contain every listed column; a missing attribute is
-represented by `null`. The `total` is calculated after applying the optional
-label filter but before applying the range.
+Rows have a stable ordering so range requests can retrieve predictable chunks.
+The `total` is calculated before applying the range. A genuinely absent value,
+such as a translation without a brand, is represented by `null`.
 
 Example:
 
 ```text
-GET /api/bulk-return?start=0&end=99&labels=DRUG,RXN&fields=_labels,conceptID,title,ds
+GET /api/bulk-return?start=0&end=99&fields=canonical,translation,brand,country_code,language_code
 ```
 
 ```json
 {
-  "range": {"start": 0, "end": 1},
-  "total": 2,
-  "count": 2,
-  "columns": ["_labels", "conceptID", "title", "ds"],
+  "range": {"start": 0, "end": 0},
+  "total": 1,
+  "count": 1,
+  "columns": ["canonical", "translation", "brand", "country_code", "language_code"],
   "rows": [
     {
-      "_labels": ["DRUG"],
-      "conceptID": "aspirin-pain-drugbank",
-      "title": "Aspirin",
-      "ds": "DrugBank:API"
-    },
-    {
-      "_labels": ["RXN"],
-      "conceptID": "aspirin-pain-rxnorm",
-      "title": null,
-      "ds": "RxNorm:current"
+      "canonical": "ibuprofen",
+      "translation": "ibuprofeno",
+      "brand": "Advil",
+      "country_code": "MX",
+      "language_code": "es"
     }
   ]
 }
