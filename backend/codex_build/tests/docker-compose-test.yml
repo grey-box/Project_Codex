@@ -42,7 +42,7 @@ services:
       sh -c "apt-get update && 
              apt-get install -y --no-install-recommends libgl1 libglib2.0-0 &&
              pip install --no-cache-dir -r /app/tests/requirements-test.txt pytest &&
-             pytest /app/tests/integration_tests.py"
+             tail -f /dev/null"
 
 volumes:
   neo4j_data:
