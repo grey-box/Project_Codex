@@ -17,6 +17,7 @@ Endpoints
   POST /demo/load           Load built-in sample data
   POST /packs/load          Upload and load a language pack JSON
   GET  /languages           List language codes that have data in Neo4j
+  GET  /api/bulk-return     Protected JSON data export
 """
 
 from __future__ import annotations
@@ -33,8 +34,15 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 import ast
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from dotenv import load_dotenv
+import asyncio
+
+import jwt
+import json
+from datetime import datetime, timedelta, timezone
+from fastapi import Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from neo4j_sources.source_data import source_data
 from ocr.ocrmatching import router as ocr_router
@@ -42,6 +50,74 @@ from ocr.ocrmatching import router as ocr_router
 
 # ── Load .env before importing codex (which reads env vars at module level) ──
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+# ── JSON Web Token (JWT) setup and functions ─────────────────────────────────
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-fallback-key-32bytespls")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24   # access lasts for 24 hours
+
+security = HTTPBearer(auto_error=False)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
+    """Decodes JWT and returns the current database-backed user identity and role."""
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    email = str(payload.get("sub", "")).lower().strip()
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    with driver.session() as session:
+        user = get_user_by_email(session, email)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload["sub"] = user["email"]
+    payload["role"] = user["role"]
+    return payload
+
+def require_roles(allowed_roles: List[str]):
+    """Enforces that the current authenticated user belongs to one of the allowed roles."""
+    def role_checker(current_user: Optional[dict] = Depends(get_current_user)):
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        user_role = current_user.get("role", "").lower()
+        allowed_lower = [r.lower() for r in allowed_roles]
+        if user_role not in allowed_lower:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions for this operation"
+            )
+        return current_user
+    return role_checker
 
 # ── Import backend package ───────────────────────────────────────────────────
 try:
@@ -63,6 +139,21 @@ try:
         get_languages_for_term,
         get_countries_for_brand,
         get_languages_for_brand,
+        create_user,
+        get_user_by_email,
+        get_all_users,
+        update_user,
+        delete_user,
+        get_user_role,
+        count_administrators,
+        get_users_by_role,
+        update_user_role,
+        authenticate_user,
+        init_default_admin,
+        get_all_generic_names,
+        get_bulk_translation_records,
+        init_db_schema,
+        seed_offline_generic_synonyms
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -73,17 +164,32 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(messa
 log = logging.getLogger("codex.api")
 
 BASE_DIR = Path(__file__).resolve().parent
+TARGET_FOLDER_PATH = BASE_DIR / "codex" / "language_packs"
 DEMO_PACKS_DIR = BASE_DIR / "demo_language_packs"
+USAN_INN_MAP_DIR = BASE_DIR / "generics_sources" / "usan_inn_map.csv"
 LOAD_DEMO_DATA = os.getenv("LOAD_DEMO_DATA", "true").lower() in ("true", "1", "yes")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Seed constraints and indexes automatically
+    try:
+        with driver.session() as session:
+            init_db_schema(session)
+            if os.getenv("TESTING") != "true":
+                seed_offline_generic_synonyms(session, USAN_INN_MAP_DIR)
+    except Exception as exc:
+        log.error(f"Failed to run schema startup queries: {exc}")
+    
+    # seed default admin user
+    if os.getenv("TESTING") != "true":
+        init_default_admin()
+    
     if LOAD_DEMO_DATA:
-        log.info("Scanning demo language packs directory: %s", DEMO_PACKS_DIR)
-        if DEMO_PACKS_DIR.exists() and DEMO_PACKS_DIR.is_dir():
-            load_demo_data(str(DEMO_PACKS_DIR))
-        else:
-            log.warning("Demo language packs directory '%s' does not exist.", DEMO_PACKS_DIR)
+            log.info("Scanning demo language packs directory: %s", DEMO_PACKS_DIR)
+            if DEMO_PACKS_DIR.exists() and DEMO_PACKS_DIR.is_dir():
+                load_demo_data(str(DEMO_PACKS_DIR))
+            else:
+                log.warning("Demo language packs directory '%s' does not exist.", DEMO_PACKS_DIR)
     else:
         log.info("LOAD_DEMO_DATA is false; skipping automatic demo pack loading.")
 
@@ -126,7 +232,8 @@ class SourceSelection(BaseModel):
 
 @app.post(
     "/api/populate-sources",
-    tags=["data"]
+    tags=["data"],
+    dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
 )
 async def handle_populate(data: SourceSelection):
     sources = data.selectedSources
@@ -234,6 +341,96 @@ class HealthResponse(BaseModel):
     neo4j: bool
     api_version: str
 
+class UserCreateRequest(BaseModel):
+    real_name: str
+    password: str
+    role: str
+    affiliation: str
+    email: str
+
+    model_config = {"json_schema_extra": {"example": {
+        "real_name": "Jane Doe",
+        "password": "SecurePassword123!",
+        "role": "administrator",
+        "affiliation": "Global Health Org",
+        "email": "jane.doe@example.com"
+    }}}
+
+class UserUpdateRequest(BaseModel):
+    real_name: Optional[str] = None
+    role: Optional[str] = None
+    affiliation: Optional[str] = None
+    password: Optional[str] = None
+
+class UserRoleUpdateRequest(BaseModel):
+    role: str
+
+class UserResponse(BaseModel):
+    email: str
+    real_name: str
+    role: str
+    affiliation: str
+    created_at: Optional[Any] = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, created_at: Any, _info):
+        if created_at is not None:
+            return str(created_at)
+        return None
+
+class UserRoleResponse(BaseModel):
+    email: str
+    role: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+
+
+class BulkReturnRange(BaseModel):
+    start: int
+    end: Optional[int]
+
+
+class BulkReturnResponse(BaseModel):
+    range: BulkReturnRange
+    total: int
+    count: int
+    columns: List[str]
+    rows: List[Dict[str, Any]]
+
+
+def _parse_csv_query_values(values: Optional[List[str]]) -> List[str]:
+    """Support both ``?fields=a,b`` and ``?fields=a&fields=b`` syntax."""
+    parsed = []
+    for value in values or []:
+        for item in value.split(","):
+            item = item.strip()
+            if item and item not in parsed:
+                parsed.append(item)
+    return parsed
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert Neo4j-specific values into values accepted by JSON encoders."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+
+    isoformat = getattr(value, "isoformat", None)
+    if callable(isoformat):
+        return isoformat()
+    return str(value)
+
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -259,8 +456,87 @@ def health():
         api_version=app.version,
     )
 
+
+@app.get(
+    "/api/bulk-return",
+    response_model=BulkReturnResponse,
+    summary="Return a spreadsheet-ready JSON data export",
+    tags=["data"],
+    dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
+)
+def bulk_return(
+    start: int = Query(
+        0,
+        ge=0,
+        description="Zero-based index of the first row to return (inclusive).",
+    ),
+    end: Optional[int] = Query(
+        None,
+        ge=0,
+        description="Zero-based index of the last row to return (inclusive); omit for the end of the database.",
+    ),
+    fields: Optional[List[str]] = Query(
+        None,
+        description="Optional attributes to include; repeat or provide a comma-separated list.",
+    ),
+):
+    """Return a rectangular JSON table suitable for spreadsheets.
+
+    Joins terms, translations, brands, countries, and languages into useful
+    rows and supports predictable range-based chunks.
+    """
+    if end is not None and end < start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="'end' must be greater than or equal to 'start'.",
+        )
+
+    requested_fields = _parse_csv_query_values(fields)
+
+    try:
+        with driver.session() as session:
+            total, database_fields, raw_rows = get_bulk_translation_records(
+                session,
+                start=start,
+                end=end,
+            )
+    except Exception as exc:
+        log.exception("bulk_return failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    available_fields = set(database_fields)
+
+    if requested_fields:
+        unknown_fields = [field for field in requested_fields if field not in available_fields]
+        if unknown_fields:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "One or more requested fields are not present in the selected data.",
+                    "unknown_fields": unknown_fields,
+                    "available_fields": sorted(available_fields),
+                },
+            )
+        columns = requested_fields
+    else:
+        columns = database_fields
+
+    rows = [
+        {column: _json_safe(row.get(column)) for column in columns}
+        for row in raw_rows
+    ]
+    actual_end = start + len(rows) - 1 if rows else None
+
+    return BulkReturnResponse(
+        range=BulkReturnRange(start=start, end=actual_end),
+        total=total,
+        count=len(rows),
+        columns=columns,
+        rows=rows,
+    )
+
 @app.post(
-    "/search",
+    "/search/{term}",
     response_model=List[SearchResponse],
     tags=["translation"],
 )
@@ -270,7 +546,10 @@ def search(term: str):
         with driver.session() as session:
             results = search_database(session, term)
             if not results:
-                return []
+                raise HTTPException(
+                    status_code=404,
+                    detail="Translation term not found."
+                )
             for result in results:
                 canonical = result[0]
                 brand = result[1]
@@ -301,87 +580,99 @@ def search(term: str):
                         language=languages,
                         uploaded_at=""
                     ))
+    except HTTPException:
+        raise
     except Exception as exc:
         log.exception("search raised an unexpected error")
         raise HTTPException(status_code=500, detail=str(exc))
     
     return search_results
-
+   
 @app.post(
     "/translate",
     response_model=TranslateResponse,
     summary="Translate a drug term",
     tags=["translation"],
 )
-def translate_term(body: TranslateRequest):
+async def translate_term(body: TranslateRequest):
     """
-    Translate a medical term into the requested language.
-
-    - Resolves brand names and fuzzy input to a canonical term first.
-    - Falls back through configured language chains if no direct match.
-
-    JSON SETUP
-      incoming
-      { "term": "ibuprofen", "source_lang": "en", "target_lang": "es", "country": "MX" }
-      
-      outgoing
-      {
-      "canonical": "ibuprofen",
-      "results": [
-        { "translation": "ibuprofeno", "language": "Spanish", "brand": "Advil", "country": "MX" }
-      ]
-      }
+    Translates a drug term from one language to another.
     """
-    log.info("Translate  term=%r  lang=%s  country=%s", body.term, body.lang, body.country)
-
-    try:
-        raw_data = translate(term=body.term, lang=body.lang, country=body.country)
-        if isinstance(raw_data, str):
-            raw = ast.literal_eval(raw_data)
-        else:
-            raw = raw_data
-    except Exception as exc:
-        log.exception("translate() raised an unexpected error")
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    raw_results = raw.get("results", []) if isinstance(raw, dict) else []
-    target_lang_str = (body.lang or "").strip().lower()
-    # Build dynamic language map
-    LANGUAGE_MAP = {
-        "fr": "french",
-        "es": "spanish",
-        "en": "english",
-        "ru": "russian",
-        "uk": "ukrainian",
-    }
-    mapped_lang_name = LANGUAGE_MAP.get(target_lang_str, target_lang_str)
-
-    results = [
-        TranslationResult(
-            translation=r.get("translation", ""),
-            language=r.get("language", ""),
-            brand=r.get("brand"),
-            country=r.get("country"),
+    if body.lang and not language_exists(body.lang):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Language pack '{body.lang}' is not loaded"
         )
-        for r in raw_results
-        if (
-            not body.lang 
-            or str(r.get("language", "")).lower() == target_lang_str
-            or str(r.get("lang_code", "")).lower() == target_lang_str
-            or str(r.get("language_code", "")).lower() == target_lang_str
-            or str(r.get("language", "")).lower() == mapped_lang_name
-        )
-        and (
-            not body.country 
-            or str(r.get("country", "")).lower() == body.country.lower()
-        )
-    ]
 
-    resolved_canonical = raw.get("canonical") if isinstance(raw, dict) and raw.get("canonical") else body.term
+    def _fetch_synonyms_and_data():
+        with driver.session() as session:
+            # 1. Resolve initial query to base term
+            resolved = resolve_to_base_term(session, body.term)
+            base_term = resolved[0] if resolved else body.term
+            
+            # 2. Get all equivalent generic terms (e.g., Acetaminophen & Paracetamol)
+            all_generics = get_all_generic_names(session, base_term)
+            return base_term, all_generics
+
+    base_term, generic_names = await asyncio.to_thread(_fetch_synonyms_and_data)
+
+    # 3. Define worker for parallel query execution per generic name
+    def _fetch_for_term(term: str):
+        with driver.session() as session:
+            return get_translation_data(session, term, body.lang, body.country)
+
+    # 4. Execute generic searches concurrently in thread pool tasks
+    tasks = [asyncio.to_thread(_fetch_for_term, g_name) for g_name in generic_names]
+    results_nested = await asyncio.gather(*tasks)
+
+    # 5. Deduplicate and merge results across all generic names
+    flattened_results = []
+    seen = set()
+    
+    target_lang = (body.lang or "").strip().lower()
+    target_country = (body.country or "").strip().lower()
+
+    for res in results_nested:
+        if isinstance(res, Exception):
+            continue
+
+        for r in res:
+            res_lang_code = str(r.get("lang_code", "")).lower()
+            res_lang_name = str(r.get("language", "")).lower()
+            res_country = str(r.get("country", "")).lower()
+
+            # Enforce request filters
+            if target_lang and (target_lang != res_lang_code and target_lang != res_lang_name):
+                continue
+            if target_country and target_country != res_country:
+                continue
+
+            key = (r.get("translation"), r.get("brand"), r.get("country"))
+            if key not in seen:
+                seen.add(key)
+                flattened_results.append(
+                    TranslationResult(
+                        translation=r.get("translation", ""),
+                        language=r.get("language", ""),
+                        brand=r.get("brand"),
+                        country=r.get("country"),
+                    )
+                )
+
+    # Clean canonical label output (limit to standard generic names)
+    clean_generics = [g for g in generic_names if not any(c in g for c in ['[', 'Component'])]
+    other_names = [g for g in clean_generics if g.lower() != base_term.lower()]
+    canonical_label = f"{base_term} ({', '.join(other_names)})" if other_names else base_term
+
+    if not flattened_results:
+        raise HTTPException(
+            status_code=404,
+            detail="Translation not found"
+        )
 
     return TranslateResponse(
-        canonical=resolved_canonical,
-        results=results,
+        canonical=canonical_label,
+        results=flattened_results,
     )
 
 
@@ -427,6 +718,7 @@ def audit_term(term: str):
     status_code=status.HTTP_201_CREATED,
     summary="Upload and load a language pack",
     tags=["data"],
+    dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
 )
 async def load_pack(file: UploadFile = File(...)):
     """
@@ -449,6 +741,8 @@ async def load_pack(file: UploadFile = File(...)):
     """
     if not file.filename or not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="File must be a .json language pack")
+    
+    
 
     log.info("Loading language pack: %s", file.filename)
 
@@ -458,9 +752,18 @@ async def load_pack(file: UploadFile = File(...)):
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
             tmp.write(content)
             tmp_path = tmp.name
+            
 
         message = load_language_pack(tmp_path)
+        
+        if message.startswith("Missing"):
+            raise HTTPException(status_code=400, detail=f"Invalid JSON format: {message}")
+        
         return MessageResponse(message=message)
+    except HTTPException:
+        raise
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format: malformed JSON")
     except Exception as exc:
         log.exception("load_pack failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -502,6 +805,288 @@ def list_languages():
         return LanguagesResponse(languages=languages, countries=countries_map)
     except Exception as exc:
         log.exception("list_languages failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    
+@app.post(
+    "/auth",
+    response_model=TokenResponse,
+    summary="Authenticate user",
+    tags=["auth"],
+)
+def login(body: LoginRequest):
+    """Authenticate a user and return a JWT access token with the current role."""
+    with driver.session() as session:
+        user = authenticate_user(session, body.email, body.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(
+        {
+            "sub": user["email"],
+            "role": user["role"],
+        }
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        role=user["role"],
+    )
+
+
+@app.post(
+    "/users",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new user",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_create_user(body: UserCreateRequest):
+    """Create a new user in Neo4j. Returns 409 if the email already exists."""
+    try:
+        with driver.session() as session:
+            # Check if user already exists
+            existing = get_user_by_email(session, body.email)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"User with email '{body.email}' already exists."
+                )
+            
+            user = create_user(
+                session,
+                real_name=body.real_name,
+                password=body.password,
+                role=body.role,
+                affiliation=body.affiliation,
+                email=body.email
+            )
+            if not user:
+                raise HTTPException(status_code=500, detail="Failed to create user node.")
+            return user
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_create_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get(
+    "/users",
+    response_model=List[UserResponse],
+    summary="List all users or filter by role",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_get_users(
+    role: Optional[str] = Query(None, description="Optional role filter"),
+    limit: int = Query(100, ge=1, le=1000)
+):
+    """Return users from Neo4j, optionally filtered by role and limited by count."""
+    try:
+        with driver.session() as session:
+            if role:
+                return get_users_by_role(session, role)
+            return get_all_users(session, limit=limit)
+    except Exception as exc:
+        log.exception("api_get_users failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get(
+    "/users/{email}",
+    response_model=UserResponse,
+    summary="Get user by email",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_get_user(email: str):
+    """Return a single user by email. Returns 404 when the user does not exist."""
+    try:
+        with driver.session() as session:
+            user = get_user_by_email(session, email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return user
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_get_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.patch(
+    "/users/{email}",
+    response_model=UserResponse,
+    summary="Update user details",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_update_user(email: str, body: UserUpdateRequest):
+    """Update user profile fields and prevent demotion of the last administrator."""
+    try:
+        with driver.session() as session:
+            if body.role is not None:
+                current_role = get_user_role(session, email)
+
+                if (
+                    current_role is not None
+                    and current_role.strip().lower() == "administrator"
+                    and body.role.strip().lower() != "administrator"
+                    and count_administrators(session) <= 1
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Cannot demote the last administrator."
+                    )
+
+            updated = update_user(
+                session,
+                email=email,
+                real_name=body.real_name,
+                role=body.role,
+                affiliation=body.affiliation,
+                password=body.password
+            )
+            if not updated:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found or no changes were made."
+                )
+            return updated
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_update_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.delete(
+    "/users/{email}",
+    response_model=MessageResponse,
+    summary="Delete a user",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_delete_user(
+    email: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a user while preventing administrator self-deletion and removal of the last administrator."""
+    try:
+        with driver.session() as session:
+            role = get_user_role(session, email)
+
+            if role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+
+            current_email = str(current_user.get("sub", "")).lower().strip()
+
+            if email.lower().strip() == current_email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Administrators cannot delete their own account."
+                )
+
+            if (
+                role.strip().lower() == "administrator"
+                and count_administrators(session) <= 1
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete the last administrator."
+                )
+
+            deleted = delete_user(session, email)
+
+            if not deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return MessageResponse(message=f"User '{email}' deleted successfully.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_delete_user failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.get(
+    "/users/{email}/role",
+    response_model=UserRoleResponse,
+    summary="Get a user's role",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_get_user_role(email: str):
+    """Return the role assigned to a user. Returns 404 when the user does not exist."""
+    try:
+        with driver.session() as session:
+            role = get_user_role(session, email)
+            if role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return UserRoleResponse(email=email, role=role)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_get_user_role failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.put(
+    "/users/{email}/role",
+    response_model=UserResponse,
+    summary="Update a user's role",
+    tags=["users"],
+    dependencies=[Depends(require_roles(["administrator"]))],
+)
+def api_update_user_role(email: str, body: UserRoleUpdateRequest):
+    """Update a user role while preventing demotion of the last administrator."""
+    try:
+        with driver.session() as session:
+            current_role = get_user_role(session, email)
+
+            if current_role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+
+            if (
+                current_role.strip().lower() == "administrator"
+                and body.role.strip().lower() != "administrator"
+                and count_administrators(session) <= 1
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot demote the last administrator."
+                )
+
+            updated = update_user_role(session, email=email, new_role=body.role)
+            if not updated:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{email}' not found."
+                )
+            return updated
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("api_update_user_role failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 # ── Entry point (for running directly) ──────────────────────────────────────

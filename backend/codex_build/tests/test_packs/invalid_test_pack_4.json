@@ -1,0 +1,24 @@
+
+{
+    "language": {"code": "pt", "name": "Portuguese"},
+    "terms": [
+    {
+        "canonical": "Ibuprofen",
+        "entries": [
+            {"translation": "ibuprofeno", "country": "BR", "brand": "Advil"}
+        ]
+    },
+    {   
+        "canonical": "Somedrugname",
+        "entries": [
+            {"translation": "sometranslation", "country": "somecountry", "brand": "somebrand"}
+        ]
+    },
+    {   
+        "canonicale": "Misspelled canonical", 
+        "entries": [
+            {"translation": "sometranslation", "country": "somecountry", "brand": "somebrand"}
+        ]
+    }
+    ]
+}

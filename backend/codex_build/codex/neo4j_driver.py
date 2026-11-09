@@ -2,6 +2,10 @@
 from neo4j import GraphDatabase       # Python driver from Neo4j
 from dotenv import load_dotenv        # Loads environment variables from .env file
 import os                             # Access to OS environment variables
+import bcrypt                         # Used for hashing passwords
+import logging
+import csv
+from pathlib import Path
 
 # Loads environment varibles 
 load_dotenv()
@@ -13,6 +17,76 @@ password = os.getenv("NEO4J_PASSWORD")
 
 # Connect to Neo4j
 driver = GraphDatabase.driver(uri, auth=(user, password))
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
+log = logging.getLogger("codex.neo4j_driver")
+
+
+TRANSLATION_EXPORT_FIELDS = [
+    "canonical",
+    "term_type",
+    "translation",
+    "brand",
+    "country_code",
+    "country_name",
+    "language_code",
+    "language_name",
+]
+
+
+def get_bulk_translation_records(session, start=0, end=None):
+    """Return an inclusive slice of spreadsheet-ready translation rows."""
+    parameters = {"start": start}
+    graph_match = """
+    MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+    OPTIONAL MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
+    OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+    """
+
+    count_record = session.run(
+        f"""
+        {graph_match}
+        RETURN count(*) AS total
+        """
+    ).single()
+    total = count_record["total"] if count_record else 0
+
+    limit_clause = ""
+    if end is not None:
+        parameters["limit"] = end - start + 1
+        limit_clause = "LIMIT $limit"
+
+    result = session.run(
+        f"""
+        {graph_match}
+        RETURN t.canonical AS canonical,
+               t.type AS term_type,
+               tr.text AS translation,
+               b.name AS brand,
+               coalesce(c.iso2, tr.country) AS country_code,
+               c.name AS country_name,
+               l.code AS language_code,
+               l.name AS language_name
+        ORDER BY toLower(coalesce(t.canonical, '')),
+                 toLower(coalesce(l.code, '')),
+                 toLower(coalesce(c.iso2, tr.country, '')),
+                 toLower(coalesce(tr.text, '')),
+                 toLower(coalesce(b.name, '')),
+                 elementId(tr)
+        SKIP $start
+        {limit_clause}
+        """,
+        **parameters,
+    )
+
+    rows = [
+        {field: record[field] for field in TRANSLATION_EXPORT_FIELDS}
+        for record in result
+    ]
+    return total, TRANSLATION_EXPORT_FIELDS.copy(), rows
+
 
 # Create or update translation nodes for any medical term (medication and symtom)
 def create_translation(session, canonical, brand, country, lang_code, lang_name, translation, term_type="medication"):
@@ -46,7 +120,7 @@ def create_translation(session, canonical, brand, country, lang_code, lang_name,
         session.run(query, canonical=canonical, translation=translation, country=country, brand=brand)
 
     # Just for comfirmation in console for verification
-    print(f"Added {canonical} → {translation} ({lang_name}) / Brand: {brand} in {country}")
+    log.info(f"Added {canonical} → {translation} ({lang_name}) / Brand: {brand} in {country}")
 
 # Retrieves all translations and related info for a given term
 def get_translation_data(session, canonical, lang, country):
@@ -54,15 +128,18 @@ def get_translation_data(session, canonical, lang, country):
     MATCH (t:Term)
     WHERE t.canonical IS NOT NULL 
       AND (
-        t.canonical = $canonical 
-        OR apoc.text.jaroWinklerDistance(t.canonical, $canonical) < 0.20
+        toLower(t.canonical) = toLower($canonical)
+        OR apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($canonical)) < 0.20
       )
     MATCH (tr:Translation)-[:OF_TERM]->(t)
     MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
     OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
+    
+    // Filter translations by language and country before matching brands
+    WHERE ($lang IS NULL OR $lang = '' OR toLower(l.code) = toLower($lang) OR toLower(l.name) = toLower($lang))
+      AND ($country IS NULL OR $country = '' OR toLower(c.iso2) = toLower($country))
+      
     OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
-    WHERE ($lang IS NULL OR l.code = $lang)
-      AND ($country IS NULL OR c.iso2 = $country)
     RETURN DISTINCT
         tr.text AS translation, 
         l.name AS language,
@@ -153,33 +230,52 @@ def get_equivalent_brands(session, term):
 def search_database(session, term): 
     query = """
     CALL {
+        // Direct canonical match
         MATCH (t:Term)
-        WHERE t.canonical = $term
-        RETURN t.canonical AS brand, t.canonical AS base
+        WHERE toLower(t.canonical) = toLower($term)
+        RETURN t.canonical AS brand, t.canonical AS base, 0.0 AS distance
+
         UNION
+        
+        // Match via synonym relationship (USAN <-> INN)
+        MATCH (syn:Term)-[:SYNONYM_OF]-(t:Term)
+        WHERE toLower(syn.canonical) = toLower($term)
+        RETURN t.canonical AS brand, t.canonical AS base, 0.0 AS distance
+
+        UNION
+
+        // Brand name contains term
         MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-        WHERE b.name = $term
-        RETURN b.name AS brand, t.canonical AS base
+        WHERE toLower(b.name) = toLower($term)
+        RETURN b.name AS brand, t.canonical AS base, 0.0 AS distance
+
         UNION
-        MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-        WHERE tr.text = $term
-        RETURN t.canonical AS brand, t.canonical AS base
-        UNION
+
+        // Fuzzy canonical matching
         MATCH (t:Term)
-        WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.20
-        RETURN t.canonical AS brand, t.canonical AS base
+        WITH t, apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) AS distance
+        WHERE distance < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base, distance
+
         UNION
+
+        // Fuzzy brand name matching
         MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
-        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.20
-        RETURN b.name AS brand, t.canonical AS base
+        WITH t, b, apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) AS distance
+        WHERE distance < 0.20
+        RETURN b.name AS brand, t.canonical AS base, distance
+
         UNION
+
+        // Fuzzy translated name matching
         MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
-        WHERE apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) < 0.20
-        RETURN t.canonical AS brand, t.canonical AS base
+        WITH t, tr, apoc.text.jaroWinklerDistance(toLower(tr.text), toLower($term)) AS distance
+        WHERE distance < 0.20
+        RETURN t.canonical AS brand, t.canonical AS base, distance
     }
-    WITH collect({brand: brand, base: base}) AS results
-    UNWIND results AS row
-    RETURN row.brand AS brand, row.base AS base
+    WITH brand, base, min(distance) AS distance
+    RETURN brand, base
+    ORDER BY distance ASC, toLower(base), toLower(brand)
     """
 
     results = session.run(query, term=term)
@@ -188,14 +284,15 @@ def search_database(session, term):
     
     results_array = []
     for result in results:
-        if (result["base"].lower() == term.lower()):
+        if result["base"].lower() == term.lower():
             results_array.append([result["base"], None])
             return results_array
         
-        if (result["base"] == result["brand"]):
+        if result["base"] == result["brand"]:
             results_array.append([result["base"], None])
         else:
             results_array.append([result["base"], result["brand"]])
+            
     return results_array
 
 # Resolves any input (canonical, translated, or fuzzy) to a base canonical term
@@ -337,3 +434,323 @@ def get_languages_for_brand(session, term):
     languages = result.single().value() if result.peek() else []
     languages = ', '.join(languages)
     return languages
+
+# Requires all user emails to be unique
+def init_user_constraints(session):
+    query = """
+    CREATE CONSTRAINT user_email_unique IF NOT EXISTS
+    FOR (u:User) REQUIRE u.email IS UNIQUE
+    """
+    session.run(query)
+    
+# Utility to hash passwords
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+def authenticate_user(session, email: str, password: str):
+    query = "MATCH (u:User {email: $email}) RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.password AS password"
+    result = session.run(query, email=email.lower().strip()).single()
+    if not result:
+        return None
+    if not verify_password(password, result["password"]):
+        return None
+    return {"email": result["email"], "real_name": result["real_name"], "role": result["role"]}
+
+# Creates a new User node with a hashed password
+def create_user(session, real_name, password, role, affiliation, email):
+    hashed_pwd = hash_password(password)
+    query = """
+    CREATE (u:User {
+        email: $email,
+        real_name: $real_name,
+        password: $password,
+        role: $role,
+        affiliation: $affiliation,
+        created_at: datetime()
+    })
+    RETURN u.email AS email, 
+           u.real_name AS real_name, 
+           u.role AS role, 
+           u.affiliation AS affiliation,
+           toString(u.created_at) AS created_at
+    """
+    result = session.run(
+        query, 
+        email=email.lower().strip(), 
+        real_name=real_name, 
+        password=hashed_pwd, 
+        role=role, 
+        affiliation=affiliation
+    )
+    record = result.single()
+    if record:
+        log.info(f"User created: {record['email']}")
+        return record.data()
+    return None
+
+# Retrieves a single user by their unique email (omits password hash from return)
+def get_user_by_email(session, email):
+    query = """
+    MATCH (u:User {email: $email})
+    RETURN u.email AS email, 
+           u.real_name AS real_name, 
+           u.role AS role, 
+           u.affiliation AS affiliation, 
+           toString(u.created_at) AS created_at
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    return result.data() if result else None
+
+# Retrieves a list of all users
+def get_all_users(session, limit=100):
+    query = """
+    MATCH (u:User)
+    RETURN u.email AS email, 
+           u.real_name AS real_name, 
+           u.role AS role, 
+           u.affiliation AS affiliation
+    LIMIT $limit
+    """
+    result = session.run(query, limit=limit)
+    return [record.data() for record in result]
+
+# Dynamically updates user fields based on provided arguments
+def update_user(session, email, real_name=None, role=None, affiliation=None, password=None):
+    updates = []
+    params = {"email": email.lower().strip()}
+
+    if real_name is not None:
+        updates.append("u.real_name = $real_name")
+        params["real_name"] = real_name
+    if role is not None:
+        updates.append("u.role = $role")
+        params["role"] = role
+    if affiliation is not None:
+        updates.append("u.affiliation = $affiliation")
+        params["affiliation"] = affiliation
+    if password is not None:
+        updates.append("u.password = $password")
+        params["password"] = hash_password(password)
+
+    if not updates:
+        log.warning("No fields provided to update.")
+        return None
+
+    set_clause = ", ".join(updates)
+    query = f"""
+    MATCH (u:User {{email: $email}})
+    SET {set_clause}, u.updated_at = datetime()
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    """
+    
+    result = session.run(query, **params).single()
+    return result.data() if result else None
+
+# Deletes a user node by email and removes any connected relationships (DETACH DELETE)
+def delete_user(session, email):
+    """."""
+    query = """
+    MATCH (u:User {email: $email})
+    DETACH DELETE u
+    RETURN count(u) AS deleted_count
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    deleted = result["deleted_count"] > 0
+    if deleted:
+        log.info(f"Successfully deleted user: {email}")
+    else:
+        log.error(f"No user found with email: {email}")
+    return deleted
+
+# Retrieves only the role assigned to a specific user
+def get_user_role(session, email: str) -> str | None:
+    query = """
+    MATCH (u:User {email: $email})
+    RETURN u.role AS role
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    return result["role"] if result else None
+
+# Retrieves all users matching a specific role
+def get_users_by_role(session, role: str) -> list[dict]:
+    query = """
+    MATCH (u:User {role: $role})
+    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation, u.role AS role
+    ORDER BY u.real_name
+    """
+    result = session.run(query, role=role)
+    return [record.data() for record in result]
+
+# Updates the role for a specific user and logs the updated timestamp
+def update_user_role(session, email: str, new_role: str) -> dict | None:
+    query = """
+    MATCH (u:User {email: $email})
+    SET u.role = $new_role, u.updated_at = datetime()
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation
+    """
+    result = session.run(
+        query, 
+        email=email.lower().strip(), 
+        new_role=new_role
+    ).single()
+    
+    if result:
+        log.info(f"Updated role for {email} to '{new_role}'")
+        return result.data()
+    
+    log.error(f"User with email '{email}' not found.")
+    return None
+
+def count_administrators(session) -> int:
+    query = """
+    MATCH (u:User)
+    WHERE toLower(u.role) = 'administrator'
+    RETURN count(u) AS admin_count
+    """
+    result = session.run(query).single()
+    return result["admin_count"] if result else 0
+
+# Ensures unique constraints exist and seeds a default admin user on startup
+def init_default_admin():
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@grey-box.ca")
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMeNow123!")
+
+    try:
+        with driver.session() as session:
+            # 1. Ensure email uniqueness constraint exists in Neo4j
+            init_user_constraints(session)
+
+            # 2. Check if default admin exists; create if not
+            existing_admin = get_user_by_email(session, admin_email)
+            if not existing_admin:
+                create_user(
+                    session,
+                    real_name="Default Administrator",
+                    password=admin_password,
+                    role="administrator",
+                    affiliation="System",
+                    email=admin_email,
+                )
+                log.info(f"Initialized default administrator user: {admin_email}")
+            else:
+                log.info(f"Default administrator user already exists: {admin_email}")
+    except Exception as exc:
+        log.error(f"Failed to initialize default admin user: {exc}")
+        
+def get_all_generic_names(session, canonical: str) -> list[str]:
+    """
+    Returns equivalent generic names (US, INN) for a given canonical term.
+    Restricted to 1 hop to prevent traversing through combination products.
+    """
+    query = """
+    MATCH (t:Term)
+    WHERE toLower(t.canonical) = toLower($canonical)
+    OPTIONAL MATCH (t)-[:SYNONYM_OF]-(syn:Term)
+    WITH t, collect(DISTINCT syn.canonical) AS synonyms
+    UNWIND ([t.canonical] + synonyms) AS raw_term
+    WITH toString(raw_term) AS term
+    WHERE term IS NOT NULL 
+      AND trim(term) <> ''
+      AND NOT term CONTAINS 'Component'
+      AND NOT term CONTAINS '['
+    RETURN DISTINCT term
+    """
+    results = session.run(query, canonical=canonical)
+    return [r["term"] for r in results if r["term"]]
+
+def link_generic_synonyms(session, canonical_a: str, canonical_b: str, relation_type: str = "US_INN"):
+    """
+    Creates bidirectional :SYNONYM_OF relationships between two canonical generic names.
+    """
+    query = """
+    MERGE (t1:Term {canonical: $canonical_a})
+      ON CREATE SET t1.type = 'medication'
+    MERGE (t2:Term {canonical: $canonical_b})
+      ON CREATE SET t2.type = 'medication'
+    MERGE (t1)-[:SYNONYM_OF {type: $relation_type}]->(t2)
+    MERGE (t2)-[:SYNONYM_OF {type: $relation_type}]->(t1)
+    """
+    session.run(query, canonical_a=canonical_a, canonical_b=canonical_b, relation_type=relation_type)
+    
+def init_db_schema(session):
+    """
+    Automates database schema initialization on app startup.
+    Ensures unique constraints and indexes exist without manual developer intervention.
+    """
+    schema_queries = [
+        # User constraint (existing)
+        "CREATE CONSTRAINT user_email_unique IF NOT EXISTS FOR (u:User) REQUIRE u.email IS UNIQUE",
+        
+        # Term canonical uniqueness constraint
+        "CREATE CONSTRAINT term_canonical_unique IF NOT EXISTS FOR (t:Term) REQUIRE t.canonical IS UNIQUE",
+        
+        # Fast lookup indexes for text matching
+        "CREATE INDEX term_canonical_idx IF NOT EXISTS FOR (t:Term) ON (t.canonical)",
+        "CREATE INDEX translation_text_idx IF NOT EXISTS FOR (tr:Translation) ON (tr.text)"
+    ]
+    
+    for query in schema_queries:
+        session.run(query)
+    log.info("Database schema and constraints verified/initialized.")
+    
+def seed_offline_generic_synonyms(session, csv_file_path: str, batch_size: int = 1000):
+    """
+    Reads an offline CSV mapping USAN to INN names and seeds :SYNONYM_OF 
+    relationships in safe batches.
+    """
+    path = Path(csv_file_path)
+    if not path.exists():
+        log.error(f"CRITICAL: Offline generic mapping file not found at {csv_file_path.absolute()}")
+        return
+
+    query = """
+    UNWIND $rows AS row
+    WITH row WHERE row.usan_name IS NOT NULL AND row.inn_name IS NOT NULL
+      AND trim(row.usan_name) <> '' AND trim(row.inn_name) <> ''
+    MERGE (t1:Term {canonical: trim(row.usan_name)})
+      ON CREATE SET t1.type = 'medication'
+    MERGE (t2:Term {canonical: trim(row.inn_name)})
+      ON CREATE SET t2.type = 'medication'
+    MERGE (t1)-[r1:SYNONYM_OF {type: 'US_INN'}]->(t2)
+    MERGE (t2)-[r2:SYNONYM_OF {type: 'US_INN'}]->(t1)
+    SET r1.unii = coalesce(row.unii_code, ''),
+        r2.unii = coalesce(row.unii_code, '')
+    """
+
+    with open(path, mode="r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        batch = []
+        total_loaded = 0
+
+        for row in reader:
+            # Ensure dictionary keys match CSV header names
+            usan = row.get("usan_name") or row.get("USAN_NAME")
+            inn = row.get("inn_name") or row.get("INN_NAME")
+            unii = row.get("unii_code") or row.get("UNII_CODE") or ""
+
+            if usan and inn:
+                batch.append({
+                    "usan_name": usan.strip(),
+                    "inn_name": inn.strip(),
+                    "unii_code": unii.strip()
+                })
+
+            if len(batch) >= batch_size:
+                session.run(query, rows=batch)
+                total_loaded += len(batch)
+                batch.clear()
+
+        # Process remaining rows
+        if batch:
+            session.run(query, rows=batch)
+            total_loaded += len(batch)
+
+    log.info(f"Successfully loaded {total_loaded} USAN-INN synonym mappings into Neo4j.")
