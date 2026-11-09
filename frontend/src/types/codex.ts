@@ -10,6 +10,7 @@ export interface LanguageOption {
 
 export interface LanguagesResponse {
   languages: string[]
+  countries?: Record<string, CountryOption[]>
 }
 
 export interface SearchResultRow {
@@ -56,29 +57,8 @@ export interface TranslateRequest {
   country: string
 }
 
-export const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
-  es: [
-    { code: 'MX', label: 'Mexico' },
-    { code: 'ES', label: 'Spain' },
-  ],
-  en: [
-    { code: 'US', label: 'United States' },
-    { code: 'GB', label: 'United Kingdom' },
-    { code: 'CA', label: 'Canada' },
-  ],
-  fr: [
-    { code: 'FR', label: 'France' },
-    { code: 'CA', label: 'Canada' },
-    { code: 'BE', label: 'Belgium' },
-  ],
-  ru: [
-    { code: 'RU', label: 'Russia' },
-  ],
-  uk: [
-    { code: 'UA', label: 'Ukraine' },
-    { code: 'PL', label: 'Poland' },
-  ],
-}
+// Dynamic countries loaded from Neo4j via /languages
+export const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {}
 
 export const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
 
