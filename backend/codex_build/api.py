@@ -151,7 +151,7 @@ try:
         authenticate_user,
         init_default_admin,
         get_all_generic_names,
-        get_bulk_records,
+        get_bulk_translation_records,
         init_db_schema,
         seed_offline_generic_synonyms
     )
@@ -459,7 +459,7 @@ def health():
 @app.get(
     "/api/bulk-return",
     response_model=BulkReturnResponse,
-    summary="Return a JSON data dump",
+    summary="Return a spreadsheet-ready JSON data export",
     tags=["data"],
     dependencies=[Depends(require_roles(["medical professional", "administrator"]))],
 )
@@ -478,16 +478,11 @@ def bulk_return(
         None,
         description="Optional attributes to include; repeat or provide a comma-separated list.",
     ),
-    labels: Optional[List[str]] = Query(
-        None,
-        description="Optional Neo4j node labels to include; repeat or provide a comma-separated list.",
-    ),
 ):
-    """Return database nodes as a rectangular JSON table suitable for spreadsheets.
+    """Return a rectangular JSON table suitable for spreadsheets.
 
-    Account nodes are excluded unconditionally.  Rows are ordered by node label,
-    then by their most useful known identifier, so range requests can be used to
-    retrieve a large export in predictable chunks.
+    Joins terms, translations, brands, countries, and languages into useful
+    rows and supports predictable range-based chunks.
     """
     if end is not None and end < start:
         raise HTTPException(
@@ -496,21 +491,19 @@ def bulk_return(
         )
 
     requested_fields = _parse_csv_query_values(fields)
-    requested_labels = _parse_csv_query_values(labels)
 
     try:
         with driver.session() as session:
-            total, database_fields, raw_rows = get_bulk_records(
+            total, database_fields, raw_rows = get_bulk_translation_records(
                 session,
                 start=start,
                 end=end,
-                node_labels=requested_labels,
             )
     except Exception as exc:
         log.exception("bulk_return failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
-    available_fields = {"_labels", *database_fields}
+    available_fields = set(database_fields)
 
     if requested_fields:
         unknown_fields = [field for field in requested_fields if field not in available_fields]
@@ -525,7 +518,7 @@ def bulk_return(
             )
         columns = requested_fields
     else:
-        columns = ["_labels", *sorted(available_fields - {"_labels"})]
+        columns = database_fields
 
     rows = [
         {column: _json_safe(row.get(column)) for column in columns}

@@ -23,45 +23,35 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(messa
 log = logging.getLogger("codex.neo4j_driver")
 
 
-def get_bulk_records(session, start=0, end=None, node_labels=None):
-    """Return a deterministic, inclusive slice of non-user Neo4j nodes.
+TRANSLATION_EXPORT_FIELDS = [
+    "canonical",
+    "term_type",
+    "translation",
+    "brand",
+    "country_code",
+    "country_name",
+    "language_code",
+    "language_name",
+]
 
-    Each node is one export row.  ``properties(n)`` deliberately keeps the
-    exporter schema-agnostic so newly ingested source attributes appear in a
-    dump without requiring an API change.  User nodes are always excluded to
-    prevent password hashes and account data from entering data exports.
-    """
-    requested_labels = node_labels or []
-    parameters = {
-        "start": start,
-        "node_labels": requested_labels,
-    }
-    node_filter = """
-    WHERE NOT n:User
-      AND ($node_labels = [] OR any(label IN labels(n) WHERE label IN $node_labels))
+
+def get_bulk_translation_records(session, start=0, end=None):
+    """Return an inclusive slice of spreadsheet-ready translation rows."""
+    parameters = {"start": start}
+    graph_match = """
+    MATCH (t:Term)<-[:OF_TERM]-(tr:Translation)
+    OPTIONAL MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    OPTIONAL MATCH (tr)-[:USED_IN]->(c:Country)
+    OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
     """
 
     count_record = session.run(
         f"""
-        MATCH (n)
-        {node_filter}
-        RETURN count(n) AS total
-        """,
-        **parameters,
+        {graph_match}
+        RETURN count(*) AS total
+        """
     ).single()
     total = count_record["total"] if count_record else 0
-
-    field_result = session.run(
-        f"""
-        MATCH (n)
-        {node_filter}
-        UNWIND keys(n) AS field
-        RETURN DISTINCT field
-        ORDER BY field
-        """,
-        **parameters,
-    )
-    available_fields = [record["field"] for record in field_result]
 
     limit_clause = ""
     if end is not None:
@@ -70,28 +60,33 @@ def get_bulk_records(session, start=0, end=None, node_labels=None):
 
     result = session.run(
         f"""
-        MATCH (n)
-        {node_filter}
-        WITH n,
-             coalesce(
-                 n.conceptID, n.codex_id, n.id, n.rxcui,
-                 n.canonical, n.canonical_name, n.code, n.name, n.title, ''
-             ) AS sort_key
-        ORDER BY labels(n), toLower(toString(sort_key)), elementId(n)
+        {graph_match}
+        RETURN t.canonical AS canonical,
+               t.type AS term_type,
+               tr.text AS translation,
+               b.name AS brand,
+               coalesce(c.iso2, tr.country) AS country_code,
+               c.name AS country_name,
+               l.code AS language_code,
+               l.name AS language_name
+        ORDER BY toLower(coalesce(t.canonical, '')),
+                 toLower(coalesce(l.code, '')),
+                 toLower(coalesce(c.iso2, tr.country, '')),
+                 toLower(coalesce(tr.text, '')),
+                 toLower(coalesce(b.name, '')),
+                 elementId(tr)
         SKIP $start
         {limit_clause}
-        RETURN labels(n) AS labels, properties(n) AS attributes
         """,
         **parameters,
     )
 
-    rows = []
-    for record in result:
-        row = dict(record["attributes"] or {})
-        row["_labels"] = list(record["labels"] or [])
-        rows.append(row)
+    rows = [
+        {field: record[field] for field in TRANSLATION_EXPORT_FIELDS}
+        for record in result
+    ]
+    return total, TRANSLATION_EXPORT_FIELDS.copy(), rows
 
-    return total, available_fields, rows
 
 # Create or update translation nodes for any medical term (medication and symtom)
 def create_translation(session, canonical, brand, country, lang_code, lang_name, translation, term_type="medication"):
