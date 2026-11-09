@@ -43,7 +43,7 @@ export async function getLanguages(): Promise<LanguagesData> {
  */
 export async function searchDrug(query: string): Promise<SearchResponse[]> {
   const response = await fetch(
-    `${API_BASE_URL}/search?term=${encodeURIComponent(query.toLowerCase())}`,
+    `${API_BASE_URL}/search/{encodeURIComponent(query.toLowerCase())}`,
     {
       method: 'POST',
       headers: {
