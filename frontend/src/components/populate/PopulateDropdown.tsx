@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Button, Dropdown } from '../ui'
 import { API_BASE_URL } from '../../services/api'
@@ -37,20 +37,44 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState<string>('')
   const [populationError, setPopulationError] = useState('')
+  const [invalidCredentials, setInvalidCredentials] = useState<string[]>([])
+  const populationPending = useRef(false)
+
+  const clearFeedback = () => {
+    setProgress('')
+    setPopulationError('')
+    setInvalidCredentials([])
+  }
 
   const toggleSource = (id: string) => {
     setSelectedSources((prev) => ({ ...prev, [id]: !prev[id] }))
+    clearFeedback()
   }
 
   const selectedCount = Object.values(selectedSources).filter(Boolean).length
 
   const handlePopulateClick = async () => {
+    if (populationPending.current) return
     const sourcesToPopulate = Object.entries(selectedSources)
       .filter(([, isSelected]) => isSelected)
       .map(([id]) => id)
 
     if (sourcesToPopulate.length === 0) return
 
+    clearFeedback()
+    const missing = [
+      ...(selectedSources.drugbank && !drugbankAPIKey.trim() ? ['drugbank-key'] : []),
+      ...(selectedSources.icd11 && !icdID.trim() ? ['icd-id'] : []),
+      ...(selectedSources.icd11 && !icdSecret.trim() ? ['icd-secret'] : []),
+    ]
+    if (missing.length) {
+      setInvalidCredentials(missing)
+      setPopulationError(t('tools.populationCredentialsRequired'))
+      document.getElementById(missing[0])?.focus()
+      return
+    }
+
+    populationPending.current = true
     setIsLoading(true)
     setPopulationError('')
     setProgress(t('tools.populationStarting'))
@@ -61,9 +85,9 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           selectedSources: sourcesToPopulate,
-          DBAPIKey: drugbankAPIKey,
-          ICDID: icdID,
-          ICDSecret: icdSecret,
+          DBAPIKey: selectedSources.drugbank ? drugbankAPIKey : '',
+          ICDID: selectedSources.icd11 ? icdID : '',
+          ICDSecret: selectedSources.icd11 ? icdSecret : '',
         }),
       })
 
@@ -73,6 +97,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
       setProgress('')
       setPopulationError(error instanceof Error ? error.message : t('tools.populationFailed'))
     } finally {
+      populationPending.current = false
       setIsLoading(false)
     }
   }
@@ -133,6 +158,7 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
             <input
               type="checkbox"
               checked={selectedSources[source.id]}
+              disabled={isLoading}
               onChange={() => toggleSource(source.id)}
               className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
             />
@@ -145,13 +171,13 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
       </div>
 
       {/* API Keys Configuration Section */}
-      <div className="pt-3 border-t border-slate-100 mb-4 space-y-2.5">
+      {(selectedSources.drugbank || selectedSources.icd11) && <div className="pt-3 border-t border-slate-100 mb-4 space-y-2.5">
         <div className="text-xs font-semibold text-slate-700">
           {t('sides.keyLabel') || 'API Keys & Credentials:'}
         </div>
 
         {/* DrugBank Key */}
-        <div>
+        {selectedSources.drugbank && <div>
           <label htmlFor="drugbank-key" className="block text-[11px] font-medium text-slate-600 mb-1">
             {t('sides.drugbankAPIKey') || 'DrugBank API Key'}
           </label>
@@ -159,14 +185,18 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
             id="drugbank-key"
             type="password"
             value={drugbankAPIKey}
-            onChange={(e) => setDrugbankAPIKey(e.target.value)}
+            disabled={isLoading}
+            required
+            aria-invalid={invalidCredentials.includes('drugbank-key') || undefined}
+            aria-describedby={invalidCredentials.includes('drugbank-key') ? 'population-credential-error' : undefined}
+            onChange={(e) => { setDrugbankAPIKey(e.target.value); clearFeedback() }}
             placeholder={t('sides.drugbankAPIKey') || 'DrugBank API Key'}
             className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
           />
-        </div>
+        </div>}
 
         {/* ICD-11 Credentials */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {selectedSources.icd11 && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label htmlFor="icd-id" className="block text-[11px] font-medium text-slate-600 mb-1">
               {t('sides.icdID') || 'ICD-11 ID'}
@@ -175,7 +205,11 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
               id="icd-id"
               type="text"
               value={icdID}
-              onChange={(e) => setIcdID(e.target.value)}
+              disabled={isLoading}
+              required
+              aria-invalid={invalidCredentials.includes('icd-id') || undefined}
+              aria-describedby={invalidCredentials.includes('icd-id') ? 'population-credential-error' : undefined}
+              onChange={(e) => { setIcdID(e.target.value); clearFeedback() }}
               placeholder={t('tools.clientId')}
               className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
             />
@@ -188,13 +222,18 @@ export const PopulateDropdown: React.FC<PopulateDropdownProps> = ({ fullWidth = 
               id="icd-secret"
               type="password"
               value={icdSecret}
-              onChange={(e) => setIcdSecret(e.target.value)}
+              disabled={isLoading}
+              required
+              aria-invalid={invalidCredentials.includes('icd-secret') || undefined}
+              aria-describedby={invalidCredentials.includes('icd-secret') ? 'population-credential-error' : undefined}
+              onChange={(e) => { setIcdSecret(e.target.value); clearFeedback() }}
               placeholder={t('tools.clientSecret')}
               className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
             />
           </div>
-        </div>
-      </div>
+        </div>}
+        {invalidCredentials.length > 0 && <p id="population-credential-error" className="sr-only">{t('tools.populationCredentialsRequired')}</p>}
+      </div>}
 
       {/* Progress / Status Message */}
       {progress && (

@@ -117,6 +117,7 @@
     }
   },
   "tools": {
+    "populationCredentialsRequired": "Saisissez les identifiants requis pour les sources sélectionnées.",
     "tryAgain": "Réessayer",
     "dismissMessage": "Fermer le message"
   },
