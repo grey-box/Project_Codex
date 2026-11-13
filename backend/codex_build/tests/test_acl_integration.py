@@ -5,8 +5,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from neo4j import GraphDatabase
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 import sys
 
+# Make OCR dependencies optional
+for mod in ("paddleocr", "paddle", "cv2", "scipy"):
+    sys.modules.setdefault(mod, MagicMock())
 # Get the path of the current file's parent's parent (the parent directory)
 parent_dir = str(Path(__file__).resolve().parent.parent)
 

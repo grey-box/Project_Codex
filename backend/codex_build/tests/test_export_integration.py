@@ -1,9 +1,21 @@
 """Exercise Bevin's export queries against the disposable test Neo4j database."""
 import pytest
+import sys
+from pathlib import Path
 from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
+# Make OCR dependencies optional
+for mod in ("paddleocr", "paddle", "cv2", "scipy"):
+    sys.modules.setdefault(mod, MagicMock())
+
+# Add parent directory to sys.path
+parent_dir = str(Path(__file__).resolve().parent.parent)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
 from codex.neo4j_driver import driver
 from api import app
-
 
 @pytest.fixture(autouse=True)
 def export_records():

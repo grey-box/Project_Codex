@@ -4,6 +4,7 @@ services:
     container_name: codex-neo4j-test
     environment:
       NEO4J_AUTH: "neo4j/changeme"
+      NEO4J_initial_dbms_default__database: "neo4j-test"
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
     ports:
@@ -12,7 +13,7 @@ services:
     volumes:
       - neo4j_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p changeme 'RETURN 1' > /dev/null 2>&1"]
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p changeme -d neo4j-test 'RETURN 1' > /dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 15
