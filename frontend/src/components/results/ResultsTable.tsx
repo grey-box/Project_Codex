@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '../ui'
+import { Button, Select } from '../ui'
 import type { SearchResultRow } from '../../types/codex'
+import { sortMedicationResults, type ResultSortOrder } from '../../utils/resultSorting'
 
 interface ResultsTableProps {
   results: SearchResultRow[]
@@ -28,7 +29,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   tools,
   onRetry,
 }) => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const [sortOrder, setSortOrder] = useState<ResultSortOrder>('original')
+  const displayedResults = sortMedicationResults(results, sortOrder, i18n.language)
+  const sortOptions = [
+    { value: 'original', label: t('workspace.sortOriginal') },
+    { value: 'name-asc', label: t('workspace.sortAscending') },
+    { value: 'name-desc', label: t('workspace.sortDescending') },
+  ]
 
   const isRowSelected = (row: SearchResultRow) => {
     if (!selectedResult) return false
@@ -57,6 +65,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         {selectedResult && <a href="#medication-details" className="workspace-details-link">{t('workspace.viewDetails')}</a>}
         {tools}
       </div>
+
+      {!isLoading && !searchError && results.length > 1 && (
+        <div className="workspace-results-sort">
+          <Select id="result-sort" label={t('workspace.sortResults')} value={sortOrder}
+            options={sortOptions} onValueChange={value => setSortOrder(value as ResultSortOrder)} />
+          <span role="status" className="sr-only">{t('workspace.sortedBy', { order: sortOptions.find(option => option.value === sortOrder)?.label })}</span>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="workspace-results-loading" role="status">
@@ -96,7 +112,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {results.map((row, index) => {
+                  {displayedResults.map((row, index) => {
                     const selected = isRowSelected(row)
                     return (
                       <tr
@@ -128,7 +144,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
           {/* Mobile Card View */}
           <div className="workspace-result-cards">
-            {results.map((row, index) => {
+            {displayedResults.map((row, index) => {
               const selected = isRowSelected(row)
               return (
                 <button
