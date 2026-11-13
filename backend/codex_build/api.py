@@ -43,6 +43,7 @@ from fastapi import Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from neo4j_sources.source_data import source_data
+from neo4j_sources.credentials import validate_population_credentials
 from ocr.ocrmatching import router as ocr_router
 
 
@@ -229,6 +230,10 @@ async def handle_populate(data: SourceSelection):
     drugbankAPIKey = data.DBAPIKey
     icdID = data.ICDID
     icdSecret= data.ICDSecret
+    try:
+        validate_population_credentials(sources, drugbankAPIKey, icdID, icdSecret)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return StreamingResponse(
         source_data(sources, drugbankAPIKey, icdID, icdSecret),
         media_type="application/x-ndjson",

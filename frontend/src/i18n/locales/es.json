@@ -121,6 +121,7 @@
     }
   },
   "tools": {
+    "populationCredentialsRequired": "Introduce las credenciales necesarias para las fuentes seleccionadas.",
     "tryAgain": "Reintentar",
     "dismissMessage": "Cerrar mensaje"
   },

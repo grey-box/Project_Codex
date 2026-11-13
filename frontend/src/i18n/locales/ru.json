@@ -123,6 +123,7 @@
     }
   },
   "tools": {
+    "populationCredentialsRequired": "Введите необходимые учётные данные для выбранных источников.",
     "cancel": "Отмена",
     "closeDialog": "Закрыть окно",
     "filterButton": "Фильтр языков ({{selected}}/{{total}})",
