@@ -53,7 +53,7 @@ def extract_text_with_ocr(file: UploadFile):
         enable_mkldnn=True,
         device='cpu'
     )
-    
+
     try:
         results = ocr.predict(image, cls=False)
         extracted_texts = []

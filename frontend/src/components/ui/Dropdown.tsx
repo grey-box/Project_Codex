@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 export interface DropdownProps {
   trigger: (isOpen: boolean) => React.ReactNode
@@ -24,7 +24,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Smart viewport auto-positioning
-  const calculatePosition = () => {
+  const calculatePosition = useCallback(() => {
     if (!dropdownRef.current) return
 
     const rect = dropdownRef.current.getBoundingClientRect()
@@ -60,13 +60,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         }
       }
     }
-  }
-
-  useLayoutEffect(() => {
-    if (isOpen) {
-      calculatePosition()
-    }
-  }, [isOpen])
+  }, [align])
 
   // Recalculate on window resize or scroll
   useEffect(() => {
@@ -83,7 +77,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       window.removeEventListener('resize', handleResizeOrScroll)
       window.removeEventListener('scroll', handleResizeOrScroll, true)
     }
-  }, [isOpen])
+  }, [isOpen, calculatePosition])
 
   // Close when clicking outside
   useEffect(() => {
@@ -103,7 +97,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape' && isOpen && !dropdownRef.current?.querySelector('[role="dialog"]')) {
         setIsOpen(false)
       }
     }
@@ -137,11 +131,21 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   return (
     <div className={`relative inline-block text-left ${className}`} ref={dropdownRef}>
-      <div onClick={() => setIsOpen(!isOpen)}>{trigger(isOpen)}</div>
+      <div onClick={() => {
+        if (!isOpen) calculatePosition()
+        setIsOpen(!isOpen)
+      }}>{trigger(isOpen)}</div>
 
       {isOpen && (
         <div
           ref={panelRef}
+          data-dropdown-panel
+          onClick={event => {
+            if ((event.target as HTMLElement).closest('[data-dropdown-close]')) {
+              setIsOpen(false)
+              dropdownRef.current?.querySelector('button')?.focus()
+            }
+          }}
           style={{ maxHeight: maxHeightStyle }}
           className={`absolute ${verticalClass} ${horizontalClass} ${widthClass} ${originClass} max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain bg-white rounded-xl shadow-2xl border border-slate-200 z-50 p-4 animate-in fade-in zoom-in-95 duration-150`}
         >
