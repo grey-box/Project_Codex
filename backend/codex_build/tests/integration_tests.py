@@ -4,9 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from neo4j import GraphDatabase
+from unittest.mock import MagicMock
 
 from pathlib import Path
 import sys
+
+# Make OCR dependencies optional
+for mod in ("paddleocr", "paddle", "cv2", "scipy"):
+    sys.modules.setdefault(mod, MagicMock())
 
 # Get the path of the current file's parent's parent (the parent directory)
 parent_dir = str(Path(__file__).resolve().parent.parent)
@@ -29,10 +34,26 @@ def test_driver():
     yield driver
     driver.close()
 
-@pytest.fixture
-def client(test_driver):
+@pytest.fixture(scope="session")
+def auth_headers():
+    """Log in using the default administrator credentials from .env."""
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@grey-box.ca")
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMe123!")
 
+    with TestClient(app) as c:
+        login_res = c.post(
+            "/auth",
+            json={"email": admin_email, "password": admin_password},
+        )
+        assert login_res.status_code == 200, f"Login failed: {login_res.text}"
+        token = login_res.json()["access_token"]
+
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def client(test_driver, auth_headers):
     with TestClient(app) as client:
+        client.headers.update(auth_headers)
         yield client
 
 
