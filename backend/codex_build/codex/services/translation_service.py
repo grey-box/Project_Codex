@@ -176,16 +176,36 @@ def load_language_pack(path_to_json):
     with open(path_to_json, "r", encoding="utf-8") as file:
         pack = json.load(file)
 
-    lang_code = pack["language"]["code"]
-    lang_name = pack["language"]["name"]
+    language = pack.get("language")
+    if language is None:
+        return "Missing language"
+    
+    lang_code = language.get("code")
+    if lang_code is None:
+        return "Missing language code"
+    
+    lang_name = language.get("name")
+    if lang_name is None:
+        return "Missing language name"
+    
 
     with driver.session() as session:
+        if "terms" not in pack:
+            return "Missing terms"
         for term in pack["terms"]:
-            canonical = term["canonical"]
+            canonical = term.get("canonical")
+            if canonical is None:
+                return "Missing canonical"
 
+            if "entries" not in term:
+                return "Missing entries"
             for entry in term["entries"]:
-                translation = entry["translation"]
-                country = entry["country"]
+                translation = entry.get("translation")
+                if translation is None:
+                    return "Missing translation"
+                country = entry.get("country")
+                if country is None:
+                    return "Missing country"
                 brand = entry.get("brand") # Could be None
 
                 create_translation(

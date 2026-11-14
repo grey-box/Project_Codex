@@ -1,0 +1,11 @@
+{
+     "language": {"name": "Portuguese"},
+    "terms": [
+    {
+        "canonical": "Ibuprofen",
+        "entries": [
+        {"translation": "ibuprofeno", "country": "BR", "brand": "Advil"}
+        ]
+    }
+    ]
+}

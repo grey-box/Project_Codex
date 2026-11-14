@@ -1,0 +1,1095 @@
+import os
+import pytest
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, File, UploadFile
+from fastapi.testclient import TestClient
+from neo4j import GraphDatabase
+from pathlib import Path
+import sys
+
+# Get the path of the current file's parent's parent (the parent directory)
+parent_dir = str(Path(__file__).resolve().parent.parent)
+
+# Add it to the module search path
+sys.path.append(parent_dir)
+
+# Now you can import your module normally
+from api import app, create_access_token
+from codex.neo4j_driver import driver, create_user, get_user_by_email, delete_user
+
+TEST_ADMIN_EMAIL = "admin@grey-box.ca"
+TEST_ADMIN_PASS = "ChangeMeNow123!"
+
+REQUIRED_TEST_DB_NAME = os.getenv("TEST_NEO4J_DATABASE", "neo4j-test")
+
+@pytest.fixture(scope="session", autouse=True)
+def verify_test_database():
+    """Safety guard: prevents running destructive tests against non-test databases."""
+    with driver.session() as session:
+        # Verify active database name
+        result = session.run("CALL db.info() YIELD name RETURN name").single()
+        active_db = result["name"] if result else None
+
+        if active_db != REQUIRED_TEST_DB_NAME:
+            pytest.exit(
+                f"\n[SAFETY ERROR] Integration tests must run against the dedicated test database '{REQUIRED_TEST_DB_NAME}'. "
+                f"Currently connected to: '{active_db}'.\n"
+                f"Set TEST_NEO4J_DATABASE={active_db} to override."
+            )
+
+
+@pytest.fixture(scope="session")
+def test_driver():
+    driver = GraphDatabase.driver(
+        os.getenv("NEO4J_TEST_URI", "bolt://localhost:7687"),
+        auth=(
+            os.getenv("NEO4J_TEST_USER", "neo4j"),
+            os.getenv("NEO4J_TEST_PASSWORD", "changeme"),
+        ),
+    )
+
+    driver.verify_connectivity()
+    yield driver
+    driver.close()
+
+
+@pytest.fixture
+def client(test_driver):
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_environment(test_driver):
+    """
+    Purges all existing data (including pre-seeded admins) before tests start,
+    then sets up the predictable test admin.
+    """
+    # 1. Clear database completely prior to running tests
+    with driver.session() as session:
+        session.run("MATCH (n) DETACH DELETE n").consume()
+
+    # 2. Seed the required test admin user
+    with driver.session() as session:
+        create_user(
+            session,
+            real_name="Test Admin",
+            password=TEST_ADMIN_PASS,
+            role="administrator",
+            affiliation="Testing Dept",
+            email=TEST_ADMIN_EMAIL,
+        )
+
+    # yield
+
+    # # Teardown: Clean up test admin and database
+    # with driver.session() as session:
+    #     session.run("MATCH (n) DETACH DELETE n").consume()
+
+
+# Generates valid JWT Auth Headers for the admin user
+@pytest.fixture
+def admin_headers():
+    token = create_access_token({
+        "sub": TEST_ADMIN_EMAIL,
+        "role": "administrator"
+    })
+
+    return {"Authorization": f"Bearer {token}"}
+
+
+# Generates valid JWT Auth Headers for a non-admin user
+@pytest.fixture
+def user_headers():
+    token = create_access_token({
+        "sub": "med_user@email.com",
+        "role": "medical professional"
+    })
+
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def run_before_each_test(client, test_driver, admin_headers):
+    # clean database
+    with test_driver.session() as session:
+        session.run("MATCH (u:User) DETACH DELETE u").consume()
+
+        # Re-create ONLY the required test admin user
+        create_user(
+            session,
+            real_name="Test Admin",
+            password=TEST_ADMIN_PASS,
+            role="administrator",
+            affiliation="Testing Dept",
+            email=TEST_ADMIN_EMAIL,
+        )
+    
+    init_users = [
+        {
+            "email": "jane@email.com",
+            "real_name": "Jane Doe",
+            "role": "medical professional",
+            "password": "hello world",
+            "affiliation": "grey-box"
+        }
+    ]
+
+    for user in init_users:
+        client.post("/users", json=user, headers=admin_headers)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_database_after_tests(test_driver):
+    yield
+
+    # Cleanup after all tests have finished
+    with test_driver.session() as session:
+        session.run("MATCH (n) DETACH DELETE n").consume()
+
+
+# ___________TEST CASES______________________________________
+
+@pytest.mark.health
+def test_health(client, test_driver):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+@pytest.mark.packs
+def test_load_pack(client, test_driver, admin_headers):
+    
+    file_path = Path(__file__).resolve().parent / "test_packs" / "test_pack.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 201
+    assert response.json()["message"] == "Loaded language pack: Portuguese"
+    
+
+@pytest.mark.packs
+def test_load_invalid_pack_not_json(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack.txt"
+    
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "File must be a .json language pack"
+    
+@pytest.mark.packs
+def test_load_invalid_pack_missing_language(client, test_driver, admin_headers):
+    
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing language"
+    
+@pytest.mark.packs    
+def test_load_invalid_pack_missing_code(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_2.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing language code"
+    
+@pytest.mark.packs
+def test_load_invalid_pack_missing_terms(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_3.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing terms"
+@pytest.mark.packs    
+def test_load_invalid_pack_missing_canonical(client, test_driver, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "invalid_test_pack_4.json"
+
+    with open(file_path, "rb") as f:
+        # Key name ('file') must match the parameter name in your FastAPI endpoint
+        response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing canonical"
+@pytest.mark.packs    
+def test_load_invalid_pack_missing_entries(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_entries.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[{"canonical":"Ibuprofen"}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing entries"
+
+@pytest.mark.packs
+def test_load_invalid_pack_missing_translation(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_translation.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[{"canonical":"Ibuprofen","entries":[{"country":"BR"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing translation"
+
+@pytest.mark.packs
+def test_load_invalid_pack_missing_country(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_country.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[{"canonical":"Ibuprofen","entries":[{"translation":"ibuprofeno"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing country"
+
+@pytest.mark.packs
+def test_load_invalid_pack_missing_language_name(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "missing_language_name.json",
+                b'{"language":{"code":"pt"},"terms":[]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: Missing language name"
+
+@pytest.mark.packs
+def test_load_malformed_json_returns_400(client, test_driver, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "malformed.json",
+                b'{"language":{"code":"pt","name":"Portuguese"},"terms":[',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid JSON format: malformed JSON"
+
+@pytest.mark.packs
+def _load_fuzzy_test_pack(client, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "fuzzy_test_pack.json",
+                b'{"language":{"code":"qx","name":"Codex Test Language"},"terms":[{"canonical":"CodexMedicationAlpha","entries":[{"translation":"Lumivara","country":"XZ","brand":"CodexBrandZeta"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_matches_canonical_typo(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodexMedicationAlph")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_matches_canonical_transposition(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodexMedicatoinAlpha")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_matches_brand_typo(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodexBrandZet")
+
+    assert response.status_code == 200
+    assert any(
+        result["brand"] == "CodexBrandZeta"
+        for result in response.json()
+    )
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_matches_translation_typo(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/Lumivar")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_matches_harder_canonical_typo(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/CodxMedcatonAlph")
+
+    assert response.status_code == 200
+    assert any(
+        result["name"] == "CodexMedicationAlpha"
+        for result in response.json()
+    )
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_rejects_unrelated_term(client, admin_headers):
+    _load_fuzzy_test_pack(client, admin_headers)
+
+    response = client.post("/search/ZXQVVVNONMATCH999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Translation term not found."
+
+@pytest.mark.fuzzy
+def test_fuzzy_search_ranks_closest_match_first(client, admin_headers):
+    response = client.post(
+        "/packs/load",
+        headers=admin_headers,
+        files={
+            "file": (
+                "fuzzy_ranking_pack.json",
+                b'{"language":{"code":"qr","name":"Ranking Test Language"},"terms":[{"canonical":"RankMedicationAlpine","entries":[{"translation":"RankAlpineTranslation","country":"XR","brand":"RankAlpineBrand"}]},{"canonical":"RankMedicationAlpha","entries":[{"translation":"RankAlphaTranslation","country":"XR","brand":"RankAlphaBrand"}]}]}',
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.post("/search/RankMedicationAlph")
+
+    assert response.status_code == 200
+
+    ranked_matches = [
+        result["name"]
+        for result in response.json()
+        if result["name"] in {
+            "RankMedicationAlpha",
+            "RankMedicationAlpine",
+        }
+    ]
+
+    assert ranked_matches
+    assert ranked_matches[0] == "RankMedicationAlpha"
+
+
+def test_search_nonexistent_term(client, test_driver, admin_headers):
+    response = client.post(
+        "/search/thisdrugdoesnotexist"
+    )
+        
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Translation term not found."
+
+
+
+def test_translate_missing_language_pack_returns_422(client):
+    response = client.post(
+        "/translate",
+        json={
+            "term": "ibuprofen",
+            "lang": "zz",
+            "country": "US",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Language pack 'zz' is not loaded"
+
+
+def test_translate_missing_translation_returns_404(client, admin_headers):
+    file_path = Path(__file__).resolve().parent / "test_packs" / "test_pack.json"
+
+    with open(file_path, "rb") as f:
+        load_response = client.post(
+            "/packs/load",
+            headers=admin_headers,
+            files={"file": (file_path.as_uri(), f, "app/json")}
+        )
+
+    assert load_response.status_code == 201
+
+    response = client.post(
+        "/translate",
+        json={
+            "term": "definitelynotarealmedicationxyz",
+            "lang": "pt",
+            "country": "BR",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Translation not found"
+
+@pytest.mark.auth
+def test_get_user(client, test_driver, admin_headers):
+    response = client.get(
+        "/users/jane@email.com",
+        headers=admin_headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["real_name"] == "Jane Doe"
+
+@pytest.mark.auth
+def test_admin_login_and_access_protected_route(client):
+    login_response = client.post(
+        "/auth",
+        json={
+            "email": TEST_ADMIN_EMAIL,
+            "password": TEST_ADMIN_PASS,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    login_data = login_response.json()
+
+    assert login_data["role"] == "administrator"
+    assert "access_token" in login_data
+
+    headers = {
+        "Authorization": f"Bearer {login_data['access_token']}"
+    }
+
+    users_response = client.get(
+        "/users",
+        headers=headers,
+    )
+
+    assert users_response.status_code == 200
+
+@pytest.mark.auth
+def test_admin_login_wrong_password(client):
+    response = client.post(
+        "/auth",
+        json={
+            "email": TEST_ADMIN_EMAIL,
+            "password": "WrongPassword123!",
+        },
+    )
+
+    assert response.status_code == 401
+
+@pytest.mark.auth
+def test_login_unknown_user(client):
+    response = client.post(
+        "/auth",
+        json={
+            "email": "doesnotexist@email.com",
+            "password": "SomePassword123!",
+        },
+    )
+
+    assert response.status_code == 401
+
+@pytest.mark.auth
+def test_users_requires_authentication(client):
+    response = client.get("/users")
+
+    assert response.status_code == 401
+
+@pytest.mark.auth
+def test_medical_professional_cannot_access_admin_users(client, admin_headers):
+    test_email = "medicaltest@email.com"
+    test_password = "MedicalTestPassword123!"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "Medical Test User",
+            "role": "medical professional",
+            "password": test_password,
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    login_response = client.post(
+        "/auth",
+        json={
+            "email": test_email,
+            "password": test_password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    medical_headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    users_response = client.get(
+        "/users",
+        headers=medical_headers,
+    )
+
+    assert users_response.status_code == 403
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200
+
+@pytest.mark.auth
+def test_admin_can_create_user(client, admin_headers):
+    test_email = "crudcreate@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Create User",
+            "role": "medical professional",
+            "password": "CrudCreatePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["email"] == test_email
+    assert data["real_name"] == "CRUD Create User"
+    assert data["role"] == "medical professional"
+    assert data["affiliation"] == "Testing Dept"
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["email"] == test_email
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+@pytest.mark.auth
+def test_admin_can_list_users(client, admin_headers):
+    response = client.get(
+        "/users",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 200
+
+    users = response.json()
+
+    assert isinstance(users, list)
+    assert any(
+        user["email"] == "jane@email.com"
+        for user in users
+    )
+
+@pytest.mark.auth
+def test_admin_can_update_user(client, admin_headers):
+    test_email = "crudupdate@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Update User",
+            "role": "medical professional",
+            "password": "CrudUpdatePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    update_response = client.patch(
+        f"/users/{test_email}",
+        headers=admin_headers,
+        json={
+            "real_name": "Updated CRUD User",
+            "affiliation": "Updated Testing Dept",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    updated = update_response.json()
+
+    assert updated["real_name"] == "Updated CRUD User"
+    assert updated["affiliation"] == "Updated Testing Dept"
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["real_name"] == "Updated CRUD User"
+    assert get_response.json()["affiliation"] == "Updated Testing Dept"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+@pytest.mark.auth
+def test_admin_can_change_user_role(client, admin_headers):
+    test_email = "crudrole@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Role User",
+            "role": "medical professional",
+            "password": "CrudRolePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    role_response = client.put(
+        f"/users/{test_email}/role",
+        headers=admin_headers,
+        json={
+            "role": "administrator",
+        },
+    )
+
+    assert role_response.status_code == 200
+    assert role_response.json()["role"] == "administrator"
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["role"] == "administrator"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+@pytest.mark.auth
+def test_admin_can_delete_user(client, admin_headers):
+    test_email = "cruddelete@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "CRUD Delete User",
+            "role": "medical professional",
+            "password": "CrudDeletePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200
+
+    get_response = client.get(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 404
+
+@pytest.mark.auth
+def test_create_duplicate_user_returns_409(client, admin_headers):
+    response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": "jane@email.com",
+            "real_name": "Duplicate Jane",
+            "role": "medical professional",
+            "password": "DuplicatePassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert response.status_code == 409
+
+@pytest.mark.auth
+def test_get_nonexistent_user_returns_404(client, admin_headers):
+    response = client.get(
+        "/users/nonexistent@email.com",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 404
+
+@pytest.mark.auth
+def test_update_nonexistent_user_returns_404(client, admin_headers):
+    response = client.patch(
+        "/users/nonexistent@email.com",
+        headers=admin_headers,
+        json={
+            "real_name": "Missing User",
+        },
+    )
+
+    assert response.status_code == 404
+
+@pytest.mark.auth
+def test_delete_nonexistent_user_returns_404(client, admin_headers):
+    response = client.delete(
+        "/users/nonexistent@email.com",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 404
+
+@pytest.mark.auth
+def test_get_role_for_nonexistent_user_returns_404(client, admin_headers):
+    response = client.get(
+        "/users/nonexistent@email.com/role",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 404
+
+@pytest.mark.auth
+def test_update_role_for_nonexistent_user_returns_404(client, admin_headers):
+    response = client.put(
+        "/users/nonexistent@email.com/role",
+        headers=admin_headers,
+        json={
+            "role": "administrator",
+        },
+    )
+
+    assert response.status_code == 404
+
+@pytest.mark.auth
+def test_create_user_missing_required_field_returns_422(client, admin_headers):
+    response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": "missingfield@email.com",
+            "real_name": "Missing Field User",
+            "role": "medical professional",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert response.status_code == 422
+
+@pytest.mark.auth
+def test_invalid_token_returns_401(client):
+    response = client.get(
+        "/users",
+        headers={
+            "Authorization": "Bearer invalid-token"
+        },
+    )
+
+    assert response.status_code == 401
+
+@pytest.mark.auth
+def test_administrator_cannot_delete_own_account(client, admin_headers):
+    response = client.delete(
+        f"/users/{TEST_ADMIN_EMAIL}",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 409
+
+    get_response = client.get(
+        f"/users/{TEST_ADMIN_EMAIL}",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+
+@pytest.mark.auth
+def test_last_administrator_cannot_be_demoted_by_role_endpoint(client, admin_headers):
+    
+    response = client.put(
+        f"/users/{TEST_ADMIN_EMAIL}/role",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert response.status_code == 409
+
+    get_response = client.get(
+        f"/users/{TEST_ADMIN_EMAIL}/role",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["role"] == "administrator"
+
+@pytest.mark.auth
+def test_last_administrator_cannot_be_demoted_by_patch(client, admin_headers):
+    
+    response = client.patch(
+        f"/users/{TEST_ADMIN_EMAIL}",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert response.status_code == 409
+
+    get_response = client.get(
+        f"/users/{TEST_ADMIN_EMAIL}/role",
+        headers=admin_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["role"] == "administrator"
+
+@pytest.mark.auth
+def test_administrator_can_demote_user_when_another_administrator_exists(
+    client,
+    admin_headers,
+):
+    test_email = "secondadmin@email.com"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "Second Administrator",
+            "role": "administrator",
+            "password": "SecondAdminPassword123!",
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    role_response = client.put(
+        f"/users/{test_email}/role",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert role_response.status_code == 200
+    assert role_response.json()["role"] == "medical professional"
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200
+
+@pytest.mark.auth
+def test_stale_admin_token_for_missing_user_returns_401(client):
+    token = create_access_token({
+        "sub": "formeradmin@email.com",
+        "role": "administrator"
+    })
+
+    stale_admin_headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = client.get(
+        "/users",
+        headers=stale_admin_headers,
+    )
+
+    assert response.status_code == 401
+
+@pytest.mark.auth
+def test_demoted_administrator_token_uses_current_database_role(client, admin_headers):
+    test_email = "demotedadmin@email.com"
+    test_password = "DemotedAdminPassword123!"
+
+    client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    create_response = client.post(
+        "/users",
+        headers=admin_headers,
+        json={
+            "email": test_email,
+            "real_name": "Demoted Administrator",
+            "role": "administrator",
+            "password": test_password,
+            "affiliation": "Testing Dept",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    login_response = client.post(
+        "/auth",
+        json={
+            "email": test_email,
+            "password": test_password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    old_admin_headers = {
+        "Authorization": f"Bearer {login_response.json()['access_token']}"
+    }
+
+    role_response = client.put(
+        f"/users/{test_email}/role",
+        headers=admin_headers,
+        json={
+            "role": "medical professional",
+        },
+    )
+
+    assert role_response.status_code == 200
+
+    users_response = client.get(
+        "/users",
+        headers=old_admin_headers,
+    )
+
+    assert users_response.status_code == 403
+
+    delete_response = client.delete(
+        f"/users/{test_email}",
+        headers=admin_headers,
+    )
+
+    assert delete_response.status_code == 200

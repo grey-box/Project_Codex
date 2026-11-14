@@ -1,0 +1,48 @@
+services:
+  neo4j:
+    image: neo4j:5.18.0
+    container_name: codex-neo4j-test
+    environment:
+      NEO4J_AUTH: "neo4j/changeme"
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      NEO4J_initial_dbms_default__database: "neo4j-test"
+    ports:
+      - "7474:7474"   # Neo4j Browser → http://localhost:7474
+      - "7687:7687"   # Bolt (used by the API)
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p changeme 'RETURN 1' > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  test-runner:
+    image: python:3.12-slim
+    container_name: codex-test-runner
+    working_dir: /app
+    volumes:
+      - ..:/app
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=changeme
+      - NEO4J_DATABASE=neo4jtest
+      - NEO4J_TEST_URI=bolt://neo4j:7687
+      - NEO4J_TEST_USER=neo4j
+      - NEO4J_TEST_PASSWORD=changeme
+      - TEST_NEO4J_DATABASE=neo4j-test
+      - TESTING=true
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    command: >
+      sh -c "apt-get update && 
+             apt-get install -y --no-install-recommends libgl1 libglib2.0-0 &&
+             pip install --no-cache-dir -r /app/tests/requirements-test.txt pytest &&
+             tail -f /dev/null"
+
+volumes:
+  neo4j_data:

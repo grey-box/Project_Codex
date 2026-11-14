@@ -164,6 +164,58 @@ Response Example:
 }
 ```
 
+### 7. Bulk Return
+
+Returns a rectangular JSON table suitable for importing into a spreadsheet or
+converting to CSV. It joins related graph nodes into one row per
+term/translation/brand combination.
+
+The endpoint is protected and may be used by `medical professional` and
+`administrator` accounts.
+
+* **Method:** `GET`
+* **Path:** `/api/bulk-return`
+
+Protected requests must include a JWT bearer token:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+| Query parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `start` | integer | `0` | Zero-based first row, inclusive. |
+| `end` | integer | end of database | Zero-based last row, inclusive. |
+| `fields` | string/list | all columns | Columns to return. Use a comma-separated list or repeat the parameter. |
+
+Rows have a stable ordering so range requests can retrieve predictable chunks.
+The `total` is calculated before applying the range. A genuinely absent value,
+such as a translation without a brand, is represented by `null`.
+
+Example:
+
+```text
+GET /api/bulk-return?start=0&end=99&fields=canonical,translation,brand,country_code,language_code
+```
+
+```json
+{
+  "range": {"start": 0, "end": 0},
+  "total": 1,
+  "count": 1,
+  "columns": ["canonical", "translation", "brand", "country_code", "language_code"],
+  "rows": [
+    {
+      "canonical": "ibuprofen",
+      "translation": "ibuprofeno",
+      "brand": "Advil",
+      "country_code": "MX",
+      "language_code": "es"
+    }
+  ]
+}
+```
+
 #### Error Handling
 The API uses standard HTTP status codes.
 
@@ -174,3 +226,48 @@ The API uses standard HTTP status codes.
 | 404     | Not Found                        |
 | 500     | Internal Server Error            |
 
+---
+
+## Access List API
+
+The Access List API provides authentication, user management, and role-based access control for Project Codex.
+
+### Access-List Endpoint Inventory
+
+| Method | Endpoint | Purpose | Access |
+| --- | --- | --- | --- |
+| POST | `/api/login` | Authenticate a user and return a JWT access token | Public |
+| POST | `/users` | Create a user | Administrator |
+| GET | `/users` | List users, optionally filtered by role | Administrator |
+| GET | `/users/{email}` | Retrieve a user by email | Administrator |
+| PATCH | `/users/{email}` | Update user information | Administrator |
+| DELETE | `/users/{email}` | Delete a user | Administrator |
+| GET | `/users/{email}/role` | Retrieve a user role | Administrator |
+| PUT | `/users/{email}/role` | Update a user role | Administrator |
+
+### Authentication and Role Requirements
+
+Authentication uses JWT bearer tokens. A user first authenticates through `/api/login` using an email and password. Successful authentication returns an access token and the current user role.
+
+Protected requests must include the token in the `Authorization` header:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+All `/users` user-management and role-management endpoints require the `administrator` role.
+
+The API checks the authenticated user against the current Neo4j record when validating a token. Deleted users are rejected, and the current database role is used for authorization.
+
+### Access-List Error Responses
+
+| Status | Meaning |
+| --- | --- |
+| `401 Unauthorized` | Authentication is missing, invalid, expired, or belongs to a user that no longer exists. |
+| `403 Forbidden` | The authenticated user does not have the required role. |
+| `404 Not Found` | The requested user or user role does not exist. |
+| `409 Conflict` | The request conflicts with existing user data or an administrator safeguard. |
+| `422 Unprocessable Entity` | Request or query validation failed. |
+| `500 Internal Server Error` | An unexpected API or Neo4j/database error occurred. |
+
+Administrator safeguards prevent an administrator from deleting their own account, deleting the last remaining administrator, or demoting the last remaining administrator.
