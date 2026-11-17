@@ -506,7 +506,7 @@ def search(term: str):
                     ))
     except Exception as exc:
         log.exception("search raised an unexpected error")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while processing your search.")
 
     return search_results
 
