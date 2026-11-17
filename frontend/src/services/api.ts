@@ -28,7 +28,8 @@ export async function getLanguageCatalog(): Promise<LanguagesResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/languages`, { headers: getAuthHeaders() })
     if (!response.ok) {
-      throw new Error('Failed to load languages')
+      console.warn('Using fallback languages: failed to load languages')
+      return { languages: FALLBACK_LANGUAGES }
     }
     const data = (await response.json()) as LanguagesResponse
     return Array.isArray(data.languages) && data.languages.length > 0
