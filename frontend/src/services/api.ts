@@ -43,11 +43,12 @@ export async function getLanguageCatalog(): Promise<LanguagesResponse> {
 /**
  * Searches for a drug / medical term in Neo4j.
  */
-export async function searchDrug(query: string): Promise<SearchResponse[]> {
+export async function searchDrug(query: string, signal?: AbortSignal): Promise<SearchResponse[]> {
   const response = await fetch(
     `${API_BASE_URL}/search?term=${encodeURIComponent(query.toLowerCase())}`,
     {
       method: 'POST',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
@@ -77,10 +78,12 @@ export async function searchDrug(query: string): Promise<SearchResponse[]> {
 export async function translateDrug(
   term: string,
   lang: string,
-  country: string
+  country: string,
+  signal?: AbortSignal
 ): Promise<TranslateResponse> {
   const response = await fetch(`${API_BASE_URL}/translate`, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
