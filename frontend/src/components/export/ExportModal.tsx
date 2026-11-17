@@ -69,7 +69,7 @@ export function ExportModal() {
           <p className="workspace-export-hint">{t('export.rangeHint')}</p>
         </div>
         <fieldset className="space-y-2">
-          <legend className="workspace-export-label">{t('export.columns')} <span>({columns.length}/5)</span></legend>
+          <legend className="workspace-export-label">{t('export.columns')} <span>({columns.length}/{EXPORT_COLUMNS[dataset].length})</span></legend>
           <div className="workspace-export-columns-heading">
             <div className="flex gap-3">
               <button type="button" disabled={busy} onClick={() => { setColumns([...EXPORT_COLUMNS[dataset]]); clearFeedback() }}>{t('tools.selectAll')}</button>
