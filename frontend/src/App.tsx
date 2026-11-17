@@ -27,8 +27,9 @@ function App() {
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
   const [hasQueryError, setHasQueryError] = useState(false)
-  useToastError(searchError)
-  useToastError(hasQueryError ? t('tools.searchRequired') : undefined)
+  const activeToastError =
+      hasQueryError ? t('tools.searchRequired') : searchError || undefined
+  useToastError(activeToastError)
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
