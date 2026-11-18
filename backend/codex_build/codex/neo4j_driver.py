@@ -634,3 +634,73 @@ def get_rxnorm_drugs(
 
     # Convert the Neo4j records into dictionaries for the API response.
     return [dict(record) for record in result]
+# Retrieve medication records for the JSON/CSV export.
+def get_medication_export_records(
+    session, name_type="generic", start_name=None, end_name=None
+):
+    query = """
+    CALL {
+        MATCH (n:RXN)
+        WHERE n.name IS NOT NULL
+          AND trim(n.name) <> ''
+          AND (
+              $name_type = 'all'
+              OR ($name_type = 'generic' AND n.tty = 'IN')
+              OR ($name_type = 'brand' AND n.tty = 'BN')
+          )
+        RETURN 'RxNorm' AS source,
+               n.name AS record_name,
+               properties(n) AS attributes
+
+        UNION ALL
+
+        MATCH (n:Term)
+        WHERE $name_type = 'all'
+          AND toLower(n.type) = 'medication'
+          AND n.canonical IS NOT NULL
+          AND trim(n.canonical) <> ''
+        RETURN 'Codex' AS source,
+               n.canonical AS record_name,
+               properties(n) AS attributes
+    }
+    WITH source, record_name, attributes
+    WHERE ($start IS NULL OR toLower(record_name) >= $start)
+      AND ($end IS NULL OR toLower(record_name) <= $end)
+    RETURN source, attributes
+    ORDER BY toLower(record_name), source
+    """
+    result = session.run(
+        query,
+        name_type=name_type,
+        start=start_name.lower().strip() if start_name else None,
+        end=end_name.lower().strip() if end_name else None,
+    )
+    return [
+        {"source": record["source"], **record["attributes"]}
+        for record in result
+    ]
+
+
+# Retrieve ICD-11 clinical records for the JSON/CSV export.
+def get_clinical_export_records(
+    session, start_name=None, end_name=None
+):
+    query = """
+    MATCH (n:ICD)
+    WHERE n.title IS NOT NULL
+      AND trim(n.title) <> ''
+      AND ($start IS NULL OR toLower(n.title) >= $start)
+      AND ($end IS NULL OR toLower(n.title) <= $end)
+    RETURN 'ICD-11' AS source,
+           properties(n) AS attributes
+    ORDER BY toLower(n.title)
+    """
+    result = session.run(
+        query,
+        start=start_name.lower().strip() if start_name else None,
+        end=end_name.lower().strip() if end_name else None,
+    )
+    return [
+        {"source": record["source"], **record["attributes"]}
+        for record in result
+    ]
