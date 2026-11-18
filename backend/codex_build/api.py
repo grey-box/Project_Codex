@@ -131,8 +131,6 @@ try:
         find_missing_brands,
         get_equivalent_brands,
         search_database,
-        get_drugs_table,
-        get_rxnorm_drugs,
         resolve_to_base_term,
         get_translation_data,
         get_countries_for_term,
