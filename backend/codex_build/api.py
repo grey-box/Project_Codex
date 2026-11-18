@@ -25,7 +25,7 @@ import os
 import sys
 import tempfile
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +63,8 @@ try:
         get_languages_for_term,
         get_countries_for_brand,
         get_languages_for_brand,
+        get_medication_export_records,
+        get_clinical_export_records,
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
@@ -503,6 +505,64 @@ def list_languages():
     except Exception as exc:
         log.exception("list_languages failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/medication-export", tags=["data"])
+def medication_export(
+    name_type: Literal["generic", "brand"] = "generic",
+    start_name: Optional[str] = None,
+    end_name: Optional[str] = None,
+):
+    if start_name and end_name and start_name.strip().lower() > end_name.strip().lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Start name must come before or match end name"
+        )
+
+    try:
+        with driver.session() as session:
+            rows = get_medication_export_records(
+                session, name_type, start_name, end_name
+            )
+
+        return {"csv": rows, "row_count": len(rows)}
+
+    except Exception:
+        log.exception("Medication export failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to export medications"
+        )
+
+
+@app.get("/api/clinical-export", tags=["data"])
+def clinical_export(
+    start_name: Optional[str] = None,
+    end_name: Optional[str] = None,
+):
+    if start_name and end_name and start_name.strip().lower() > end_name.strip().lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Start name must come before or match end name"
+        )
+
+    try:
+        with driver.session() as session:
+            rows = get_clinical_export_records(
+                session,
+                start_name=start_name,
+                end_name=end_name
+            )
+
+        return {"csv": rows, "row_count": len(rows)}
+
+    except Exception:
+        log.exception("Clinical export failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to export clinical records"
+        )
+
 
 # ── Entry point (for running directly) ──────────────────────────────────────
 if __name__ == "__main__":
