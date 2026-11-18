@@ -31,7 +31,7 @@ function escapeCsvValue(value: unknown): string {
   }
 
   // Escape double quotes and wrap fields containing special characters.
-  if (/[",\r\n]/.test(text)) {
+  if (/[",\r\n\t]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
 
