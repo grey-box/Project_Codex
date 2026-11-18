@@ -387,62 +387,6 @@ class TokenResponse(BaseModel):
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get(
-    "/csv",
-    response_model=CsvExportResponse,
-    tags=["data"],
-    summary="Retrieve the full medication catalogue"
-)
-
-# Retrieve medication records from the selected data source
-def export_csv(
-    name_type: Literal["generic", "brand"] = "generic",
-    start_name: Optional[str] = None,
-    end_name: Optional[str] = None,
-    source: Literal["demo", "rxnorm"] = "demo"
-):
-    """
-    Returns medication records with optional alphabetical filtering.
-    """
-    # Remove any extra spaces from the name range
-    start_name = start_name.strip() if start_name else None
-    end_name = end_name.strip() if end_name else None
-
-    # Check that the range is valid
-    if start_name and end_name and start_name.lower() > end_name.lower():
-        raise HTTPException(
-            status_code=400,
-            detail="Start name must come before or match end name"
-        )
-
-    try:
-        with driver.session() as session:
-            # Retrieve records from the requested dataset
-            if source == "rxnorm":
-                rows = get_rxnorm_drugs(
-                    session, name_type, start_name, end_name
-                )
-            else:
-                rows = get_drugs_table(
-                    session, name_type, start_name, end_name
-                )
-
-        # Return JSON records without restricting the available columns
-        return CsvExportResponse(
-            csv=rows,
-            row_count=len(rows)
-        )
-
-    except Exception:
-        # Log the error if the database query fails
-        log.exception("Failed to retrieve medication catalogue")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to retrieve medication catalogue"
-        )
-
-
-
-@app.get(
     "/health",
     response_model=HealthResponse,
     summary="Liveness check",
@@ -993,7 +937,13 @@ def api_update_user_role(email: str, body: UserRoleUpdateRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/api/medication-export", tags=["data"])
+@app.get(
+        "/api/medication-export",
+        response_model=CsvExportResponse,
+        tags=["data"],
+        summary="Export medication records"
+)
+
 def medication_export(
     name_type: Literal["generic", "brand"] = "generic",
     start_name: Optional[str] = None,
@@ -1021,7 +971,13 @@ def medication_export(
         )
 
 
-@app.get("/api/clinical-export", tags=["data"])
+@app.get(
+    "/api/clinical-export",
+    response_model=CsvExportResponse,
+    tags=["data"],
+    summary="Export ICD-11 clinical records"
+)
+
 def clinical_export(
     start_name: Optional[str] = None,
     end_name: Optional[str] = None,
