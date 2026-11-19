@@ -31,7 +31,8 @@ Wait ~30 seconds for Neo4j, API, and Frontend to be ready.
 ### Step 1 — Start Neo4j
 
 ```bash
-docker compose up -d neo4j
+docker buildx bake -f docker-compose.yml --allow=fs.read=frontend --allow=fs.read=backend/codex_build --load && docker compose up --no-build --pull always
+
 ```
 
 This starts Neo4j 5.18 with the APOC plugin (required for fuzzy matching) and exposes two ports:

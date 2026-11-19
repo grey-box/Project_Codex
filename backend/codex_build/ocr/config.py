@@ -81,6 +81,7 @@ class Settings(BaseSettings):
         env_file = find_dotenv()
         env_file_encoding = "utf-8"
         case_sensitive = False  # Allow case-insensitive env vars
+        extra = "ignore"
 
 
 # Create a singleton instance of settings

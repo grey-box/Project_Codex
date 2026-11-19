@@ -3,6 +3,13 @@ from unittest.mock import MagicMock, patch
 
 from pathlib import Path
 import sys
+
+# Mock OCR modules so pytest doesn't require paddleocr/scipy to run API unit tests
+sys.modules["paddleocr"] = MagicMock()
+sys.modules["paddle"] = MagicMock()
+sys.modules["cv2"] = MagicMock()
+sys.modules["scipy"] = MagicMock()
+
 from fastapi.testclient import TestClient
 # Get the path of the current file's parent's parent (the parent directory)
 parent_dir = str(Path(__file__).resolve().parent.parent)
@@ -18,6 +25,10 @@ import api
 
 client = TestClient(app)
 
+# bypass JWT authentication in unit tests by simulating authenticated user
+def mock_admin_user():
+    return {"sub": "admin@grey-box.ca", "role": "administrator"}
+app.dependency_overrides[api.get_current_user] = mock_admin_user
 
 def create_mock_driver():
     """Create a mock Neo4j driver and session."""
@@ -235,13 +246,6 @@ def test_get_user_by_email():
     )
     
 def test_get_invalid_user_by_email():
-    mock_users = {
-            "email": "jane@email.com",
-            "real_name": "Jane Doe",
-            "role": "Admin",
-            "affiliation": "grey-box",
-            "created_at": None
-        }
 
     mock_driver, mock_session = create_mock_driver()
 
@@ -498,20 +502,12 @@ def test_delete_user():
     assert response.json()["message"] == f"User '{mock_users["email"]}' deleted successfully."
     
 def test_delete_user_not_found():
-    mock_users = {
-        "email": "jane@email.com",
-        "real_name": "Jane Doe",
-        "role": "Admin",
-        "password": "hello world",
-        "affiliation": "grey-box",
-        "created_at": None
-    }
 
     mock_driver, mock_session = create_mock_driver()
     
     with (
         patch.object(api, "driver", mock_driver),
-        patch.object(api, "delete_user", return_value=False) as mock_delete_user,
+        patch.object(api, "delete_user", return_value=False),
     ):
         response = client.delete(
             f"/users/abc"
@@ -525,7 +521,7 @@ def test_delete_user_exception_thrown():
     
     with (
         patch.object(api, "driver", mock_driver),
-        patch.object(api, "delete_user", side_effect=Exception("Some Exception Thrown")) as mock_delete_user,
+        patch.object(api, "delete_user", side_effect=Exception("Some Exception Thrown")),
     ):
         response = client.delete(
             f"/users/abc"
@@ -533,3 +529,4 @@ def test_delete_user_exception_thrown():
     
     assert response.status_code == 500
     assert response.json()["detail"] == f"Some Exception Thrown"
+

@@ -27,16 +27,38 @@ function App() {
   const [translateError, setTranslateError] = useState('')
   const [searchError, setSearchError] = useState('')
   const [hasQueryError, setHasQueryError] = useState(false)
-  useToastError(searchError)
-  useToastError(hasQueryError ? t('tools.searchRequired') : undefined)
+  const activeToastError =
+      hasQueryError ? t('tools.searchRequired') : searchError || undefined
+  useToastError(activeToastError)
   const [isLoading, setIsLoading] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [searchedQuery, setSearchedQuery] = useState('')
-  const translationRequest = useRef(0)
+  const searchRequest = useRef<AbortController | null>(null)
+  const translationRequest = useRef<AbortController | null>(null)
+
+  useEffect(() => () => {
+    searchRequest.current?.abort()
+    searchRequest.current = null
+    translationRequest.current?.abort()
+    translationRequest.current = null
+  }, [])
+
+  const handleSearchQueryChange = (query: string) => {
+    if (searchRequest.current) {
+      searchRequest.current.abort()
+      searchRequest.current = null
+      setIsLoading(false)
+      setHasSearched(false)
+      setSearchedQuery('')
+    }
+    setSearchQuery(query)
+    setHasQueryError(false)
+  }
 
   const clearTranslation = () => {
-    translationRequest.current += 1
+    translationRequest.current?.abort()
+    translationRequest.current = null
     setIsTranslating(false)
     setTranslatedName('')
     setTranslatedBrand('')
@@ -201,6 +223,9 @@ function App() {
     }
     setHasQueryError(false)
 
+    searchRequest.current?.abort()
+    const controller = new AbortController()
+    searchRequest.current = controller
     clearTranslation()
     setHasSearched(true)
     setSearchedQuery(query.trim())
@@ -213,13 +238,18 @@ function App() {
     setTranslatedBrand('')
 
     try {
-      const data = await searchDrug(query)
+      const data = await searchDrug(query, controller.signal)
+      if (controller.signal.aborted || searchRequest.current !== controller) return
       setSearchResults(data)
     } catch (err) {
+      if (controller.signal.aborted || searchRequest.current !== controller) return
       setSearchError(err instanceof Error ? err.message : t('tools.searchFailed'))
       setSearchResults([])
     } finally {
-      setIsLoading(false)
+      if (searchRequest.current === controller) {
+        searchRequest.current = null
+        setIsLoading(false)
+      }
     }
   }
 
@@ -234,15 +264,17 @@ function App() {
       ? targetCountry
       : getFirstCountryForLanguage(targetLanguage)
 
-    const requestId = ++translationRequest.current
+    translationRequest.current?.abort()
+    const controller = new AbortController()
+    translationRequest.current = controller
     setIsTranslating(true)
     setTranslateError('')
     setTranslatedName('')
     setTranslatedBrand('')
 
     try {
-      const payload = await translateDrug(selectedResult.name, targetLanguage, finalCountry)
-      if (requestId !== translationRequest.current) return
+      const payload = await translateDrug(selectedResult.name, targetLanguage, finalCountry, controller.signal)
+      if (controller.signal.aborted || translationRequest.current !== controller) return
       const results = payload.results ?? []
       const name = results.length > 0 ? extractTranslatedName(results) : '-'
       const brand = results.length > 0 ? extractTranslatedBrand(results) : '-'
@@ -252,11 +284,14 @@ function App() {
         setTranslateError(t('tools.noTranslation'))
       }
     } catch (err) {
-      if (requestId === translationRequest.current) {
+      if (!controller.signal.aborted && translationRequest.current === controller) {
         setTranslateError(err instanceof Error ? err.message : t('tools.translationFailed'))
       }
     } finally {
-      if (requestId === translationRequest.current) setIsTranslating(false)
+      if (translationRequest.current === controller) {
+        translationRequest.current = null
+        setIsTranslating(false)
+      }
     }
   }
 
@@ -272,7 +307,7 @@ function App() {
 
   return (
     <WorkspaceLayout languages={allLoadedLanguages} onImportSuccess={() => loadLanguages(() => true)}
-      onSelectTerm={setSearchQuery} currentSearchLanguage={searchLanguage}>
+      onSelectTerm={handleSearchQueryChange} currentSearchLanguage={searchLanguage}>
       <main id="main-content" className="workspace-main">
         <div className="workspace-results-layout">
           <div className="workspace-primary">
@@ -286,7 +321,7 @@ function App() {
                 setSearchLanguage(language)
                 setSelectedResult(null)
                 clearTranslation()
-              }} searchQuery={searchQuery} onSearchQueryChange={query => { setSearchQuery(query); setHasQueryError(false) }}
+              }} searchQuery={searchQuery} onSearchQueryChange={handleSearchQueryChange}
                 queryError={hasQueryError ? t('tools.searchRequired') : undefined}
                 onSearch={handleSearch} isLoading={isLoading} languages={languages} />
               {availableLanguages.length < loadedLanguages.length && (

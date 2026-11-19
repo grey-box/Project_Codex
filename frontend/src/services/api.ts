@@ -28,7 +28,8 @@ export async function getLanguageCatalog(): Promise<LanguagesResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/languages`, { headers: getAuthHeaders() })
     if (!response.ok) {
-      throw new Error('Failed to load languages')
+      console.warn('Using fallback languages: failed to load languages')
+      return { languages: FALLBACK_LANGUAGES }
     }
     const data = (await response.json()) as LanguagesResponse
     return Array.isArray(data.languages) && data.languages.length > 0
@@ -43,11 +44,12 @@ export async function getLanguageCatalog(): Promise<LanguagesResponse> {
 /**
  * Searches for a drug / medical term in Neo4j.
  */
-export async function searchDrug(query: string): Promise<SearchResponse[]> {
+export async function searchDrug(query: string, signal?: AbortSignal): Promise<SearchResponse[]> {
   const response = await fetch(
     `${API_BASE_URL}/search?term=${encodeURIComponent(query.toLowerCase())}`,
     {
       method: 'POST',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
@@ -77,10 +79,12 @@ export async function searchDrug(query: string): Promise<SearchResponse[]> {
 export async function translateDrug(
   term: string,
   lang: string,
-  country: string
+  country: string,
+  signal?: AbortSignal
 ): Promise<TranslateResponse> {
   const response = await fetch(`${API_BASE_URL}/translate`, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),

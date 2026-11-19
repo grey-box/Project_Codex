@@ -92,7 +92,7 @@ test('loading, no matches, failed request and retry have distinct states', async
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
-test('late translation cannot appear under a different selected medication', async ({ page }) => {
+test('changing medication aborts its pending translation without an error toast', async ({ page }) => {
   await fixture(page)
   await search(page)
   let release: () => void = () => {}
@@ -105,14 +105,14 @@ test('late translation cannot appear under a different selected medication', asy
   const request = page.waitForRequest('**/translate')
   await page.getByRole('button', { name: 'Translate', exact: true }).click()
   await request
+  const cancelled = page.waitForEvent('requestfailed', request => new URL(request.url()).pathname === '/translate')
   await page.getByRole('button', { name: 'Ibuprofène', exact: true }).click()
-  const response = page.waitForResponse('**/translate')
+  await cancelled
   release()
-  await (await response).finished()
-  await page.evaluate(() => new Promise(requestAnimationFrame))
   await expect(page.getByRole('complementary', { name: 'Translate medication' })).toContainText('Ibuprofène')
   await expect(page.locator('.workspace-translation-output dd')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Translate', exact: true })).toBeEnabled()
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 for (const width of [320, 390, 768, 1024, 1440]) {

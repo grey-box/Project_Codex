@@ -13,7 +13,7 @@ docker compose -f docker-compose-test.yml up
 ## Running Integration Tests
 
 ```bash
-python -m pytest -v integration_test.py
+python -m pytest -v integration_tests.py
 ```
 
 ## Adding new integration tests

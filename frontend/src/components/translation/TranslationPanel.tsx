@@ -62,9 +62,9 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = ({
       <div className="workspace-translate-controls">
         <h2>{t('workspace.translateTitle')}</h2>
         <Select id="target-language" label={t('home.targetLanguage')} value={targetLanguage}
-          options={languageOptions} disabled={isTranslating} onValueChange={onTargetLanguageChange} />
+          options={languageOptions} onValueChange={onTargetLanguageChange} />
         <Select id="target-country" label={t('home.targetCountry')} value={targetCountry}
-          options={countryOptions} disabled={isTranslating || availableCountries.length === 0}
+          options={countryOptions} disabled={availableCountries.length === 0}
           onValueChange={onTargetCountryChange} />
         <Button type="button" onClick={onTranslate} isLoading={isTranslating} fullWidth className="min-h-10">
           {t('common.translate')}

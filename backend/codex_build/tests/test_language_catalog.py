@@ -1,10 +1,23 @@
 """Metadata and access checks with a mocked database, without loading demo packs."""
 import unittest
 import os
-from unittest.mock import MagicMock, patch
+import sys
+from pathlib import Path
 from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
+# Make OCR dependencies optional
+for mod in ("paddleocr", "paddle", "cv2", "scipy"):
+    sys.modules.setdefault(mod, MagicMock())
+
+# Add parent directory to sys.path
+parent_dir = str(Path(__file__).resolve().parent.parent)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
 import api
 from codex import neo4j_driver
+
 
 
 class AdminBootstrapTests(unittest.TestCase):
@@ -46,16 +59,23 @@ class LanguageCatalogTests(unittest.TestCase):
         driver = MagicMock()
         session = driver.session.return_value.__enter__.return_value
         session.run.return_value = [
-            {"code": "ru", "countries": ["RU", "KZ"]},
-            {"code": "uk", "countries": ["UA", "PL"]},
+            {"lang": "ru", "countries": ["RU", "KZ"]},
+            {"lang": "uk", "countries": ["UA", "PL"]},
         ]
         with patch.object(api, 'driver', driver):
             response = TestClient(api.app).get('/languages')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
-            "languages": ["ru", "uk"], "countries": {
-                "ru": [{"code": "KZ", "label": "KZ"}, {"code": "RU", "label": "RU"}],
-                "uk": [{"code": "PL", "label": "PL"}, {"code": "UA", "label": "UA"}],
+            "languages": ["ru", "uk"],
+            "countries": {
+                "ru": [
+                    {"code": "KZ", "label": "KZ"},
+                    {"code": "RU", "label": "Russia"},
+                ],
+                "uk": [
+                    {"code": "PL", "label": "Poland"},
+                    {"code": "UA", "label": "Ukraine"},
+                ],
             },
         })
 
