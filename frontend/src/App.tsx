@@ -134,8 +134,9 @@ function App() {
     activeLanguages: string[],
     selectedSearchLanguage: string = 'all'
   ): boolean => {
-    if (!itemLanguageString) {
-      return false
+    // Keep medications without language information in the general search.
+    if (!itemLanguageString?.trim()) {
+      return selectedSearchLanguage.toLowerCase().trim() === 'all'
     }
 
     const activeNormalized = activeLanguages.map((l) => l.toLowerCase().trim())
