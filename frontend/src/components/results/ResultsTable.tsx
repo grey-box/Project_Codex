@@ -1,6 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Alert } from '../ui'
+import { Button } from '../ui'
 import type { SearchResultRow } from '../../types/codex'
 
 interface ResultsTableProps {
@@ -8,7 +8,12 @@ interface ResultsTableProps {
   selectedResult: SearchResultRow | null
   onSelectResult: (result: SearchResultRow) => void
   hasBrand: boolean
+  isLoading: boolean
+  hasSearched: boolean
+  query: string
+  tools: React.ReactNode
   searchError?: string
+  onRetry: () => void
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -17,6 +22,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSelectResult,
   hasBrand,
   searchError,
+  isLoading,
+  hasSearched,
+  query,
+  tools,
+  onRetry,
 }) => {
   const { t } = useTranslation()
 
@@ -32,38 +42,56 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   }
 
   return (
-    <div className="w-full space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+    <section className="workspace-surface workspace-results" aria-busy={isLoading} aria-labelledby="results-title">
+      <div className="workspace-results-heading">
+        <div className="workspace-results-summary"><h2 id="results-title">
           {t('home.resultsTitle') || 'Search Results'}
-        </h3>
+        </h2>
         {results.length > 0 && (
-          <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-            {results.length} {results.length === 1 ? 'match' : 'matches'}
-          </span>
+          <>
+            <span className="workspace-result-count" aria-label={t('workspace.matchCount', { count: results.length })}>{results.length}</span>
+            <span className="workspace-result-query">{t('workspace.resultQuery', { query })}</span>
+          </>
         )}
+        </div>
+        {selectedResult && <a href="#medication-details" className="workspace-details-link">{t('workspace.viewDetails')}</a>}
+        {tools}
       </div>
 
-      {searchError && <Alert type="error" message={searchError} />}
-
-      {results.length > 0 ? (
+      {isLoading ? (
+        <div className="workspace-results-loading" role="status">
+          <h3>{t('workspace.searching')}</h3>
+          <div aria-hidden="true" className="workspace-skeleton-list">
+            {[0, 1, 2, 3].map(row => <div className="workspace-skeleton-row" key={row}>
+              <span /><span /><span />
+            </div>)}
+          </div>
+        </div>
+      ) : searchError ? (
+        <div className="workspace-results-empty workspace-results-error">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v6m0 3h.01" /></svg>
+          <h3>{t('workspace.searchFailed')}</h3>
+          <p>{searchError}</p>
+          <Button type="button" variant="secondary" onClick={onRetry}>{t('tools.tryAgain')}</Button>
+        </div>
+      ) : results.length > 0 ? (
         <>
           {/* Desktop & Tablet Table View */}
-          <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+          <div className="workspace-result-table overflow-hidden bg-white">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs md:text-sm">
+              <table data-has-brand={hasBrand} className="w-full text-left border-collapse text-xs md:text-sm">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold">
                     <th className="py-3 px-4">
-                      {hasBrand ? 'Drug/Brand Name' : 'Drug Name'}
+                      {t('workspace.medicationName')}
                     </th>
-                    {hasBrand && <th className="py-3 px-4">Brand</th>}
-                    <th className="py-3 px-4">Type</th>
+                    {hasBrand && <th className="py-3 px-4">{t('workspace.brand')}</th>}
+                    <th className="py-3 px-4">{t('workspace.type')}</th>
                     <th className="py-3 px-4">
-                      {hasBrand ? 'Language for Brand' : 'Language'}
+                      {t('workspace.language')}
                     </th>
                     <th className="py-3 px-4">
-                      {hasBrand ? 'Countries for Brand' : 'Countries'}
+                      {t('workspace.countries')}
                     </th>
                   </tr>
                 </thead>
@@ -74,21 +102,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       <tr
                         key={`${row.name}-${row.brand}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
                         onClick={() => onSelectResult(row)}
-                        className={`cursor-pointer transition-colors ${
-                          selected
-                            ? 'bg-emerald-50/80 font-medium text-emerald-950 hover:bg-emerald-100/60'
-                            : 'hover:bg-slate-50/80 text-slate-700'
-                        }`}
+                        className={`workspace-result-row ${selected ? 'is-selected' : ''}`}
                       >
-                        <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
-                          {selected && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
-                          )}
-                          <span>{row.name}</span>
+                        <td className="workspace-result-name">
+                          <button type="button" aria-pressed={selected} onClick={(event) => {
+                            event.stopPropagation()
+                            onSelectResult(row)
+                          }} className="text-left underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700 rounded-sm">{row.name}</button>
                         </td>
                         {hasBrand && <td className="py-3 px-4">{row.brand || '-'}</td>}
                         <td className="py-3 px-4">
-                          <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
+                          <span className="text-slate-500">
                             {row.type || (hasBrand ? 'brand name drug' : 'ingredient')}
                           </span>
                         </td>
@@ -103,51 +127,49 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           </div>
 
           {/* Mobile Card View */}
-          <div className="sm:hidden space-y-2.5">
+          <div className="workspace-result-cards">
             {results.map((row, index) => {
               const selected = isRowSelected(row)
               return (
-                <div
+                <button
+                  type="button"
+                  aria-pressed={selected}
                   key={`card-${row.name}-${row.brand}-${row.language}-${row.country ?? 'unknown'}-${row.source_id ?? index}`}
                   onClick={() => onSelectResult(row)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                    selected
-                      ? 'border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
+                  className={`workspace-result-card ${selected ? 'is-selected' : ''}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="font-bold text-slate-900 text-sm">{row.name}</div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="workspace-result-card-name">{row.name}</span>
+                    <span className="workspace-result-language">
                       {row.language}
                     </span>
-                  </div>
+                  </span>
 
                   {row.brand && (
-                    <div className="text-xs text-slate-600 mt-1">
-                      <span className="font-medium text-slate-500">Brand:</span> {row.brand}
-                    </div>
+                    <span className="block text-xs text-slate-600 mt-1">
+                      <span className="font-medium text-slate-500">{t('workspace.brand')}:</span> {row.brand}
+                    </span>
                   )}
 
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
+                  <span className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
                     <span>
-                      Type: {row.type || (hasBrand ? 'brand name drug' : 'ingredient')}
+                      {t('workspace.type')}: {row.type || (hasBrand ? 'brand name drug' : 'ingredient')}
                     </span>
                     <span>•</span>
-                    <span>Country: {row.country ?? 'N/A'}</span>
-                  </div>
-                </div>
+                    <span>{t('workspace.countries')}: {row.country ?? 'N/A'}</span>
+                  </span>
+                </button>
               )
             })}
           </div>
         </>
       ) : (
-        <div className="p-8 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-center">
-          <p className="text-sm font-medium text-slate-500">
-            {t('home.sampleMedicine') || 'Search for a drug or click search to view matching results.'}
-          </p>
+        <div className="workspace-results-empty" role="status">
+          <div className="workspace-search-symbol" aria-hidden="true">⌕</div>
+          <h3>{t(isLoading ? 'workspace.searching' : searchError ? 'workspace.searchFailed' : hasSearched ? 'workspace.noMatches' : 'workspace.emptyTitle')}</h3>
+          <p>{t(isLoading ? 'workspace.searchingDescription' : searchError ? 'workspace.retrySearch' : hasSearched ? 'workspace.noMatchesDescription' : 'workspace.emptyDescription')}</p>
         </div>
       )}
-    </div>
+    </section>
   )
 }

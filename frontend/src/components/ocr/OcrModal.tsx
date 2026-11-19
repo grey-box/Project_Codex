@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import React, { useEffect, useState, useRef } from 'react'
 import { Modal, Button, Alert } from '../ui'
 import { scanOcrImage } from '../../services/api'
 import type { OcrResultItem } from '../../types/codex'
@@ -8,6 +9,7 @@ export interface OcrModalProps {
   currentLanguage?: string
   fullWidth?: boolean
   triggerClassName?: string
+  triggerLabel?: string
 }
 
 export const OcrModal: React.FC<OcrModalProps> = ({
@@ -15,7 +17,9 @@ export const OcrModal: React.FC<OcrModalProps> = ({
   currentLanguage,
   fullWidth = false,
   triggerClassName,
+  triggerLabel = 'OCR Scan',
 }) => {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -25,20 +29,49 @@ export const OcrModal: React.FC<OcrModalProps> = ({
   const [isDragging, setIsDragging] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const activeScan = useRef<AbortController | null>(null)
+  const previewRef = useRef<string | null>(null)
+
+  useEffect(() => () => {
+    activeScan.current?.abort()
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+  }, [])
+
+  const cancelScan = () => {
+    activeScan.current?.abort()
+    activeScan.current = null
+    setIsScanning(false)
+  }
+
+  const clearPreview = () => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+    previewRef.current = null
+    setPreviewUrl(null)
+  }
 
   const handleFile = (file: File) => {
+    cancelScan()
+    clearPreview()
+    setSelectedFile(null)
     setOcrError('')
     setOcrResults([])
 
-    if (!file.type.startsWith('image/')) {
-      setOcrError('Please upload a valid image file (PNG, JPG, JPEG, WEBP).')
-      setSelectedFile(null)
-      setPreviewUrl(null)
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setOcrError(t('tools.invalidImage'))
+      return
+    }
+    if (file.size === 0) {
+      setOcrError(t('tools.emptyImage'))
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setOcrError(t('tools.largeImage'))
       return
     }
 
     setSelectedFile(file)
     const url = URL.createObjectURL(file)
+    previewRef.current = url
     setPreviewUrl(url)
   }
 
@@ -46,6 +79,8 @@ export const OcrModal: React.FC<OcrModalProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       handleFile(e.target.files[0])
     }
+    // Allow selecting the same file again after a validation error or retry.
+    e.target.value = ''
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -68,25 +103,33 @@ export const OcrModal: React.FC<OcrModalProps> = ({
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (activeScan.current) return
     setOcrError('')
     setOcrResults([])
 
     if (!selectedFile) {
-      setOcrError('Please select or drop an image file first.')
+      setOcrError(t('tools.selectImage'))
       return
     }
 
+    const controller = new AbortController()
+    activeScan.current = controller
     setIsScanning(true)
     try {
-      const results = await scanOcrImage(selectedFile, currentLanguage)
+      const results = await scanOcrImage(selectedFile, currentLanguage, controller.signal)
+      if (activeScan.current !== controller || controller.signal.aborted) return
       setOcrResults(results)
       if (results.length === 0) {
-        setOcrError('No drug names or text recognized in this image.')
+        setOcrError(t('tools.noText'))
       }
     } catch (err) {
-      setOcrError(err instanceof Error ? err.message : 'Failed to scan image')
+      if (activeScan.current !== controller || controller.signal.aborted) return
+      setOcrError(err instanceof Error ? err.message : t('tools.scanFailed'))
     } finally {
-      setIsScanning(false)
+      if (activeScan.current === controller) {
+        activeScan.current = null
+        setIsScanning(false)
+      }
     }
   }
 
@@ -96,12 +139,11 @@ export const OcrModal: React.FC<OcrModalProps> = ({
   }
 
   const resetAndClose = () => {
+    cancelScan()
     setIsOpen(false)
     setSelectedFile(null)
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
+    clearPreview()
+    setIsDragging(false)
     setOcrError('')
     setOcrResults([])
     if (fileInputRef.current) {
@@ -120,25 +162,19 @@ export const OcrModal: React.FC<OcrModalProps> = ({
         className={triggerClassName}
         icon={
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-            />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 7V5a2 2 0 0 1 2-2h2m10 0h2a2 2 0 0 1 2 2v2m0 10v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2m4-5h10" />
           </svg>
         }
       >
-        <span>OCR Scan</span>
+        <span>{triggerLabel}</span>
       </Button>
 
       {/* Modal Dialog */}
       <Modal
         isOpen={isOpen}
         onClose={resetAndClose}
-        title="Scan Image for Drug Names (OCR)"
-        subtitle="Extract medication text and find fuzzy matches in the knowledge graph"
+        title={t('tools.ocrTitle')}
+        subtitle={t('tools.ocrSubtitle')}
         maxWidthClass="max-w-2xl"
         icon={
           <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,6 +192,15 @@ export const OcrModal: React.FC<OcrModalProps> = ({
           <form onSubmit={handleScan} className="space-y-4">
             {/* Upload & Drag Zone */}
             <div
+              role="button"
+              tabIndex={0}
+              aria-label={t('tools.chooseImage')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  fileInputRef.current?.click()
+                }
+              }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -171,7 +216,8 @@ export const OcrModal: React.FC<OcrModalProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
+                aria-label={t('tools.imageFile')}
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -180,7 +226,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                   <img
                     src={previewUrl}
-                    alt="Uploaded preview"
+                    alt={t('tools.uploadedPreview')}
                     className="w-24 h-24 object-cover rounded-lg border border-slate-200 shadow-xs"
                   />
                   <div className="text-left">
@@ -189,7 +235,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                       {selectedFile ? (selectedFile.size / 1024).toFixed(1) : 0} KB
                     </p>
                     <p className="text-xs text-emerald-600 font-medium underline mt-1">
-                      Click to choose another image
+                      {t('tools.anotherImage')}
                     </p>
                   </div>
                 </div>
@@ -206,10 +252,10 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                     </svg>
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-emerald-700">Click to upload image</span>
-                    <span className="text-sm text-slate-600"> or drag and drop</span>
+                    <span className="text-sm font-semibold text-emerald-700">{t('tools.uploadImage')}</span>
+                    <span className="text-sm text-slate-600">{t('tools.dragDrop')}</span>
                   </div>
-                  <p className="text-xs text-slate-400">Supported formats: PNG, JPG, JPEG, WEBP</p>
+                  <p className="text-xs text-slate-400">{t('tools.imageFormats')}</p>
                 </div>
               )}
             </div>
@@ -220,7 +266,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
             {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-1">
               <Button type="button" variant="ghost" size="sm" onClick={resetAndClose}>
-                Cancel
+                {t('tools.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -229,7 +275,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                 isLoading={isScanning}
                 disabled={!selectedFile}
               >
-                {isScanning ? 'Extracting Text...' : 'Extract & Match'}
+                {isScanning ? t('tools.extracting') : t('tools.extract')}
               </Button>
             </div>
           </form>
@@ -239,19 +285,19 @@ export const OcrModal: React.FC<OcrModalProps> = ({
             <div className="space-y-3 pt-3 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-slate-800">
-                  Extracted Terms & Matches ({ocrResults.length})
+                  {t('tools.extractedTerms', { count: ocrResults.length })}
                 </h4>
-                <span className="text-xs text-slate-500">Select a term to search directly</span>
+                <span className="text-xs text-slate-500">{t('tools.selectTerm')}</span>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                      <th className="py-2.5 px-3">Term / Text</th>
-                      <th className="py-2.5 px-3">Confidence / Distance</th>
-                      <th className="py-2.5 px-3">Source</th>
-                      <th className="py-2.5 px-3 text-right">Action</th>
+                      <th className="py-2.5 px-3">{t('tools.termText')}</th>
+                      <th className="py-2.5 px-3">{t('tools.confidence')}</th>
+                      <th className="py-2.5 px-3">{t('tools.source')}</th>
+                      <th className="py-2.5 px-3 text-right">{t('tools.action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -259,7 +305,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                       const termName =
                         item.matching_name ||
                         item.rec_text ||
-                        'Unknown'
+                        t('tools.unknown')
                       const detail =
                         item.rec_score !== undefined
                           ? `${(item.rec_score * 100).toFixed(1)}%`
@@ -285,7 +331,7 @@ export const OcrModal: React.FC<OcrModalProps> = ({
                               onClick={() => handleUseTerm(termName)}
                               className="font-medium text-xs px-2 py-1"
                             >
-                              Use in Search
+                              {t('tools.useSearch')}
                             </Button>
                           </td>
                         </tr>

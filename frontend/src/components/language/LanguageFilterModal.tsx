@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import React, { useState } from 'react'
 import { Modal, Button } from '../ui'
 import type { LanguageOption } from '../../types/codex'
@@ -21,6 +22,7 @@ export const LanguageFilterModal: React.FC<LanguageFilterModalProps> = ({
   onApply,
   fullWidth = false,
 }) => {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
 
   const handleApply = () => {
@@ -47,15 +49,15 @@ export const LanguageFilterModal: React.FC<LanguageFilterModalProps> = ({
         }
       >
         <span>
-          Filter Languages ({selectedLanguages.length}/{allLanguages.length})
+          {t('tools.filterButton', { selected: selectedLanguages.length, total: allLanguages.length })}
         </span>
       </Button>
 
       <Modal
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        title="Filter Active Languages"
-        subtitle="Select which languages to enable across search and translation features"
+        title={t('tools.filterTitle')}
+        subtitle={t('tools.filterSubtitle')}
         maxWidthClass="max-w-md"
         icon={
           <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,15 +72,15 @@ export const LanguageFilterModal: React.FC<LanguageFilterModalProps> = ({
       >
         <div className="space-y-4">
           {/* Quick select actions */}
-          <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
-            <span className="text-slate-500 font-medium">Quick Selection:</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
+            <span className="text-slate-500 font-medium">{t('tools.quickSelect')}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onSelectAll}
                 className="text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer underline"
               >
-                Select All
+                {t('tools.selectAll')}
               </button>
               <span className="text-slate-300">|</span>
               <button
@@ -86,7 +88,7 @@ export const LanguageFilterModal: React.FC<LanguageFilterModalProps> = ({
                 onClick={onDeselectAll}
                 className="text-slate-600 hover:text-slate-800 font-semibold cursor-pointer underline"
               >
-                Deselect All
+                {t('tools.deselectAll')}
               </button>
             </div>
           </div>
@@ -124,7 +126,7 @@ export const LanguageFilterModal: React.FC<LanguageFilterModalProps> = ({
           {/* Action buttons */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
             <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
-              Cancel
+              {t('tools.cancel')}
             </Button>
             <Button
               type="button"
@@ -133,7 +135,7 @@ export const LanguageFilterModal: React.FC<LanguageFilterModalProps> = ({
               disabled={selectedLanguages.length === 0}
               onClick={handleApply}
             >
-              Apply Filter ({selectedLanguages.length})
+              {t('tools.applyFilter', { count: selectedLanguages.length })}
             </Button>
           </div>
         </div>

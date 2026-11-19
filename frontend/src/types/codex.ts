@@ -57,10 +57,32 @@ export interface TranslateRequest {
   country: string
 }
 
-// Dynamic countries loaded from Neo4j via /languages
-export const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {}
+export const LANGUAGE_COUNTRY_MAP: Record<string, CountryOption[]> = {
+  es: [
+    { code: 'MX', label: 'Mexico' },
+    { code: 'ES', label: 'Spain' },
+  ],
+  en: [
+    { code: 'US', label: 'United States' },
+    { code: 'GB', label: 'United Kingdom' },
+    { code: 'CA', label: 'Canada' },
+  ],
+  fr: [
+    { code: 'FR', label: 'France' },
+    { code: 'CA', label: 'Canada' },
+    { code: 'BE', label: 'Belgium' },
+  ],
+  ru: [
+    { code: 'RU', label: 'Russia' },
+  ],
+  uk: [
+    { code: 'UA', label: 'Ukraine' },
+    { code: 'PL', label: 'Poland' },
+  ],
+}
 
-export const FALLBACK_LANGUAGES = ['en', 'es', 'fr']
+// These five language packs ship with the API. Used when it cannot be reached.
+export const FALLBACK_LANGUAGES = ['en', 'es', 'fr', 'ru', 'uk']
 
 export interface OcrExtractedText {
   rec_text?: string

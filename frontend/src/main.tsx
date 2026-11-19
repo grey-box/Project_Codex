@@ -5,11 +5,12 @@ import './index.css'
 import './i18n/config'
 import i18n from './i18n/config'
 import App from './App.tsx'
+import { ToastProvider } from './components/ui/Toaster'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nextProvider i18n={i18n}>
-      <App />
+      <ToastProvider><App /></ToastProvider>
     </I18nextProvider>
   </StrictMode>,
 )

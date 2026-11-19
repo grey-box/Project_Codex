@@ -25,12 +25,13 @@ function escapeCsvValue(value: unknown): string {
   let text = String(value);
 
   // Reduce the risk of spreadsheet formula injection.
-  if (typeof value === "string" && /^[\s\p{Cc}]*[=+\-@]/u.test(text)) {
+  // eslint-disable-next-line no-control-regex -- Leading controls must not bypass spreadsheet formula protection.
+  if (typeof value === "string" && /^[\s\u0000-\u001F]*[=+\-@]/.test(text)) {
     text = "'" + text;
   }
 
   // Escape double quotes and wrap fields containing special characters.
-  if (/[",\r\n]/.test(text)) {
+  if (/[",\r\n\t]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
 
@@ -66,12 +67,13 @@ export function convertJsonToCsv(
     throw new Error("At least one column must be selected");
   }
 
-  // Validate selected columns using the first JSON record.
-  // All records are expected to follow the same API structure.
-  const firstRecord = records[0];
+  // Collect all column names available across the JSON records.
+  const availableColumns = new Set(
+    records.flatMap((record) => Object.keys(record))
+  );
 
   for (const column of selectedColumns) {
-    if (!Object.prototype.hasOwnProperty.call(firstRecord, column)) {
+    if (!availableColumns.has(column)) {
       throw new Error(
         `Column "${column}" does not exist in the JSON records`
       );
