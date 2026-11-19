@@ -18,16 +18,16 @@ export function ExportModal() {
 
   const [open, setOpen] = useState(false)
   const [reportType, setReportType] =
-    useState<ExportReportType>('medication')
+      useState<ExportReportType>('medication')
   const [nameType, setNameType] =
-    useState<ExportNameType>('generic')
+      useState<ExportNameType>('generic')
 
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
 
   const [rows, setRows] = useState<CsvRecord[]>([])
   const [availableColumns, setAvailableColumns] =
-    useState<string[]>([])
+      useState<string[]>([])
   const [columns, setColumns] = useState<string[]>([])
 
   const [error, setError] = useState('')
@@ -69,9 +69,9 @@ export function ExportModal() {
     clearFeedback()
 
     if (
-      start.trim() &&
-      end.trim() &&
-      start.trim().toLowerCase() > end.trim().toLowerCase()
+        start.trim() &&
+        end.trim() &&
+        start.trim().toLowerCase() > end.trim().toLowerCase()
     ) {
       setRangeError(true)
       setError(t('export.invalidRange'))
@@ -89,11 +89,11 @@ export function ExportModal() {
 
     try {
       const results = await getExportRecords(
-        reportType,
-        nameType,
-        start,
-        end,
-        controller.signal,
+          reportType,
+          nameType,
+          start,
+          end,
+          controller.signal,
       )
 
       if (controller.signal.aborted) return
@@ -105,9 +105,9 @@ export function ExportModal() {
 
       // Find every property across all returned JSON records.
       const discoveredColumns = Array.from(
-        new Set(
-          results.flatMap(record => Object.keys(record)),
-        ),
+          new Set(
+              results.flatMap(record => Object.keys(record)),
+          ),
       )
 
       setRows(results)
@@ -116,7 +116,7 @@ export function ExportModal() {
     } catch (err) {
       if (!controller.signal.aborted) {
         setError(
-          err instanceof Error ? err.message : t('export.failed'),
+            err instanceof Error ? err.message : t('export.failed'),
         )
       }
     } finally {
@@ -136,256 +136,257 @@ export function ExportModal() {
       const csv = convertJsonToCsv(rows, columns)
 
       const filename = reportType === 'medication'
-        ? `medications-rxnorm-${nameType}.csv`
-        : 'clinical-icd11.csv'
+          ? `medications-rxnorm-${nameType}.csv`
+          : 'clinical-icd11.csv'
 
       downloadCsv(csv, filename)
       setDownloaded(rows.length)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t('export.failed'),
+          err instanceof Error ? err.message : t('export.failed'),
       )
     }
   }
 
   return (
-    <>
-      <Button
-        variant="nav"
-        fullWidth
-        onClick={() => {
-          clearFeedback()
-          setOpen(true)
-        }}
-        icon={
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden="true"
-          >
-            <path d="M12 3v12m-4-4 4 4 4-4M4 15v6h16v-6" />
-          </svg>
-        }
-      >
-        {t('export.open')}
-      </Button>
-
-      <Modal
-        isOpen={open}
-        onClose={close}
-        title={t('export.title')}
-        maxWidthClass="max-w-lg"
-      >
-        <form
-          className="workspace-export"
-          aria-busy={busy}
-          onSubmit={event => {
-            event.preventDefault()
-            void searchRecords()
-          }}
-        >
-          <Select
-            id="export-report-type"
-            label="Report type"
-            value={reportType}
-            disabled={busy}
-            options={[
-              { value: 'medication', label: 'Medication' },
-              { value: 'clinical', label: 'Clinical Findings' },
-            ]}
-            onValueChange={value => {
-              setReportType(value as ExportReportType)
-              resetResults()
+      <>
+        <Button
+            variant="nav"
+            fullWidth
+            onClick={() => {
+              clearFeedback()
+              setOpen(true)
             }}
-          />
-
-          {reportType === 'medication' && (
-            <fieldset className="space-y-2">
-              <legend className="workspace-export-label">
-                {t('export.nameType')}
-              </legend>
-
-              <div
-                className="workspace-export-toggle"
-                role="group"
-                aria-label={t('export.nameType')}
+            icon={
+              <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden="true"
               >
-                {(['generic', 'brand'] as const).map(type => (
-                  <button
-                    type="button"
-                    key={type}
-                    aria-pressed={nameType === type}
+                <path d="M12 3v12m-4-4 4 4 4-4M4 15v6h16v-6" />
+              </svg>
+            }
+        >
+          {t('export.open')}
+        </Button>
+
+        <Modal
+            isOpen={open}
+            onClose={close}
+            title={t('export.title')}
+            maxWidthClass="max-w-lg"
+        >
+          <form
+              className="workspace-export"
+              aria-busy={busy}
+              onSubmit={event => {
+                event.preventDefault()
+                void searchRecords()
+              }}
+          >
+            <Select
+                id="export-report-type"
+                label={t('export.reportType')}
+                value={reportType}
+                disabled={busy}
+                options={[
+                  { value: 'medication', label: t('export.medication') },
+                  { value: 'clinical', label: t('export.clinical') },
+                ]}
+                onValueChange={value => {
+                  setReportType(value as ExportReportType)
+                  resetResults()
+                }}
+            />
+
+            {reportType === 'medication' && (
+                <fieldset className="space-y-2">
+                  <legend className="workspace-export-label">
+                    {t('export.nameType')}
+                  </legend>
+
+                  <div
+                      className="workspace-export-toggle"
+                      role="group"
+                      aria-label={t('export.nameType')}
+                  >
+                    {(['generic', 'brand'] as const).map(type => (
+                        <button
+                            type="button"
+                            key={type}
+                            aria-pressed={nameType === type}
+                            disabled={busy}
+                            onClick={() => {
+                              setNameType(type)
+                              resetResults()
+                            }}
+                        >
+                          {t(`export.${type}`)}
+                        </button>
+                    ))}
+                  </div>
+                </fieldset>
+            )}
+
+            <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                    id="export-start"
+                    label={t('export.start')}
+                    value={start}
                     disabled={busy}
-                    onClick={() => {
-                      setNameType(type)
+                    autoComplete="off"
+                    onChange={event => {
+                      setStart(event.target.value)
                       resetResults()
                     }}
-                  >
-                    {t(`export.${type}`)}
-                  </button>
-                ))}
+                />
+
+                <Input
+                    id="export-end"
+                    label={t('export.end')}
+                    value={end}
+                    disabled={busy}
+                    autoComplete="off"
+                    error={
+                      rangeError
+                          ? t('export.invalidRange')
+                          : undefined
+                    }
+                    onChange={event => {
+                      setEnd(event.target.value)
+                      resetResults()
+                    }}
+                />
               </div>
-            </fieldset>
-          )}
 
-          <div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                id="export-start"
-                label={t('export.start')}
-                value={start}
-                disabled={busy}
-                autoComplete="off"
-                onChange={event => {
-                  setStart(event.target.value)
-                  resetResults()
-                }}
-              />
-
-              <Input
-                id="export-end"
-                label={t('export.end')}
-                value={end}
-                disabled={busy}
-                autoComplete="off"
-                error={
-                  rangeError
-                    ? t('export.invalidRange')
-                    : undefined
-                }
-                onChange={event => {
-                  setEnd(event.target.value)
-                  resetResults()
-                }}
-              />
+              <p className="workspace-export-hint">
+                {t('export.rangeHint')}
+              </p>
             </div>
 
-            <p className="workspace-export-hint">
-              {t('export.rangeHint')}
-            </p>
-          </div>
-
-          <div className="workspace-export-actions">
-            <Button
-              type="submit"
-              isLoading={busy}
-            >
-              {busy ? 'Searching...' : 'Search'}
-            </Button>
-          </div>
-
-          {rows.length > 0 && (
-            <>
-              <p
-                role="status"
-                className="workspace-export-hint"
+            <div className="workspace-export-actions">
+              <Button
+                  type="submit"
+                  isLoading={busy}
               >
-                Found {rows.length.toLocaleString()} records.
-                Choose which columns to include.
-              </p>
+                {busy ? t('workspace.searching') : t('common.search')}
+              </Button>
+            </div>
 
-              <fieldset className="space-y-2">
-                <legend className="workspace-export-label">
-                  {t('export.columns')}{' '}
-                  <span>
+            {rows.length > 0 && (
+                <>
+                  <p
+                      role="status"
+                      className="workspace-export-hint"
+                  >
+                    {t('export.foundRecords', {
+                      count: rows.length,
+                    })}
+                  </p>
+
+                  <fieldset className="space-y-2">
+                    <legend className="workspace-export-label">
+                      {t('export.columns')}{' '}
+                      <span>
                     ({columns.length}/{availableColumns.length})
                   </span>
-                </legend>
+                    </legend>
 
-                <div className="workspace-export-columns-heading">
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setColumns([...availableColumns])
-                        clearFeedback()
-                      }}
-                    >
-                      {t('tools.selectAll')}
-                    </button>
+                    <div className="workspace-export-columns-heading">
+                      <div className="flex gap-3">
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setColumns([...availableColumns])
+                              clearFeedback()
+                            }}
+                        >
+                          {t('tools.selectAll')}
+                        </button>
 
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setColumns([])
-                        clearFeedback()
-                      }}
-                    >
-                      {t('tools.deselectAll')}
-                    </button>
-                  </div>
-                </div>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setColumns([])
+                              clearFeedback()
+                            }}
+                        >
+                          {t('tools.deselectAll')}
+                        </button>
+                      </div>
+                    </div>
 
-                <div className="workspace-export-columns">
-                  {availableColumns.map(column => (
-                    <label key={column}>
-                      <input
-                        type="checkbox"
-                        checked={columns.includes(column)}
-                        disabled={busy}
-                        onChange={() => {
-                          setColumns(selected =>
-                            selected.includes(column)
-                              ? selected.filter(
-                                  item => item !== column,
-                                )
-                              : availableColumns.filter(
-                                  item =>
-                                    selected.includes(item) ||
-                                    item === column,
-                                ),
-                          )
-                          clearFeedback()
-                        }}
-                      />
-                      <span>{column}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            </>
-          )}
+                    <div className="workspace-export-columns">
+                      {availableColumns.map(column => (
+                          <label key={column}>
+                            <input
+                                type="checkbox"
+                                checked={columns.includes(column)}
+                                disabled={busy}
+                                onChange={() => {
+                                  setColumns(selected =>
+                                      selected.includes(column)
+                                          ? selected.filter(
+                                              item => item !== column,
+                                          )
+                                          : availableColumns.filter(
+                                              item =>
+                                                  selected.includes(item) ||
+                                                  item === column,
+                                          ),
+                                  )
+                                  clearFeedback()
+                                }}
+                            />
+                            <span>{column}</span>
+                          </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                </>
+            )}
 
-          {downloaded !== null && (
-            <p
-              role="status"
-              className="workspace-export-hint"
-            >
-              {t('export.downloaded', {
-                count: downloaded,
-              })}
-            </p>
-          )}
+            {downloaded !== null && (
+                <p
+                    role="status"
+                    className="workspace-export-hint"
+                >
+                  {t('export.downloaded', {
+                    count: downloaded,
+                  })}
+                </p>
+            )}
 
-          <div className="workspace-export-actions">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={close}
-            >
-              {t('tools.cancel')}
-            </Button>
+            <div className="workspace-export-actions">
+              <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={close}
+              >
+                {t('tools.cancel')}
+              </Button>
 
-            <Button
-              type="button"
-              disabled={
-                busy ||
-                !rows.length ||
-                !columns.length
-              }
-              onClick={exportCsv}
-            >
-              {t('export.download')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    </>
+              <Button
+                  type="button"
+                  disabled={
+                      busy ||
+                      !rows.length ||
+                      !columns.length
+                  }
+                  onClick={exportCsv}
+              >
+                {t('export.download')}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      </>
   )
 }

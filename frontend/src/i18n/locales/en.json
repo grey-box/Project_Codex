@@ -202,6 +202,10 @@
     "failed": "Unable to export records.",
     "downloaded": "Rows exported: {{count}}",
     "exporting": "Preparing CSV...",
-    "download": "Download CSV"
+    "download": "Download CSV",
+    "reportType": "Report type",
+    "medication": "Medication",
+    "clinical": "Clinical Findings",
+    "foundRecords": "Found {{count}} records. Choose which columns to include."
   }
 }
