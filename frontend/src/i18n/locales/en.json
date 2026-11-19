@@ -39,6 +39,11 @@
     "brandInCountry": "Brand in"
   },
   "workspace": {
+    "sortResults": "Sort results",
+    "sortOriginal": "Default order",
+    "sortAscending": "Medication name A–Z",
+    "sortDescending": "Medication name Z–A",
+    "sortedBy": "Results sorted by {{order}}",
     "regionalBrand": "Regional brand",
     "navigationSection": "Workspace",
     "medicationSearch": "Medication search",
