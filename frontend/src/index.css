@@ -222,7 +222,7 @@ a:focus-visible,button:focus-visible { outline-offset:4px; }
   .workspace-sidebar { position:relative; height:auto; min-height:100dvh; }
 }
 @media(min-width:768px) {
-  .workspace-sidebar { min-width:0; overflow:hidden; }
+  .workspace-sidebar { min-width:0; }
   .workspace-sidebar > * { min-width:200px; }
   .workspace-shell[data-sidebar-collapsed=true] { grid-template-columns:0 minmax(0,1fr); }
   .workspace-shell[data-sidebar-collapsed=true] > .workspace-sidebar { visibility:hidden; opacity:0; padding-inline:0; border-right-width:0; pointer-events:none; }
