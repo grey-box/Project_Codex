@@ -22,15 +22,14 @@ Endpoints
 from __future__ import annotations
 
 import os
-import sys
 import tempfile
 import logging
 import secrets
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, List, Optional, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 import ast
@@ -39,7 +38,6 @@ from dotenv import load_dotenv
 
 import jwt
 from datetime import datetime, timedelta, timezone
-from fastapi import Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from neo4j_sources.source_data import source_data
