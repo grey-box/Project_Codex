@@ -123,6 +123,7 @@
     }
   },
   "tools": {
+    "populationCredentialsRequired": "Введіть необхідні облікові дані для вибраних джерел.",
     "cancel": "Скасувати",
     "closeDialog": "Закрити вікно",
     "filterButton": "Фільтр мов ({{selected}}/{{total}})",

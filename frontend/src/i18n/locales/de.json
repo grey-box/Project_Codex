@@ -121,6 +121,7 @@
     }
   },
   "tools": {
+    "populationCredentialsRequired": "Geben Sie die erforderlichen Zugangsdaten für die ausgewählten Quellen ein.",
     "cancel": "Abbrechen",
     "closeDialog": "Dialog schließen",
     "filterButton": "Sprachen filtern ({{selected}}/{{total}})",

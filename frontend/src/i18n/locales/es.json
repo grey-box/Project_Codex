@@ -121,6 +121,7 @@
     }
   },
   "tools": {
+    "populationCredentialsRequired": "Introduce las credenciales necesarias para las fuentes seleccionadas.",
     "cancel": "Cancelar",
     "closeDialog": "Cerrar diálogo",
     "filterButton": "Filtrar idiomas ({{selected}}/{{total}})",
