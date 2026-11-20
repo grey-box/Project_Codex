@@ -22,62 +22,78 @@ def export_records():
     with driver.session() as session:
         assert session.run('CALL db.info() YIELD name RETURN name').single()['name'] == 'neo4j-test', 'Export integration tests require the isolated test database.'
         session.run('''
-            UNWIND [{name:'Alpha', brand:'ZetaBrand'}, {name:'Beta', brand:'BetaBrand'}, {name:'Gamma', brand:'GammaBrand'}] AS row
-            CREATE (t:Term {canonical:row.name, type:'medication', export_test:true})
-            CREATE (tr:Translation {text:row.name, export_test:true})
-            CREATE (l:Language {code:'en', name:'English', export_test:true})
-            CREATE (c:Country {iso2:'US', export_test:true})
-            CREATE (b:Brand {name:row.brand, export_test:true})
-            CREATE (tr)-[:OF_TERM]->(t), (tr)-[:IN_LANGUAGE]->(l), (tr)-[:USED_IN]->(c), (tr)-[:HAS_BRAND]->(b)
+            UNWIND [{name:'Alpha ingredient', tty:'IN'}, {name:'Beta ingredient', tty:'IN'}, {name:'Alpha brand', tty:'BN'}, {name:'Beta brand', tty:'BN'}] AS row
+            CREATE (:RXN {name:row.name, tty:row.tty, rxcui:row.name, ds:'Synthetic RxNorm fixture', conceptID:'fixture-id', export_test:true})
         ''').consume()
         session.run('''
-            UNWIND [{name:'Alpha ingredient', tty:'IN'}, {name:'Beta ingredient', tty:'IN'}, {name:'Alpha brand', tty:'BN'}] AS row
-            CREATE (:RXN {name:row.name, tty:row.tty, rxcui:row.name, ds:'Synthetic RxNorm fixture', conceptID:'fixture-id', export_test:true})
+            UNWIND [{title:'Alpha condition', code:'1A00'}, {title:'Beta condition', code:'1A01'}, {title:'Gamma condition', code:'1A02'}] AS row
+            CREATE (:ICD {title:row.title, code:row.code, export_test:true})
         ''').consume()
     yield
     with driver.session() as session:
         session.run('MATCH (n) WHERE n.export_test = true DETACH DELETE n').consume()
 
 
-def test_initial_data_schema_and_inclusive_alphabetical_range():
-    response = TestClient(app).get('/csv', params={'source':'demo', 'start_name':' alpha ', 'end_name':'BETA'})
+def test_medication_export_schema_and_inclusive_alphabetical_range():
+    response = TestClient(app).get('/api/medication-export', params={'start_name':' alpha ', 'end_name':'BETA INGREDIENT'})
     assert response.status_code == 200
     body = response.json()
     assert body['row_count'] == 2
-    assert [row['generic_name'] for row in body['csv']] == ['Alpha', 'Beta']
-    assert set(body['csv'][0]) == {'generic_name','brand_name','country','original_language','translated_language'}
+    assert [row['name'] for row in body['csv']] == ['Alpha ingredient', 'Beta ingredient']
+    assert set(body['csv'][0]) >= {'source', 'conceptID', 'ds', 'name', 'rxcui', 'tty'}
+    assert all(row['source'] == 'RxNorm' and row['tty'] == 'IN' for row in body['csv'])
 
 
-def test_brand_range_uses_brand_name_instead_of_generic_name():
-    body = TestClient(app).get('/csv', params={'source':'demo', 'name_type':'brand', 'start_name':'BetaBrand', 'end_name':'BetaBrand'}).json()
-    assert body['row_count'] == 1
-    assert body['csv'][0]['generic_name'] == 'Beta'
-
-
-def test_rxnorm_preserves_original_five_properties_and_generic_type():
-    response = TestClient(app).get('/csv', params={'source':'rxnorm', 'name_type':'generic'})
+def test_medication_brand_range_uses_brand_type():
+    response = TestClient(app).get('/api/medication-export', params={'name_type':'brand', 'start_name':'Beta brand', 'end_name':'Beta brand'})
     assert response.status_code == 200
-    rows = response.json()['csv']
-    assert len(rows) == 2
-    assert set(rows[0]) == {'conceptID','ds','name','rxcui','tty'}
-    assert all(row['tty'] == 'IN' for row in rows)
+    body = response.json()
+    assert body['row_count'] == 1
+    assert body['csv'][0]['name'] == 'Beta brand'
+    assert body['csv'][0]['tty'] == 'BN'
 
 
-def test_rxnorm_brand_and_upper_bound():
-    body = TestClient(app).get('/csv', params={'source':'rxnorm', 'name_type':'brand', 'end_name':'Alpha brand'}).json()
+def test_medication_brand_and_upper_bound():
+    body = TestClient(app).get('/api/medication-export', params={'name_type':'brand', 'end_name':'Alpha brand'}).json()
     assert body['row_count'] == 1
     assert body['csv'][0]['name'] == 'Alpha brand'
     assert body['csv'][0]['tty'] == 'BN'
 
 
+def test_clinical_export_inclusive_alphabetical_range():
+    response = TestClient(app).get('/api/clinical-export', params={'start_name':' alpha ', 'end_name':'BETA CONDITION'})
+    assert response.status_code == 200
+    body = response.json()
+    assert body['row_count'] == 2
+    assert [row['title'] for row in body['csv']] == ['Alpha condition', 'Beta condition']
+    assert all(row['source'] == 'ICD-11' for row in body['csv'])
+
+
+def test_clinical_export_upper_bound_only():
+    response = TestClient(app).get('/api/clinical-export', params={'end_name':'Alpha condition'})
+    assert response.status_code == 200
+    body = response.json()
+    assert body['row_count'] == 1
+    assert body['csv'][0]['code'] == '1A00'
+
+
+def test_clinical_export_lower_bound_only():
+    response = TestClient(app).get('/api/clinical-export', params={'start_name':'Gamma'})
+    assert response.status_code == 200
+    body = response.json()
+    assert body['row_count'] == 1
+    assert body['csv'][0]['code'] == '1A02'
+
+
 def test_empty_range_returns_empty_rows_without_fabricated_data():
-    assert TestClient(app).get('/csv', params={'source':'rxnorm','start_name':'Z'}).json() == {'csv':[], 'row_count':0}
+    assert TestClient(app).get('/api/medication-export', params={'start_name':'Z'}).json() == {'csv':[], 'row_count':0}
+    assert TestClient(app).get('/api/clinical-export', params={'start_name':'Z'}).json() == {'csv':[], 'row_count':0}
 
 
-@pytest.mark.parametrize('params, expected', [
-    ({'start_name':'Z','end_name':'A'},400),
-    ({'source':'unknown'},422),
-    ({'name_type':'unknown'},422),
+@pytest.mark.parametrize('endpoint, params, expected', [
+    ('/api/medication-export', {'start_name':'Z','end_name':'A'}, 400),
+    ('/api/medication-export', {'name_type':'unknown'}, 422),
+    ('/api/clinical-export', {'start_name':'Z','end_name':'A'}, 400),
 ])
-def test_invalid_export_filters_are_rejected(params, expected):
-    assert TestClient(app).get('/csv',params=params).status_code == expected
+def test_invalid_export_filters_are_rejected(endpoint, params, expected):
+    assert TestClient(app).get(endpoint, params=params).status_code == expected
