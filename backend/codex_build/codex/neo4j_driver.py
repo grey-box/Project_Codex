@@ -556,36 +556,128 @@ def init_default_admin():
         log.error(f"Failed to initialize default admin user: {exc}")
 
 
-# Retrieve RxNorm medication records for the JSON export.
+
+# Retrieve medication records from RxNorm and the original Codex dataset.
 def get_medication_export_records(
     session, name_type="generic", start_name=None, end_name=None
 ):
-    # IN = generic ingredient, BN = brand name.
+    if name_type not in ("generic", "brand"):
+        raise ValueError("name_type must be generic or brand")
+
+    start = start_name.lower().strip() if start_name else None
+    end = end_name.lower().strip() if end_name else None
+
+    # RxNorm: IN = generic ingredient, BN = brand name.
     tty = "IN" if name_type == "generic" else "BN"
 
-    query = """
+    rxnorm_query = """
     MATCH (n:RXN)
     WHERE n.tty = $tty
       AND n.name IS NOT NULL
       AND trim(n.name) <> ''
       AND ($start IS NULL OR toLower(n.name) >= $start)
       AND ($end IS NULL OR toLower(n.name) <= $end)
-    RETURN 'RxNorm' AS source,
-           properties(n) AS attributes
-    ORDER BY toLower(n.name)
+    RETURN properties(n) AS attributes
     """
 
-    result = session.run(
-        query,
-        tty=tty,
-        start=start_name.lower().strip() if start_name else None,
-        end=end_name.lower().strip() if end_name else None,
-    )
+    records = []
 
-    return [
-        {"source": record["source"], **record["attributes"]}
-        for record in result
-    ]
+    for record in session.run(
+        rxnorm_query,
+        tty=tty,
+        start=start,
+        end=end,
+    ):
+        attributes = dict(record["attributes"])
+
+        # Preserve a source property if the node already has one.
+        if "source" in attributes:
+            attributes["rxnorm_source"] = attributes.pop("source")
+
+        records.append({
+            **attributes,
+            "source": "RxNorm",
+        })
+
+    # Original Codex medication data and related translation records.
+    name_field = "t.canonical" if name_type == "generic" else "b.name"
+
+    initial_query = f"""
+    MATCH (t:Term)
+    WHERE t.type = 'medication'
+
+    MATCH (tr:Translation)-[:OF_TERM]->(t)
+    MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    MATCH (tr)-[:USED_IN]->(c:Country)
+
+    OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+
+    WITH t, tr, l, c, b,
+         toLower(trim({name_field})) AS filter_name
+
+    WHERE filter_name IS NOT NULL
+      AND filter_name <> ''
+      AND ($start IS NULL OR filter_name >= $start)
+      AND ($end IS NULL OR filter_name <= $end)
+
+    RETURN DISTINCT
+        t.canonical AS generic_name,
+        b.name AS brand_name,
+        c.iso2 AS country,
+        coalesce(t.source_language, 'English') AS original_language,
+        l.name AS translated_language,
+        properties(t) AS term_properties,
+        properties(tr) AS translation_properties,
+        properties(l) AS language_properties,
+        properties(c) AS country_properties,
+        properties(b) AS brand_properties
+    """
+
+    for record in session.run(
+        initial_query,
+        start=start,
+        end=end,
+    ):
+        row = {
+            "source": "Initial Data",
+            "generic_name": record["generic_name"],
+            "brand_name": record["brand_name"],
+            "country": record["country"],
+            "original_language": record["original_language"],
+            "translated_language": record["translated_language"],
+        }
+
+        # Prefix properties to prevent field-name collisions.
+        related_nodes = (
+            ("term", record["term_properties"]),
+            ("translation", record["translation_properties"]),
+            ("language", record["language_properties"]),
+            ("country", record["country_properties"]),
+            ("brand", record["brand_properties"]),
+        )
+
+        for prefix, properties in related_nodes:
+            if properties:
+                for key, value in properties.items():
+                    row[f"{prefix}_{key}"] = value
+
+        records.append(row)
+
+    # Sort records together by the selected generic or brand name.
+    def sort_key(row):
+        if row["source"] == "RxNorm":
+            name = row.get("name")
+        elif name_type == "brand":
+            name = row.get("brand_name")
+        else:
+            name = row.get("generic_name")
+
+        return (str(name or "").lower(), row["source"])
+
+    records.sort(key=sort_key)
+
+    return records
+
 
 
 # Retrieve ICD-11 clinical records for the JSON/CSV export.
