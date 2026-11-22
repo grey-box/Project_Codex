@@ -2,6 +2,10 @@
 from neo4j import GraphDatabase       # Python driver from Neo4j
 from dotenv import load_dotenv        # Loads environment variables from .env file
 import os                             # Access to OS environment variables
+import logging
+import bcrypt                         # Used for hashing passwords
+
+log = logging.getLogger(__name__)
 
 # Loads environment varibles 
 load_dotenv()
@@ -337,3 +341,365 @@ def get_languages_for_brand(session, term):
     languages = result.single().value() if result.peek() else []
     languages = ', '.join(languages)
     return languages
+
+# Requires all user emails to be unique
+def init_user_constraints(session):
+    query = """
+    CREATE CONSTRAINT user_email_unique IF NOT EXISTS
+    FOR (u:User) REQUIRE u.email IS UNIQUE
+    """
+    session.run(query)
+    
+# Utility to hash passwords
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+def authenticate_user(session, email: str, password: str):
+    query = "MATCH (u:User {email: $email}) RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.password AS password"
+    result = session.run(query, email=email.lower().strip()).single()
+    if not result:
+        return None
+    if not verify_password(password, result["password"]):
+        return None
+    return {"email": result["email"], "real_name": result["real_name"], "role": result["role"]}
+
+# Creates a new User node with a hashed password
+def create_user(session, real_name, password, role, affiliation, email):
+    hashed_pwd = hash_password(password)
+    query = """
+    CREATE (u:User {
+        email: $email,
+        real_name: $real_name,
+        password: $password,
+        role: $role,
+        affiliation: $affiliation,
+        created_at: datetime()
+    })
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation,
+           toString(u.created_at) AS created_at
+    """
+    result = session.run(
+        query, 
+        email=email.lower().strip(), 
+        real_name=real_name, 
+        password=hashed_pwd, 
+        role=role, 
+        affiliation=affiliation
+    )
+    record = result.single()
+    if record:
+        log.info(f"User created: {record['email']}")
+        return record.data()
+    return None
+
+# Retrieves a single user by their unique email (omits password hash from return)
+def get_user_by_email(session, email):
+    query = """
+    MATCH (u:User {email: $email})
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation,
+           toString(u.created_at) AS created_at
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    return result.data() if result else None
+
+# Retrieves a list of all users
+def get_all_users(session, limit=100):
+    query = """
+    MATCH (u:User)
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation
+    LIMIT $limit
+    """
+    result = session.run(query, limit=limit)
+    return [record.data() for record in result]
+
+# Dynamically updates user fields based on provided arguments
+def update_user(session, email, real_name=None, role=None, affiliation=None, password=None):
+    updates = []
+    params = {"email": email.lower().strip()}
+
+    if real_name is not None:
+        updates.append("u.real_name = $real_name")
+        params["real_name"] = real_name
+    if role is not None:
+        updates.append("u.role = $role")
+        params["role"] = role
+    if affiliation is not None:
+        updates.append("u.affiliation = $affiliation")
+        params["affiliation"] = affiliation
+    if password is not None:
+        updates.append("u.password = $password")
+        params["password"] = hash_password(password)
+
+    if not updates:
+        log.warning("No fields provided to update.")
+        return None
+
+    set_clause = ", ".join(updates)
+    query = f"""
+    MATCH (u:User {{email: $email}})
+    SET {set_clause}, u.updated_at = datetime()
+    RETURN u.email AS email, u.real_name AS real_name, u.role AS role, u.affiliation AS affiliation
+    """
+    
+    result = session.run(query, **params).single()
+    return result.data() if result else None
+
+# Deletes a user node by email and removes any connected relationships (DETACH DELETE)
+def delete_user(session, email):
+    """."""
+    query = """
+    MATCH (u:User {email: $email})
+    DETACH DELETE u
+    RETURN count(u) AS deleted_count
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    deleted = result["deleted_count"] > 0
+    if deleted:
+        log.info(f"Successfully deleted user: {email}")
+    else:
+        log.error(f"No user found with email: {email}")
+    return deleted
+
+# Retrieves only the role assigned to a specific user
+def get_user_role(session, email: str) -> str | None:
+    query = """
+    MATCH (u:User {email: $email})
+    RETURN u.role AS role
+    """
+    result = session.run(query, email=email.lower().strip()).single()
+    return result["role"] if result else None
+
+# Retrieves all users matching a specific role
+def get_users_by_role(session, role: str) -> list[dict]:
+    query = """
+    MATCH (u:User {role: $role})
+    RETURN u.email AS email, u.real_name AS real_name, u.affiliation AS affiliation, u.role AS role
+    ORDER BY u.real_name
+    """
+    result = session.run(query, role=role)
+    return [record.data() for record in result]
+
+# Updates the role for a specific user and logs the updated timestamp
+def update_user_role(session, email: str, new_role: str) -> dict | None:
+    query = """
+    MATCH (u:User {email: $email})
+    SET u.role = $new_role, u.updated_at = datetime()
+    RETURN u.email AS email,
+           u.real_name AS real_name,
+           u.role AS role,
+           u.affiliation AS affiliation
+    """
+    result = session.run(
+        query, 
+        email=email.lower().strip(), 
+        new_role=new_role
+    ).single()
+    
+    if result:
+        log.info(f"Updated role for {email} to '{new_role}'")
+        return result.data()
+    
+    log.error(f"User with email '{email}' not found.")
+    return None
+def count_administrators(session) -> int:
+    query = """
+    MATCH (u:User)
+    WHERE toLower(u.role) = 'administrator'
+    RETURN count(u) AS admin_count
+    """
+    result = session.run(query).single()
+    return result["admin_count"] if result else 0
+
+# Ensures unique constraints exist and seeds a default admin user on startup
+def init_default_admin():
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "").strip()
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "")
+
+    if not admin_email or not admin_password:
+        log.info("Default admin bootstrap disabled; configure both DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD to enable.")
+        return
+
+    try:
+        with driver.session() as session:
+            # 1. Ensure email uniqueness constraint exists in Neo4j
+            init_user_constraints(session)
+
+            # 2. Check if default admin exists; create if not
+            existing_admin = get_user_by_email(session, admin_email)
+            if not existing_admin:
+                create_user(
+                    session,
+                    real_name="Default Administrator",
+                    password=admin_password,
+                    role="administrator",
+                    affiliation="System",
+                    email=admin_email,
+                )
+                log.info(f"Initialized default administrator user: {admin_email}")
+            else:
+                log.info(f"Default administrator user already exists: {admin_email}")
+    except Exception as exc:
+        log.error(f"Failed to initialize default admin user: {exc}")
+
+
+
+# Retrieve medication records from RxNorm and the original Codex dataset.
+def get_medication_export_records(
+    session, name_type="generic", start_name=None, end_name=None
+):
+    if name_type not in ("generic", "brand"):
+        raise ValueError("name_type must be generic or brand")
+
+    start = start_name.lower().strip() if start_name else None
+    end = end_name.lower().strip() if end_name else None
+
+    # RxNorm: IN = generic ingredient, BN = brand name.
+    tty = "IN" if name_type == "generic" else "BN"
+
+    rxnorm_query = """
+    MATCH (n:RXN)
+    WHERE n.tty = $tty
+      AND n.name IS NOT NULL
+      AND trim(n.name) <> ''
+      AND ($start IS NULL OR toLower(n.name) >= $start)
+      AND ($end IS NULL OR toLower(n.name) <= $end)
+    RETURN properties(n) AS attributes
+    """
+
+    records = []
+
+    for record in session.run(
+        rxnorm_query,
+        tty=tty,
+        start=start,
+        end=end,
+    ):
+        attributes = dict(record["attributes"])
+
+        # Preserve a source property if the node already has one.
+        if "source" in attributes:
+            attributes["rxnorm_source"] = attributes.pop("source")
+
+        records.append({
+            **attributes,
+            "source": "RxNorm",
+        })
+
+    # Original Codex medication data and related translation records.
+    name_field = "t.canonical" if name_type == "generic" else "b.name"
+
+    initial_query = f"""
+    MATCH (t:Term)
+    WHERE t.type = 'medication'
+
+    MATCH (tr:Translation)-[:OF_TERM]->(t)
+    MATCH (tr)-[:IN_LANGUAGE]->(l:Language)
+    MATCH (tr)-[:USED_IN]->(c:Country)
+
+    OPTIONAL MATCH (tr)-[:HAS_BRAND]->(b:Brand)
+
+    WITH t, tr, l, c, b,
+         toLower(trim({name_field})) AS filter_name
+
+    WHERE filter_name IS NOT NULL
+      AND filter_name <> ''
+      AND ($start IS NULL OR filter_name >= $start)
+      AND ($end IS NULL OR filter_name <= $end)
+
+    RETURN DISTINCT
+        t.canonical AS generic_name,
+        b.name AS brand_name,
+        c.iso2 AS country,
+        coalesce(t.source_language, 'English') AS original_language,
+        l.name AS translated_language,
+        properties(t) AS term_properties,
+        properties(tr) AS translation_properties,
+        properties(l) AS language_properties,
+        properties(c) AS country_properties,
+        properties(b) AS brand_properties
+    """
+
+    for record in session.run(
+        initial_query,
+        start=start,
+        end=end,
+    ):
+        row = {
+            "source": "Initial Data",
+            "generic_name": record["generic_name"],
+            "brand_name": record["brand_name"],
+            "country": record["country"],
+            "original_language": record["original_language"],
+            "translated_language": record["translated_language"],
+        }
+
+        # Prefix properties to prevent field-name collisions.
+        related_nodes = (
+            ("term", record["term_properties"]),
+            ("translation", record["translation_properties"]),
+            ("language", record["language_properties"]),
+            ("country", record["country_properties"]),
+            ("brand", record["brand_properties"]),
+        )
+
+        for prefix, properties in related_nodes:
+            if properties:
+                for key, value in properties.items():
+                    row[f"{prefix}_{key}"] = value
+
+        records.append(row)
+
+    # Sort records together by the selected generic or brand name.
+    def sort_key(row):
+        if row["source"] == "RxNorm":
+            name = row.get("name")
+        elif name_type == "brand":
+            name = row.get("brand_name")
+        else:
+            name = row.get("generic_name")
+
+        return (str(name or "").lower(), row["source"])
+
+    records.sort(key=sort_key)
+
+    return records
+
+
+
+# Retrieve ICD-11 clinical records for the JSON/CSV export.
+def get_clinical_export_records(
+    session, start_name=None, end_name=None
+):
+    query = """
+    MATCH (n:ICD)
+    WHERE n.title IS NOT NULL
+      AND trim(n.title) <> ''
+      AND ($start IS NULL OR toLower(n.title) >= $start)
+      AND ($end IS NULL OR toLower(n.title) <= $end)
+    RETURN 'ICD-11' AS source,
+           properties(n) AS attributes
+    ORDER BY toLower(n.title)
+    """
+    result = session.run(
+        query,
+        start=start_name.lower().strip() if start_name else None,
+        end=end_name.lower().strip() if end_name else None,
+    )
+    return [
+        {"source": record["source"], **record["attributes"]}
+        for record in result
+    ]
