@@ -276,14 +276,12 @@ def cmd_languages():
     else:
         print(yellow("\n  No languages loaded yet — run 'demo' first.\n"))
 
-"""
-    Current build does not contain a functional demo
-    def cmd_demo():
-        print("  Loading sample data…")
-        data = _request("post", "/demo/load")
-        if data:
-            print(green(f"  ✓  {data['message']}\n"))
-"""
+def cmd_demo():
+    print("  Loading sample data…")
+    data = _request("post", "/demo/load")
+    if data:
+        print(green(f"  ✓  {data['message']}\n"))
+
 
 
 def cmd_load(path: str):
@@ -490,8 +488,8 @@ def main():
             cmd_health()
         elif lower == "languages":
             cmd_languages()
-        # elif lower == "demo":
-        #    cmd_demo()
+        elif lower == "demo":
+            cmd_demo()
         elif lower in ("clear", "cls"):
             cmd_clear()
         elif lower.startswith("load"):
