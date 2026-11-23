@@ -92,3 +92,23 @@ def clean_db(driver, client):
     with driver.session() as session:
         session.run("MATCH (n) DETACH DELETE n")
     yield
+
+
+@pytest.fixture
+def seed(driver):
+    """Factory fixture for writing known Term/Translation/Brand data directly,
+    bypassing the API. Returns a function so a test can call it more than
+    once to build up whatever graph shape it needs.
+
+    Goes straight through codex.neo4j_driver.create_translation — the same
+    function /packs/load itself calls — rather than through /packs/load,
+    so a bug in /packs/load can't silently break every other endpoint's
+    tests too.
+    """
+    from codex.neo4j_driver import create_translation
+
+    def _seed(canonical, translation, country, lang_code, lang_name, brand=None, term_type="medication"):
+        with driver.session() as session:
+            create_translation(session, canonical, brand, country, lang_code, lang_name, translation, term_type)
+
+    return _seed
