@@ -95,3 +95,13 @@ def test_search_with_empty_term_returns_empty_list(client, seed):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_search_with_whitespace_only_term_returns_empty_list(client, seed):
+    seed(canonical="Ibuprofen", translation="ibuprofen", country="US",
+         lang_code="en", lang_name="English")
+
+    response = client.post("/search", params={"term": "   "})
+
+    assert response.status_code == 200
+    assert response.json() == []
