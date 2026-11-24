@@ -1,10 +1,9 @@
 """
 Shared pytest fixtures for the API-level test suite.
 
-Run from inside the codex-api container, where the backend's dependencies
-are already installed:
+Run via the disposable test-runner container (see tests/README.md):
 
-    docker exec codex-api pytest
+    docker compose -f docker-compose.test.yml run --rm test-runner pytest -v
 """
 import sys
 from pathlib import Path
