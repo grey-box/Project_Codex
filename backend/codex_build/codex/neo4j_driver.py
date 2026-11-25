@@ -337,3 +337,42 @@ def get_languages_for_brand(session, term):
     languages = result.single().value() if result.peek() else []
     languages = ', '.join(languages)
     return languages
+
+def resolve_ocr(session, term):
+    term_stripped = term.strip()
+    if len(term_stripped) < 3:
+        return None
+    
+    query = """
+    CALL {
+        MATCH (t:Term)
+        WHERE t.canonical = $term
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE b.name = $term
+        RETURN b.name AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)
+        WHERE apoc.text.jaroWinklerDistance(toLower(t.canonical), toLower($term)) < 0.10
+        RETURN t.canonical AS brand, t.canonical AS base
+        UNION
+        MATCH (t:Term)<-[:CONTAINS]-(b:Brand)
+        WHERE apoc.text.jaroWinklerDistance(toLower(b.name), toLower($term)) < 0.10
+        RETURN b.name AS brand, t.canonical AS base
+    }
+    WITH collect({brand: brand, base: base}) AS results
+    WITH results, any(r IN results WHERE r.brand = r.base) AS exactMatch
+    UNWIND results AS row
+    WITH row, exactMatch
+    WHERE exactMatch = false OR row.brand = row.base
+    RETURN row.brand AS brand, row.base AS base
+    """
+    
+    result = session.run(query, term=term_stripped).single()
+    if not result:
+        return None    
+    elif (result["base"] == result["brand"]):
+        return result["base"]
+    else:
+        return result["brand"]

@@ -27,7 +27,7 @@ import tempfile
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status, Query
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, File, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from contextlib import asynccontextmanager
@@ -37,7 +37,10 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from neo4j_sources.source_data import source_data
-from ocr.ocrmatching import router as ocr_router
+import ocr.schemas as schemas
+from ocr.config import LOGGER_NAME
+from ocr.extract_text_with_ocr import extract_text_with_ocr
+from ocr.scan_and_clean_uploadfile import scan_and_clean_uploadfile
 
 # ── Load .env before importing codex (which reads env vars at module level) ──
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -61,12 +64,14 @@ try:
         get_languages_for_term,
         get_countries_for_brand,
         get_languages_for_brand,
+        resolve_ocr,
     )
 except Exception as exc:
     logging.critical("Failed to import codex backend: %s", exc)
     raise exc
 
 # ── App setup ────────────────────────────────────────────────────────────────
+router = APIRouter(prefix="/ocrmatching", tags=["ocrmatching"])
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 log = logging.getLogger("codex.api")
 
@@ -121,7 +126,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ocr_router)
 
 class SourceSelection(BaseModel):
     selectedSources: List[str]
@@ -430,6 +434,43 @@ def list_languages():
     except Exception as exc:
         log.exception("list_languages failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+@app.post(
+    "/ocrmatching",
+    response_model=List[schemas.OCRExtractionResult],
+    status_code=status.HTTP_200_OK,
+    tags=["ocr"],
+)
+async def ocr_matching_endpoint(
+    file: UploadFile = File(...),
+) -> List[schemas.OCRExtractionResult]:
+    try:
+        cleaned_file = scan_and_clean_uploadfile(file)
+        if cleaned_file is not None:
+            extracted_texts = extract_text_with_ocr(cleaned_file)
+            database_result_list = list()
+            with driver.session() as session:
+                for result in extracted_texts:
+                    database_result = resolve_ocr(session, result["rec_text"])
+                    if database_result is not None:
+                        database_result_list.append(result)
+            return database_result_list
+
+        log.error("Could Not Read File")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not read uploaded image file."
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_message = f"Error performing OCR extraction: {str(e)}"
+        log.error(error_message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_message
+        )
 
 # ── Entry point (for running directly) ──────────────────────────────────────
 if __name__ == "__main__":

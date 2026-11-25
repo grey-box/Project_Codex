@@ -185,7 +185,7 @@ function App() {
     formData.append('source_language', searchLanguage)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/ocrmatching/`, {
+      const response = await fetch(`${API_BASE_URL}/ocrmatching`, {
         method: 'POST',
         body: formData,
       })
