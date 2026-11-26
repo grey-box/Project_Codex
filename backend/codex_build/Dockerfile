@@ -2,12 +2,16 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
-RUN pip3 install requests
+# Install heavy OCR dependencies first so changes to core dependencies reuse this layer
+COPY requirements-ocr.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install -r requirements-ocr.txt && \
+    pip3 uninstall -y opencv-python opencv-python-headless opencv-contrib-python && \
+    pip3 install opencv-python-headless==4.9.0.80
 
-RUN pip3 uninstall -y opencv-python opencv-python-headless opencv-contrib-python && \
-    pip3 install opencv-python-headless
+COPY requirements-base.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install -r requirements-base.txt
 
 COPY . .
 

@@ -1,0 +1,4 @@
+scipy<1.11.0
+paddlepaddle
+paddleocr
+opencv-python-headless==4.9.0.80

@@ -20,7 +20,7 @@ docker compose up --build
 
 Wait ~30 seconds for Neo4j, API, and Frontend to be ready.
 
-- **Frontend UI:** [http://localhost:9000](http://localhost:9000) (or ports 9000-9010)
+- **Frontend UI:** [http://localhost:9000](http://localhost:9000)
 - **API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) (login: `neo4j` / `changeme`)
 

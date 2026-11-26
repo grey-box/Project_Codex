@@ -6,14 +6,12 @@ services:
       context: ./frontend
     container_name: codex-frontend
     ports:
-      - target: 9000
-        published: "9000-9010"
+      - "${FRONTEND_PORT:-9000}:9000"
     depends_on:
       - api
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock
     
   # The API Service
   api:
